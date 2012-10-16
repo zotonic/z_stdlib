@@ -30,7 +30,7 @@
 %% @doc Return a new unique filename, start a monitoring process to clean it up after use.
 -spec new() -> filename().
 new() ->
-	Filename = z_utils:tempfile(),
+	Filename = tempfile(),
 	OwnerPid = self(),
 	Pid = erlang:spawn_link(fun() -> cleanup(Filename, OwnerPid) end),
 	receive
