@@ -380,11 +380,11 @@ sanitize_opts(Html, Options) ->
                         proplists:get_value(elt_extra, Options, [])
                  end,
     ExtraAttrs1 = case is_binary(ExtraAttrs) of
-                      true -> binstr:split(ExtraAttrs, <<",">>);
+                      true -> binary:split(ExtraAttrs, <<",">>, [global]);
                       false -> ExtraAttrs
                   end,
     ExtraElts1 = case is_binary(ExtraElts) of
-                      true -> binstr:split(ExtraElts, <<",">>);
+                      true -> binary:split(ExtraElts, <<",">>, [global]);
                       false -> ExtraElts
                   end,
     sanitize1(Html, ExtraElts1, ExtraAttrs1, Options).
