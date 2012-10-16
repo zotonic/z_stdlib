@@ -40,3 +40,18 @@ ends_with_test() ->
     ?assertNot(z_string:ends_with(["is ", <<"jpeg.">>], "This is text.")),
     ok.
 
+trim_left_test() ->
+    ?assertEqual("foo", z_string:trim_left(" foo")),
+    ?assertEqual("foo", z_string:trim_left("     foo")),
+    ?assertEqual("foo", z_string:trim_left(".foo", $.)),
+    ?assertEqual("foo", z_string:trim_left("......foo", $.)),
+    ok.
+    
+
+trim_right_test() ->
+    ?assertEqual("foo", z_string:trim_right("foo ")),
+    ?assertEqual("foo", z_string:trim_right("foo         ")),
+    ?assertEqual("foo", z_string:trim_right("foo.", $.)),
+    ?assertEqual("foo", z_string:trim_right("foo........", $.)),
+    ok.
+    
