@@ -25,7 +25,10 @@
 	temppath/0
 ]).
 
-% @doc Return a new unique filename, start a monitoring process to clean it up after use.
+-type filename() :: string().
+
+%% @doc Return a new unique filename, start a monitoring process to clean it up after use.
+-spec new() -> filename().
 new() ->
 	Filename = z_utils:tempfile(),
 	OwnerPid = self(),
@@ -35,7 +38,7 @@ new() ->
 	end.
 
 
-% @doc Monitoring process, delete file when requesting process stops or crashes
+%% @doc Monitoring process, delete file when requesting process stops or crashes
 cleanup(Filename, OwnerPid) ->
 	process_flag(trap_exit, true),
 	MRef = erlang:monitor(process, OwnerPid),
@@ -49,17 +52,16 @@ cleanup(Filename, OwnerPid) ->
 	end.
 
 %% @doc return a unique temporary filename.
-%% @spec tempfile() -> string()
+-spec tempfile() -> filename().
 tempfile() ->
     {A,B,C}=erlang:now(),
     filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p.~p",[node(),A,B,C]))).
 
 
 %% @doc Returns the path where to store temporary files.
-%%@spec temppath() -> string()
+-spec temppath() -> filename().
 temppath() ->
     lists:foldl(fun(false, Fallback) -> Fallback;
                    (Good, _) -> Good end,
                 "/tmp",
                 [os:getenv("TMP"), os:getenv("TEMP")]).
-

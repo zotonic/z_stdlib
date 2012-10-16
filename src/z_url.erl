@@ -20,16 +20,17 @@
 
 -author("Marc Worrell <marc@worrell.nl>").
 
--export ([
+-export (
+   [
     url_encode/1,
     url_decode/1,
     url_path_encode/1,
     url_valid_char/1,
     percent_encode/1,
     percent_encode/2,
-    
+    hex_encode/1,
+    hex_decode/1,
     remove_protocol/1,
-    
     location/1
 ]).
 
@@ -103,7 +104,7 @@ percent_encode([], Encoded) ->
 percent_encode([C|Etc], Encoded) when ?is_unreserved(C) ->
   percent_encode(Etc, [C|Encoded]);
 percent_encode([C|Etc], Encoded) ->
-  Value = [io_lib:format("%~s", [z_utils:encode([Char], 16)]) 
+  Value = [io_lib:format("%~s", [encode([Char], 16)]) 
             || Char <- binary_to_list(unicode:characters_to_binary([C]))],
   percent_encode(Etc, [lists:flatten(Value)|Encoded]).
 
@@ -168,3 +169,30 @@ location(Url) ->
     end.
 
 
+%%% HEX ENCODE and HEX DECODE
+
+hex_encode(Data) -> encode(Data, 16).
+hex_decode(Data) -> decode(Data, 16).
+
+encode(Data, Base) when is_binary(Data) -> encode(binary_to_list(Data), Base);
+encode(Data, Base) when is_list(Data) ->
+	F = fun(C) when is_integer(C) ->
+		case erlang:integer_to_list(C, Base) of
+			[C1, C2] -> [C1, C2];
+			[C1]     -> [$0, C1]
+		end
+	end,
+	[F(I) || I <- Data].
+
+decode(Data, Base) when is_binary(Data) -> decode(binary_to_list(Data), Base);
+decode(Data, Base) when is_list(Data) ->
+	inner_decode(Data, Base).
+
+inner_decode(Data, Base) when is_list(Data) ->
+	case Data of
+		[C1, C2|Rest] ->
+			I = erlang:list_to_integer([C1, C2], Base),
+			[I|inner_decode(Rest, Base)];
+		[] ->
+			[]
+	end.
