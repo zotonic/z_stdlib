@@ -396,8 +396,17 @@ sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
 
 sanitize(B, _Stack, _ExtraElts, _ExtraAttrs, _Options) when is_binary(B) ->
     escape(B);
-sanitize({comment, Text}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
-    {comment, Text};
+sanitize({comment, _Text} = Comment, _Stack, _ExtraElts, _ExtraAttrs, Options) ->
+    case Options of
+        T when is_tuple(T), element(1, T) =:= context -> 
+            z_notifier:foldl(sanitize_element, Comment, Options);
+        _ ->
+            case proplists:get_value(element, Options) of
+                undefined -> Comment;
+                F when is_function(F) -> F(Comment);
+                {M,F,A} -> erlang:apply(M, F, [Comment|A])
+            end
+    end;
 sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
