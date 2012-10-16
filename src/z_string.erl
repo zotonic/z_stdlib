@@ -94,7 +94,7 @@ trim_left_func(<<Char, Rest/binary>> = Bin, F) ->
     end;
 trim_left_func([Char|Rest] = L, F) when is_integer(Char) ->
     case F(Char) of
-        true -> trim_left(Rest, F);
+        true -> trim_left_func(Rest, F);
         false -> L
     end;
 trim_left_func([L|Rest], F) when is_list(L); is_binary(L) ->
