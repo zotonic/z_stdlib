@@ -683,6 +683,7 @@ filter_widget_class(Class) ->
 noscript(Url) -> 
     case nows(z_convert:to_list(Url), []) of
         "script:" ++ _ -> <<"#script-removed">>;
+        "javascript:" ++ _ -> <<"#script-removed">>;
         _ -> Url
     end.
 
