@@ -51,7 +51,7 @@
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
 -spec escape_props(list()) -> list().
 escape_props(Props) ->
-    escape_props1(Props, [], undefined).
+    escape_props1(Props, [], []).
 
 -spec escape_props(list(), Options::list()|context()) -> list().
 escape_props(Props, Context) ->
