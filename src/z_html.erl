@@ -213,8 +213,11 @@ escape_check1(<<"&#x27;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&#x27;">>);
 escape_check1(<<"&#x2F;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&#x2F;">>);
-escape_check1(<<$;, T/binary>>, Acc) ->
-    escape_check1(T, <<Acc/binary, "&amp;">>);
+escape_check1(<<$&, Rest/binary>>, Acc) ->
+    case try_amp(Rest, in_amp, <<>>) of
+        {Amp,Rest1} -> escape_check1(Rest1, <<Acc/binary, $&, Amp/binary>>);
+        false -> escape_check1(Rest, <<Acc/binary, "&amp;">>)
+    end;
 escape_check1(<<$<, T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&lt;">>);
 escape_check1(<<$>, T/binary>>, Acc) ->

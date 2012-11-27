@@ -19,3 +19,6 @@ escape_props_test() ->
                  z_html:escape_props([{body, <<"Foo & bar">>}])),
     ok.
 
+ensure_check_test() ->
+	?assertEqual(<<"&#1234; &lt;&gt;;">>, z_html:escape_check(<<"&#1234; <>;">>)),
+	ok.
