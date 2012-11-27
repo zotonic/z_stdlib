@@ -22,3 +22,7 @@ escape_props_test() ->
 ensure_check_test() ->
 	?assertEqual(<<"&#1234; &lt;&gt;;">>, z_html:escape_check(<<"&#1234; <>;">>)),
 	ok.
+
+strip_test() ->
+	?assertEqual(<<"Hello">>, z_html:strip(<<"<p class='hello'>Hello</p>">>)),
+	ok.
