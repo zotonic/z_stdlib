@@ -30,39 +30,40 @@
 
 %% interface functions
 -export([
-    trim/1,
-    trim_left/1,
-    trim_right/1,
-    trim/2,
-    trim_left/2,
-    trim_right/2,
-    trim_left_func/2,
-    is_string/1,
-    first_char/1,
-    last_char/1,
-    unquote/1,
-    unquote/2,
-    nospaces/1,
-    line/1,
-    to_rootname/1,
-    to_name/1,
-    to_slug/1,
-    to_lower/1,
-    to_upper/1,
-    replace/3,
-    sanitize_utf8/1,
-    truncate/2,
-    truncate/3,
-    truncatewords/2,
-    truncatewords/3,
-    split_lines/1,
-    escape_ical/1,
-    starts_with/2,
-    ends_with/2,
-    contains/2,
-    split/2,
-    test/0
-]).
+         trim/1,
+         trim_left/1,
+         trim_right/1,
+         trim/2,
+         trim_left/2,
+         trim_right/2,
+         trim_left_func/2,
+         is_string/1,
+         first_char/1,
+         last_char/1,
+         unquote/1,
+         unquote/2,
+         nospaces/1,
+         line/1,
+         to_rootname/1,
+         to_name/1,
+         to_slug/1,
+         to_lower/1,
+         to_upper/1,
+         replace/3,
+         sanitize_utf8/1,
+         truncate/2,
+         truncate/3,
+         truncatewords/2,
+         truncatewords/3,
+         split_lines/1,
+         escape_ical/1,
+         starts_with/2,
+         ends_with/2,
+         contains/2,
+         split/2,
+         concat/2,
+         test/0
+        ]).
 
 
 %% @doc Remove whitespace at the start and end of the string
@@ -900,6 +901,13 @@ split_prefix([],    S)     -> S;
 split_prefix(_,     _)     -> no.
 
 
+%% Concatenate two strings (list or binary). Return type matches the first part.
+concat(A, B) when is_binary(A) ->
+    B1 = z_convert:to_binary(B),
+    <<A/binary, B1/binary>>;
+concat(A, B) when is_list(A) ->
+    A ++ z_convert:to_flatlist(B).
+
 test() ->
     A = "üçgen",
     A = to_lower(to_upper(A)),
@@ -908,4 +916,11 @@ test() ->
     "a" = first_char("aap"),
     "Ж" = first_char("ЖЖЖxx"),
     "ć" = first_char("ćaap"),
+
+    <<"abcdef">> = concat(<<"abc">>, <<"def">>),
+    <<"abcdef">> = concat(<<"abc">>, "def"),
+    "abcdef" = concat("abc", "def"),
+    "abcdef" = concat("abc", <<"def">>),
+    "abcdef" = concat("abc", def),
+    
     ok.
