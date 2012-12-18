@@ -367,11 +367,11 @@ integer_to_list_zerofill(N) ->
 
 tr(What, Label, Options) ->
     case proplists:get_value(tr, Options) of
+        undefined -> tr(What, Label);
         F when is_function(F,1) -> F(What, Label);
         A when is_atom(A) -> erlang:apply(A, What, [Label]);
         {M,A} when is_atom(M), is_list(A) -> erlang:apply(M, What, [Label|A]);
-        {M,F,A} -> erlang:apply(M, F, [What, Label|A]);
-        undefined -> tr(What, Label)
+        {M,F,A} -> erlang:apply(M, F, [What, Label|A])
     end.
 
 
