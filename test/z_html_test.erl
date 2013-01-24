@@ -26,3 +26,21 @@ ensure_check_test() ->
 strip_test() ->
 	?assertEqual(<<"Hello">>, z_html:strip(<<"<p class='hello'>Hello</p>">>)),
 	ok.
+
+abs_links_test() ->
+    ?assertEqual(
+        {<<"http://example.com">>, <<"http://example.com/bla/">>}, 
+        z_html:split_base_host(<<"http://example.com/bla/hello.html?a=b#c">>)),
+    ?assertEqual(
+        <<"Hello <a src=\"http://example.com/a/b/c.html\">">>, 
+        z_html:abs_links(<<"Hello <a src=\"c.html\">">>, 
+                         <<"http://example.com/a/b/d.html">>)),
+    ?assertEqual(
+        <<"Hello <a src=\"http://example.com/c.html\">">>, 
+        z_html:abs_links(<<"Hello <a src=\"/c.html\">">>, 
+                         <<"http://example.com/a/b/d.html">>)),
+    ?assertEqual(
+        <<"Hello <a src=\"http://b.org/c.html\">">>, 
+        z_html:abs_links(<<"Hello <a src=\"http://b.org/c.html\">">>, 
+                         <<"http://example.com/a/b/d.html">>)),
+    ok.
