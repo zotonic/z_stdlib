@@ -29,9 +29,6 @@ strip_test() ->
 
 abs_links_test() ->
     ?assertEqual(
-        {<<"http://example.com">>, <<"http://example.com/bla/">>}, 
-        z_html:split_base_host(<<"http://example.com/bla/hello.html?a=b#c">>)),
-    ?assertEqual(
         <<"Hello <a src=\"http://example.com/a/b/c.html\">">>, 
         z_html:abs_links(<<"Hello <a src=\"c.html\">">>, 
                          <<"http://example.com/a/b/d.html">>)),

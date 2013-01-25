@@ -41,8 +41,7 @@
     br2nl/1,
     scrape_link_elements/1,
     ensure_escaped_amp/1,
-    abs_links/2,
-    split_base_host/1
+    abs_links/2
 ]).
 
 
@@ -831,40 +830,22 @@ is_valid_ent_val(C) ->
 %% @doc Make all links (href/src) in the html absolute to the base URL
 %%      For now this takes a shortcut by checking all ' (src|href)=".."'
 abs_links(Html, Base) ->
-    {BaseHost, BaseHostDir} = split_base_host(Base),
     case re:run(Html, 
                 <<"(src|href)=\"([^\"]*)\"">>,
                 [global, notempty, {capture, all, binary}])
     of
-        {match, Matches} -> replace_matched_links(Html, Matches, BaseHost, BaseHostDir);
+        {match, Matches} -> replace_matched_links(Html, Matches, Base);
         nomatch -> Html
     end.
 
-replace_matched_links(Html, [], _BaseHost, _BaseHostDir) ->
+replace_matched_links(Html, [], _Base) ->
     Html;
-replace_matched_links(Html, [[Found, Attr, Link]|Matches], BaseHost, BaseHostDir) ->
-    Html1 = case make_abs_link(Link, BaseHost, BaseHostDir) of
+replace_matched_links(Html, [[Found, Attr, Link]|Matches], Base) ->
+    Html1 = case z_url:abs_link(Link, Base) of
                 Link -> 
                     Html;
                 AbsLink ->
                     New = iolist_to_binary([Attr, $=, $", AbsLink, $"]),
                     binary:replace(Html, Found, New)
             end,
-    replace_matched_links(Html1, Matches, BaseHost, BaseHostDir).
-
-make_abs_link(<<"http:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"https:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"mailto:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"file:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"ftp:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"spdy:", _/binary>> = Url, _Host, _HostDir) -> Url;
-make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) -> [Host, Url];
-make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
-
-split_base_host(Base) ->
-    {Protocol, Host, Path, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Base)),
-    BaseHost = iolist_to_binary([Protocol, "://", Host]),
-    Path1 = lists:reverse(
-                lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
-    {BaseHost, iolist_to_binary([BaseHost, Path1])}.
-
+    replace_matched_links(Html1, Matches, Base).

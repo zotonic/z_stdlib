@@ -31,7 +31,9 @@
     hex_encode/1,
     hex_decode/1,
     remove_protocol/1,
-    location/1
+    location/1,
+    abs_link/2,
+    split_base_host/1
 ]).
 
 
@@ -196,3 +198,39 @@ inner_decode(Data, Base) when is_list(Data) ->
 		[] ->
 			[]
 	end.
+
+
+-spec split_base_host(string()|binary()) -> {binary(), binary()}.
+split_base_host(Base) ->
+    {Protocol, Host, Path, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Base)),
+    BaseHost = iolist_to_binary([Protocol, "://", Host]),
+    Path1 = lists:reverse(
+                lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
+    {BaseHost, iolist_to_binary([BaseHost, Path1])}.
+
+
+%% @doc Given a relative URL and a base URL, calculate the absolute URL.
+-spec abs_link(string()|binary(), string()|binary()) -> binary().
+abs_link(RelativeUrl, BaseUrl) ->
+    {BaseHost, BaseHostDir} = z_url:split_base_host(BaseUrl),
+    iolist_to_binary(make_abs_link(z_convert:to_binary(RelativeUrl), BaseHost, BaseHostDir)).
+
+make_abs_link(<<"http:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"https:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"mailto:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"file:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"ftp:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"spdy:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"./", Rest/binary>>, Host, HostDir) ->
+    make_abs_link(Rest, Host, HostDir);
+make_abs_link(<<"//", _/binary>> = Url, Host, _HostDir) ->
+    {Proto, _, _, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Host)),
+    [Proto, ":", Url];
+make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) -> [Host, Url];
+make_abs_link(<<"../", Rest/binary>>, Host, HostDir) ->
+    HostDirLastSlash = re:replace(HostDir, "^(.*//.*/)[^/]*$", "\\1", [{return, binary}]),
+    HostDirOneUp = re:replace(HostDirLastSlash, "^(.*//.*/)[^/]+/$", "\\1", [{return, binary}]),
+    make_abs_link(Rest, Host, HostDirOneUp);
+make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
+
+
