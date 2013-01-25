@@ -217,6 +217,8 @@ abs_link(RelativeUrl, BaseUrl) ->
 
 make_abs_link(<<"http:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"https:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"ws:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"wss:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"mailto:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"file:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"ftp:", _/binary>> = Url, _Host, _HostDir) -> Url;
@@ -228,8 +230,7 @@ make_abs_link(<<"//", _/binary>> = Url, Host, _HostDir) ->
     [Proto, ":", Url];
 make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) -> [Host, Url];
 make_abs_link(<<"../", Rest/binary>>, Host, HostDir) ->
-    HostDirLastSlash = re:replace(HostDir, "^(.*//.*/)[^/]*$", "\\1", [{return, binary}]),
-    HostDirOneUp = re:replace(HostDirLastSlash, "^(.*//.*/)[^/]+/$", "\\1", [{return, binary}]),
+    HostDirOneUp = re:replace(HostDir, "^(.*//.*/)[^/]+/$", "\\1", [{return, binary}]),
     make_abs_link(Rest, Host, HostDirOneUp);
 make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
 

@@ -39,8 +39,14 @@ abs_link_test() ->
     ?assertEqual(<<"http://example.com/folder/foo/">>,  z_url:abs_link("foo/", Base)),
     ?assertEqual(<<"http://example.com/folder/foo">>,  z_url:abs_link("./foo", Base)),
     ?assertEqual(<<"http://example.com/foo/">>,  z_url:abs_link("../foo/", Base)),
+    ?assertEqual(<<"http://example.com/foo">>,  z_url:abs_link("../foo", Base)),
     ?assertEqual(<<"http://example.com/">>,  z_url:abs_link("../../", Base)),
     ?assertEqual(<<"http://example.com/">>,  z_url:abs_link("../../../", Base)),
     ?assertEqual(<<"http://example.com/bar">>,  z_url:abs_link("//example.com/bar", Base)),
+
+    Base2 = <<"http://example.com/folder/folder2/file.html">>,
+    ?assertEqual(<<"http://example.com/">>,  z_url:abs_link("../../", Base2)),
+    ?assertEqual(<<"http://example.com/xx">>,  z_url:abs_link("../../xx", Base2)),
+    ?assertEqual(<<"http://example.com/folder/xx">>,  z_url:abs_link("../xx", Base2)),
     
     ok.
