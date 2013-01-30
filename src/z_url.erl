@@ -205,8 +205,12 @@ split_base_host(Base) ->
     {Protocol, Host, Path, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Base)),
     BaseHost = iolist_to_binary([Protocol, "://", Host]),
     Path1 = lists:reverse(
-                lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
-    {BaseHost, iolist_to_binary([BaseHost, Path1])}.
+              lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
+    Path2 = case Path1 of
+                [$/|_] -> Path1;
+                _ -> [$/, Path1]
+            end,
+    {BaseHost, iolist_to_binary([BaseHost, Path2])}.
 
 
 %% @doc Given a relative URL and a base URL, calculate the absolute URL.
