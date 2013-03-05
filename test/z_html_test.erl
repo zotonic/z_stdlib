@@ -41,3 +41,18 @@ abs_links_test() ->
         z_html:abs_links(<<"Hello <a src=\"http://b.org/c.html\">">>, 
                          <<"http://example.com/a/b/d.html">>)),
     ok.
+
+
+unescape_test() ->
+	?assertEqual(<<"<>">>, z_html:unescape(<<"&lt;&gt;">>)),
+	?assertEqual(<<"aap & aap">>, z_html:unescape(<<"aap &amp; aap">>)),
+    %%?assertEqual(<<"foo>çbar">>, z_html:unescape("foo&gt;&#231;bar")),
+    ?assertEqual(<<"foo&unknown;bar">>, z_html:unescape("foo&unknown;bar")),
+
+    ?assertEqual(<<"foo&&bar">>, z_html:unescape("foo&&bar")),
+    ?assertEqual(<<"foo&&&bar">>, z_html:unescape("foo&&&bar")),
+    ?assertEqual(<<"foo&;bar">>, z_html:unescape("foo&;bar")),
+    
+    ok.
+    
+

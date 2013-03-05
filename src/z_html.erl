@@ -249,25 +249,26 @@ unescape(B) when is_binary(B) ->
 
 unescape(<<>>, Acc) -> 
     Acc;
-unescape(<<"&amp;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "&">>);
-unescape(<<"&quot;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "\"">>);
-unescape(<<"&#39;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "'">>);
-unescape(<<"&#x27;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "'">>);
-unescape(<<"&#x2F;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "/">>);
-unescape(<<"&lt;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "<">>);
-unescape(<<"&gt;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, ">">>);
-unescape(<<"&euro;", T/binary>>, Acc) ->
-    unescape(T, <<Acc/binary, "€">>);
+unescape(<<"&", Rest/binary>>, Acc) ->
+    unescape_in_charref(Rest, <<>>, Acc);
 unescape(<<C, T/binary>>, Acc) ->
     unescape(T, <<Acc/binary, C>>).
 
+unescape_in_charref(<<>>, CharAcc, ContAcc) ->
+    <<ContAcc/binary, $&, CharAcc/binary>>; %% premature end of string; keep.
+unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
+    case z_html_charref:charref(CharAcc) of
+        undefined ->
+            %% keep original code
+            unescape(Rest, <<ContAcc/binary, $&, CharAcc/binary, $;>>);
+        Ch ->
+            %% replace the real char
+            unescape(Rest, <<ContAcc/binary, Ch>>)
+    end;
+
+unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
+    unescape_in_charref(Rest, <<CharAcc/binary, Ch>>, ContAcc).
+    
 
 %% @doc Escape a text. Expands any urls to links with a nofollow attribute.
 -spec escape_link(list()|binary()|{trans, list()}, Options::list()|context()) -> binary() | undefined.
