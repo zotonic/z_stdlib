@@ -34,7 +34,7 @@
     strip/1,
     sanitize/1,
     sanitize/2,
-    noscript/1,
+    sanitize_uri/1,
     escape_link/2,
     escape_link/1,
     nl2br/1,
@@ -69,9 +69,14 @@ escape_props1([{summary, Summary}|T], Acc, Options) ->
 escape_props1([{blocks, V}|T], Acc, Options) when is_list(V) ->
     V1 = [ escape_props1(L, [], Options) || L <- V ],
     escape_props1(T, [{blocks, V1}|Acc], Options);
+escape_props1([{website, V}|T], Acc, Options) ->
+    V1 = escape_value(sanitize_uri(V)),
+    escape_props1(T, [{website, V1} | Acc], Options);
 escape_props1([{K, V}|T], Acc, Options) ->
     EscapeFun = case lists:reverse(z_convert:to_list(K)) of
                     "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
+                    "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_uri'
+                    "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_url'
                     _ -> fun escape_value/1
                 end,
     escape_props1(T, [{K, EscapeFun(V)} | Acc], Options).
@@ -315,6 +320,10 @@ ensure_protocol("www" ++ Rest) ->
 ensure_protocol(Link) ->
     Link.
 
+
+%% @doc Ensure that an uri is (quite) harmless by removing any script reference
+sanitize_uri(Uri) ->
+    ensure_protocol(noscript(Uri)).
 
 
 %% @doc Strip all html elements from the text. Simple parsing is applied to find the elements. Does not escape the end result.
