@@ -34,6 +34,7 @@
     strip/1,
     sanitize/1,
     sanitize/2,
+    noscript/1,
     sanitize_uri/1,
     escape_link/2,
     escape_link/1,
