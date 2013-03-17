@@ -7,6 +7,12 @@
 
 -define(assertDatetime(A, B), ?assertEqual(A, z_convert:to_datetime(B))).
 
+convert_float_test() ->
+    ?assertEqual("10.0", z_convert:to_list(10.0)),
+    ?assertEqual("10.12345", z_convert:to_list(10.12345)),
+    ?assertEqual(<<"100.001">>, z_convert:to_binary(100.001)),
+    ?assertEqual(<<"0.001">>, z_convert:to_binary(0.001)).
+
 convert_date_test() ->
     ?assertEqual({2010,12,12}, z_convert:to_date("2010-12-12")),
     ?assertEqual({2010,12,12}, z_convert:to_date("2010/12/12")),

@@ -70,7 +70,7 @@ to_list(L) when is_list(L) -> L;
 to_list(A) when is_atom(A) -> atom_to_list(A);
 to_list(B) when is_binary(B) -> binary_to_list(B);
 to_list(I) when is_integer(I) -> integer_to_list(I);
-to_list(F) when is_float(F) -> float_to_list(F).
+to_list(F) when is_float(F) -> mochinum:digits(F).
 
 
 %% @doc Flatten list and convert to string.
@@ -100,7 +100,7 @@ to_binary(undefined) -> <<>>;
 to_binary(A) when is_atom(A) -> to_binary(atom_to_list(A));
 to_binary(B) when is_binary(B) -> B;
 to_binary(I) when is_integer(I) -> to_binary(integer_to_list(I));
-to_binary(F) when is_float(F) -> to_binary(float_to_list(F));
+to_binary(F) when is_float(F) -> to_binary(to_list(F));
 to_binary(L) when is_list(L) -> iolist_to_binary(L).
 
 %% Specific Zotonic callback, please keep here.
