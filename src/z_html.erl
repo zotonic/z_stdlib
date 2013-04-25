@@ -269,7 +269,8 @@ unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
             unescape(Rest, <<ContAcc/binary, $&, CharAcc/binary, $;>>);
         Ch ->
             %% replace the real char
-            unescape(Rest, <<ContAcc/binary, Ch>>)
+            ChBin = unicode:characters_to_binary([Ch]),
+            unescape(Rest, <<ContAcc/binary, ChBin/binary>>)
     end;
 
 unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
