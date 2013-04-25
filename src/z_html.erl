@@ -209,9 +209,9 @@ escape_check1(<<"&euro;", T/binary>>, Acc) ->
 escape_check1(<<"&amp;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&amp;">>);
 escape_check1(<<"&lt;", T/binary>>, Acc) ->
-    escape_check1(T, <<Acc/binary, "&amp;">>);
+    escape_check1(T, <<Acc/binary, "&lt;">>);
 escape_check1(<<"&gt;", T/binary>>, Acc) ->
-    escape_check1(T, <<Acc/binary, "&amp;">>);
+    escape_check1(T, <<Acc/binary, "&gt;">>);
 escape_check1(<<"&quot;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&quot;">>);
 escape_check1(<<"&#39;", T/binary>>, Acc) ->
