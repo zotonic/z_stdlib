@@ -39,7 +39,7 @@ is_email(Email) ->
 -spec extract_emails(iodata()) -> [ binary() ].
 extract_emails(Text) ->
 	Text1 = iolist_to_binary([32, Text, 32]), 
-	Re = "[^a-zA-Z0-9\\.@\\-]("++re()++")[^a-zA-Z0-9\\.@\\-]",
+	Re = "[^a-zA-Z0-9\\.@\\-\\+]("++re()++")",
     case re:run(Text1, Re, [extended, global, {capture, all, binary}]) of
         nomatch -> 
         	[];
