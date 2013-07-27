@@ -46,7 +46,7 @@
 ]).
 
 
-%%% @doc This is a Zotonic #context{}, which is still here for compatibility with Zotonic.
+%%% This is a Zotonic #context{}, which is still here for compatibility with Zotonic.
 -opaque context() :: tuple().
 
 
@@ -187,7 +187,6 @@ escape_check(V, _Options) ->
     escape_check(V).
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
-%% @spec escape(iolist()) -> binary()
 -spec escape_check(list()|binary()|{trans, list()}) -> binary() | undefined.
 escape_check({trans, Tr}) ->
     {trans, [{Lang, escape_check(V)} || {Lang,V} <- Tr]};
