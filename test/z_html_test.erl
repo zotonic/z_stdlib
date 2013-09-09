@@ -54,5 +54,17 @@ unescape_test() ->
     ?assertEqual(<<"foo&;bar">>, z_html:unescape("foo&;bar")),
     
     ok.
+
+
+filter_css_test() ->
+    ?assertEqual(<<"">>, z_html:sanitize(<<"<style></style">>)),
+    ?assertEqual(<<"<p style=\"color: red\">No</p>">>, 
+        z_html:sanitize(<<"<p style=\"color: red\">No</p>">>)),
+    ?assertEqual(<<"<p style=\"color: red\">No</p>">>, 
+        z_html:sanitize(<<"<p style=\"color: red\">No</p>">>)),
+    ?assertEqual(<<"<span style=\"font-family: L\\FC beck\">...</span>">>,
+        z_html:sanitize(<<"<span style=\"font-family: L\\FC beck\">...</span>">>)),  
+
+    ok.
     
 

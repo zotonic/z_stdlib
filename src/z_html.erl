@@ -688,7 +688,7 @@ filter_css(<<$\\,_,T/binary>>, in_sstring, Acc) ->
 filter_css(<<$\\,_,T/binary>>, in_dstring, Acc) ->
     filter_css(T, in_dstring, Acc);
 filter_css(<<$\\,H,T/binary>>, in_text, Acc) ->
-    filter_css(T, in_text, <<Acc/binary,H>>);
+    filter_css(T, in_text, <<Acc/binary, $\\, H>>);
 filter_css(<<H,T/binary>>, in_text, Acc) ->
     filter_css(T, in_text, <<Acc/binary, H>>);
 filter_css(<<_,T/binary>>, State, Acc) ->
