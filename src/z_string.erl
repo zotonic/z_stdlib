@@ -822,7 +822,7 @@ starts_with(Start, String) ->
     starts_with(iolist_to_binary(Start), iolist_to_binary(String)).
 
 
-%% @doc Return true iff Word ends with End
+%% @doc Return true if Word ends with End
 %% @spec ends_with(String, String) -> bool()
 ends_with(End, B) when is_binary(End), is_binary(B) ->
     StartSize = size(B) - size(End),
@@ -834,7 +834,7 @@ ends_with(End, String) ->
     ends_with(iolist_to_binary(End), iolist_to_binary(String)).
 
 
-%% @doc Return true iff What is found in the string
+%% @doc Return true if What is found in the string
 %% @spec contains(String, String) -> bool()
 contains(What, B) when is_binary(What), is_binary(B) ->
     contains(What, size(What), B, 0);
