@@ -33,7 +33,8 @@
     remove_protocol/1,
     location/1,
     abs_link/2,
-    split_base_host/1
+    split_base_host/1,
+    decode_data_url/1
 ]).
 
 
@@ -227,6 +228,7 @@ make_abs_link(<<"mailto:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"file:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"ftp:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"spdy:", _/binary>> = Url, _Host, _HostDir) -> Url;
+make_abs_link(<<"data:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"./", Rest/binary>>, Host, HostDir) ->
     make_abs_link(Rest, Host, HostDir);
 make_abs_link(<<"//", _/binary>> = Url, Host, _HostDir) ->
@@ -238,4 +240,34 @@ make_abs_link(<<"../", Rest/binary>>, Host, HostDir) ->
     make_abs_link(Rest, Host, HostDirOneUp);
 make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
 
+
+%% @doc Decode a "data:" url to its parts.
+%%      Crashes if the url doesn't have a "data:" protocol.
+-spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
+decode_data_url(<<"data:", Data/binary>>) ->
+    Parts = binary:split(Data, <<";">>, [global]),
+    [Encoded|Args] = lists:reverse(Parts), 
+    case decode_url_data(Encoded) of
+        {ok, Decoded} ->
+            {Mime, Charset} = decode_data_url_args(Args),
+            {ok, Mime, Charset, Decoded};
+        {error, _} = Error ->
+            Error
+    end.
+
+decode_url_data(<<"base64,", Data/binary>>) ->
+    {ok, base64:decode(Data)};
+decode_url_data(<<",", Data/binary>>) ->
+    {ok, Data};
+decode_url_data(_) ->
+    {error, unknown_encoding}.
+
+decode_data_url_args(Args) ->
+    lists:foldl(fun(<<"charset=", Charset/binary>>, {Mime,_Charset}) ->
+                        {Mime,Charset};
+                    (Mime, {_Mime,Charset}) ->
+                        {Mime,Charset}
+                end,
+                {<<"text/plain">>, <<"US-ASCII">>},
+                Args).
 
