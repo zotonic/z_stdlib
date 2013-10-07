@@ -53,37 +53,39 @@
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
 -spec escape_props(list()) -> list().
 escape_props(Props) ->
-    escape_props1(Props, [], []).
+    escape_props(Props, []).
 
 -spec escape_props(list(), Options::list()|context()) -> list().
-escape_props(Props, Context) ->
-    escape_props1(Props, [], Context).
+escape_props(Props, OptionsOrContext) ->
+    [ escape_props1(P, OptionsOrContext) || P <- Props ].
 
-escape_props1([], Acc, _Options) ->
-    Acc;
-escape_props1([{_K,V} = Prop|T], Acc, Options) when is_float(V); is_integer(V); is_atom(V) -> 
-    escape_props1(T, [Prop|Acc], Options);
-escape_props1([{K, V}|T], Acc, Options) when K =:= body orelse K =:= body_extra->
-    escape_props1(T, [{K, sanitize(V, Options)} | Acc], Options);
-escape_props1([{summary, Summary}|T], Acc, Options) ->
-    escape_props1(T, [{summary, nl2br(escape_value(Summary))} | Acc], Options);
-escape_props1([{blocks, V}|T], Acc, Options) when is_list(V) ->
-    V1 = [ escape_props1(L, [], Options) || L <- V ],
-    escape_props1(T, [{blocks, V1}|Acc], Options);
-escape_props1([{website, V}|T], Acc, Options) ->
+escape_props1({_K,V} = Prop, _Options) when is_float(V); is_integer(V); is_atom(V) -> 
+    Prop;
+escape_props1({body, V}, Options) ->
+    {body, sanitize(V, Options)};
+escape_props1({body_extra, V}, Options) ->
+    {body_extra, sanitize(V, Options)};
+escape_props1({summary, Summary}, _Options) ->
+    {summary, nl2br(escape_value(Summary))};
+escape_props1({blocks, V}, Options) when is_list(V) ->
+    V1 = [ escape_props1(L, Options) || L <- V ],
+    {blocks, V1};
+escape_props1({website, V}, _Options) ->
     V1 = escape_value(sanitize_uri(V)),
-    escape_props1(T, [{website, V1} | Acc], Options);
-escape_props1([{K, V}|T], Acc, Options) ->
+    {website, V1};
+escape_props1({K, V}, Options) ->
     EscapeFun = case lists:reverse(z_convert:to_list(K)) of
                     "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
                     "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_uri'
                     "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_url'
                     _ -> fun escape_value/1
                 end,
-    escape_props1(T, [{K, EscapeFun(V)} | Acc], Options).
+    {K, EscapeFun(V)};
+escape_props1(P, _Options) ->
+    P.
 
-escape_value({trans, Texts}) ->
-    {trans, escape_props(Texts)};
+escape_value({trans, _Ts} = Tr) ->
+    escape(Tr);
 escape_value(V) when is_list(V) ->
     try
         escape_value(iolist_to_binary(V))
@@ -99,35 +101,41 @@ escape_value(V) ->
 %% @doc Checks if all properties are properly escaped
 -spec escape_props_check(list()) -> list().
 escape_props_check(Props) ->
-    escape_props_check1(Props, [], undefined).
+    escape_props_check(Props, undefined).
 
 -spec escape_props_check(list(), Options::list()|context()) -> list().
 escape_props_check(Props, Options) ->
-    escape_props_check1(Props, [], Options).
+    [ escape_props_check1(P, Options) || P <- Props ].
 
-escape_props_check1([], Acc, _Options) ->
-    Acc;
-escape_props_check1([{_K,V} = Prop|T], Acc, Options) when is_float(V); is_integer(V); is_atom(V) -> 
-    escape_props_check1(T, [Prop|Acc], Options);
-escape_props_check1([{K, V}|T], Acc, Options) when K =:= body orelse K =:= body_extra->
-    escape_props_check1(T, [{K, sanitize(V, Options)} | Acc], Options);
-escape_props_check1([{summary, Summary}|T], Acc, Options) ->
-    escape_props_check1(T, [{summary, nl2br(escape_value_check(br2nl(Summary)))} | Acc], Options);
-escape_props_check1([{blocks, V}|T], Acc, Options) when is_list(V) ->
-    V1 = [ escape_props_check1(L, [], Options) || L <- V ],
-    escape_props_check1(T, [{blocks, V1}|Acc], Options);
-escape_props_check1([{K, V}|T], Acc, Options) ->
+escape_props_check1({_K,V} = Prop, _Options) when is_float(V); is_integer(V); is_atom(V) -> 
+    Prop;
+escape_props_check1({body, V}, Options) ->
+    {body, sanitize(V, Options)};
+escape_props_check1({body_extra, V}, Options) ->
+    {body_extra, sanitize(V, Options)};
+escape_props_check1({summary, Summary}, _Options) ->
+    {summary, nl2br(escape_check(br2nl(Summary)))};
+escape_props_check1({blocks, V}, Options) when is_list(V) ->
+    V1 = [ escape_props_check1(L, Options) || L <- V ],
+    {blocks, V1};
+escape_props_check1({website, V}, _Options) ->
+    {website, escape_value(sanitize_uri(unescape(V)))};
+escape_props_check1({K, V}, Options) ->
     EscapeFun = case lists:reverse(z_convert:to_list(K)) of
                     "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
-                    _ -> fun escape_value/1
+                    "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(unescape(A))) end; %% prop ends in '_uri'
+                    "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(unescape(A))) end; %% prop ends in '_url'
+                    _ -> fun escape_value_check/1
                 end,
-    escape_props_check1(T, [{K, EscapeFun(V)} | Acc], Options).
+    {K, EscapeFun(V)};
+escape_props_check1(P, _Options) ->
+    P.
 
-escape_value_check({trans, Texts}) ->
-    {trans, escape_props_check(Texts)};
+escape_value_check({trans, _Ts} = Tr) ->
+    escape_check(Tr);
 escape_value_check(V) when is_list(V) ->
     try
-        escape_value_check(iolist_to_binary(V))
+        escape_check(iolist_to_binary(V))
     catch _:_ ->
         V
     end;
@@ -135,7 +143,6 @@ escape_value_check(B) when is_binary(B) ->
     escape_check(B);
 escape_value_check(V) -> 
     V.
-
 
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
@@ -197,9 +204,11 @@ escape_check(<<>>) ->
 escape_check([]) ->
     <<>>;
 escape_check(L) when is_list(L) ->
-    escape(list_to_binary(L));
+    escape_check1(iolist_to_binary(L), <<>>);
 escape_check(B) when is_binary(B) ->
-    escape_check1(B, <<>>).
+    escape_check1(B, <<>>);
+escape_check(Other) ->
+    Other.
 
 escape_check1(<<>>, Acc) -> 
     Acc;
