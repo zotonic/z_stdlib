@@ -68,7 +68,7 @@ escape_props1({body_extra, V}, Options) ->
 escape_props1({summary, Summary}, _Options) ->
     {summary, nl2br(escape_value(Summary))};
 escape_props1({blocks, V}, Options) when is_list(V) ->
-    V1 = [ escape_props1(L, Options) || L <- V ],
+    V1 = [ escape_props(L, Options) || L <- V ],
     {blocks, V1};
 escape_props1({website, V}, _Options) ->
     V1 = escape_value(sanitize_uri(V)),
@@ -116,7 +116,7 @@ escape_props_check1({body_extra, V}, Options) ->
 escape_props_check1({summary, Summary}, _Options) ->
     {summary, nl2br(escape_check(br2nl(Summary)))};
 escape_props_check1({blocks, V}, Options) when is_list(V) ->
-    V1 = [ escape_props_check1(L, Options) || L <- V ],
+    V1 = [ escape_props_check(L, Options) || L <- V ],
     {blocks, V1};
 escape_props_check1({website, V}, _Options) ->
     {website, escape_value(sanitize_uri(unescape(V)))};
