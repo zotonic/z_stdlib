@@ -163,9 +163,9 @@ special(_)   -> false.
 special_chars() ->    
     " 0123456789{},~%#>\n\r\s\t\"'-&$".
 
-collect_int([H|T], N, Sign, Stack, Dict) when  $0 =< H, H =< $9 ->
+collect_int(<<H,T/binary>>, N, Sign, Stack, Dict) when  $0 =< H, H =< $9 ->
     collect_int(T, N*10 + H - $0, Sign, Stack, Dict);
-collect_int([], N, Sign, Stack, Dict) ->
+collect_int(<<>>, N, Sign, Stack, Dict) ->
     {more, fun(I) -> collect_int(I, N, Sign, Stack, Dict) end};
 collect_int(T, N, '+', Stack, Dict) ->
     decode1(T, push(N, Stack), Dict);
