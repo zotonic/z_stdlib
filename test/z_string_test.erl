@@ -17,8 +17,17 @@ first_char_test() ->
     ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx">>)),
     ?assertEqual(263, z_string:first_char("ćaap")),
     ?assertEqual(263, z_string:first_char(<<"ćaap">>)),
-
     ok.
+
+last_char_test() ->
+    ?assertEqual($p, z_string:last_char("aap")),
+    ?assertEqual($p, z_string:last_char(<<"aap">>)),
+    ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
+    ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ">>)),
+    ?assertEqual(263, z_string:last_char("aapć")),
+    ?assertEqual(263, z_string:last_char(<<"aapć">>)),
+    ok.
+
 
 to_name_test() ->
     A = "üçgen",

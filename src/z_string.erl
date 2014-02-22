@@ -159,8 +159,7 @@ first_char(<<C/utf8, _/binary>>) -> C.
 
 %% @doc Return the last character of a string
 last_char([]) -> undefined;
-last_char([C]) -> C;
-last_char([_|R]) -> last_char(R);
+last_char(L) when is_list(L) -> last_char(z_convert:to_binary(L));
 last_char(<<>>) -> undefined;
 last_char(<<C/utf8>>) -> C;
 last_char(<<_, R/binary>>) -> last_char(R).
