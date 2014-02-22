@@ -11,10 +11,14 @@ to_lower_to_upper_test() ->
     ok.
 
 first_char_test() ->
-    "a" = z_string:first_char("aap"),
-    "Ж" = z_string:first_char("ЖЖЖxx"),
-    "ć" = z_string:first_char("ćaap"),
-     ok.
+    ?assertEqual($a, z_string:first_char("aap")),
+    ?assertEqual($a, z_string:first_char(<<"aap">>)),
+    ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
+    ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx">>)),
+    ?assertEqual(263, z_string:first_char("ćaap")),
+    ?assertEqual(263, z_string:first_char(<<"ćaap">>)),
+
+    ok.
 
 to_name_test() ->
     A = "üçgen",

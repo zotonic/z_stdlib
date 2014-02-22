@@ -149,12 +149,12 @@ is_string(_) ->
 
 
 %% @doc Return the first character of a string.
-%% @todo Make this UTF-8 safe
 first_char([]) -> undefined;
 first_char([H|T]) when is_integer(H) ->
-    truncate([H|T], 1, "");
+    <<C/utf8, _/binary>> = list_to_binary(truncate([H|T], 1, "")),
+    C;
 first_char(<<>>) -> undefined;
-first_char(<<C, _/binary>>) -> C.
+first_char(<<C/utf8, _/binary>>) -> C.
 
 
 %% @doc Return the last character of a string
@@ -162,7 +162,7 @@ last_char([]) -> undefined;
 last_char([C]) -> C;
 last_char([_|R]) -> last_char(R);
 last_char(<<>>) -> undefined;
-last_char(<<C>>) -> C;
+last_char(<<C/utf8>>) -> C;
 last_char(<<_, R/binary>>) -> last_char(R).
 
 
