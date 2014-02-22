@@ -5,6 +5,30 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
+to_lower_to_upper_test() ->
+    A = "üçgen",
+    A = z_string:to_lower(z_string:to_upper(A)),
+    ok.
+
+first_char_test() ->
+    "a" = z_string:first_char("aap"),
+    "Ж" = z_string:first_char("ЖЖЖxx"),
+    "ć" = z_string:first_char("ćaap"),
+     ok.
+
+to_name_test() ->
+    A = "üçgen",
+    "ucgen" = z_string:to_name(A),
+    ok.
+
+concat_test() ->
+    <<"abcdef">> = z_string:concat(<<"abc">>, <<"def">>),
+    <<"abcdef">> = z_string:concat(<<"abc">>, "def"),
+    "abcdef" = z_string:concat("abc", "def"),
+    "abcdef" = z_string:concat("abc", <<"def">>),
+    "abcdef" = z_string:concat("abc", def),
+    ok.
+
 contains_test() ->
     ?assert(z_string:contains("", "strange case")),
     ?assert(z_string:contains("", "")),

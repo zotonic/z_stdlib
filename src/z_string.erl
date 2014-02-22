@@ -61,8 +61,7 @@
          ends_with/2,
          contains/2,
          split/2,
-         concat/2,
-         test/0
+         concat/2
         ]).
 
 
@@ -908,19 +907,3 @@ concat(A, B) when is_binary(A) ->
 concat(A, B) when is_list(A) ->
     A ++ z_convert:to_flatlist(B).
 
-test() ->
-    A = "üçgen",
-    A = to_lower(to_upper(A)),
-    "ucgen" = to_name(A),
-
-    "a" = first_char("aap"),
-    "Ж" = first_char("ЖЖЖxx"),
-    "ć" = first_char("ćaap"),
-
-    <<"abcdef">> = concat(<<"abc">>, <<"def">>),
-    <<"abcdef">> = concat(<<"abc">>, "def"),
-    "abcdef" = concat("abc", "def"),
-    "abcdef" = concat("abc", <<"def">>),
-    "abcdef" = concat("abc", def),
-    
-    ok.
