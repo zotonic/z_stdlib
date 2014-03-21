@@ -22,6 +22,7 @@
 -export([
 	new/0,
 	tempfile/0,
+	is_tempfile/1,
 	temppath/0
 ]).
 
@@ -57,6 +58,10 @@ tempfile() ->
     {A,B,C}=erlang:now(),
     filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p.~p",[node(),A,B,C]))).
 
+%% @doc Check if the file is a temporary filename.
+-spec is_tempfile(filename()) -> boolean().
+is_tempfile(Filename) ->
+	lists:prefix(filename:join(temppath(), "ztmp-"), Filename). 
 
 %% @doc Returns the path where to store temporary files.
 -spec temppath() -> filename().
