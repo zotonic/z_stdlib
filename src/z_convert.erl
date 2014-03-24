@@ -302,6 +302,8 @@ to_json({{Y,M,D},{H,I,S}} = DateTime)
 to_json({array, X}) ->
     %% Explicit request for array (to prevent string conversion for some lists)
     {array, [to_json(V) || V <- X]};
+to_json({struct, X}) ->
+    {struct, X};
 to_json({X, Y}) ->
     {struct, to_json_struct([{X, Y}])};
 to_json(X) when is_tuple(X) ->
