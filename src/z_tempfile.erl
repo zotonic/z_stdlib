@@ -21,7 +21,9 @@
 
 -export([
 	new/0,
+	new/1,
 	tempfile/0,
+	tempfile/1,
 	is_tempfile/1,
 	temppath/0
 ]).
@@ -31,7 +33,12 @@
 %% @doc Return a new unique filename, start a monitoring process to clean it up after use.
 -spec new() -> filename().
 new() ->
-	Filename = tempfile(),
+	new("").
+
+%% @doc Return a new unique filename, start a monitoring process to clean it up after use.
+-spec new(string()) -> filename().
+new(Extension) ->
+	Filename = tempfile(Extension),
 	OwnerPid = self(),
 	Pid = erlang:spawn_link(fun() -> cleanup(Filename, OwnerPid) end),
 	receive
@@ -55,8 +62,13 @@ cleanup(Filename, OwnerPid) ->
 %% @doc return a unique temporary filename.
 -spec tempfile() -> filename().
 tempfile() ->
+	tempfile("").
+
+%% @doc return a unique temporary filename with a set extension.
+-spec tempfile(string()) -> filename().
+tempfile(Extension) ->
     {A,B,C}=erlang:now(),
-    filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p.~p",[node(),A,B,C]))).
+    filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p.~p~p",[node(),A,B,C, Extension]))).
 
 %% @doc Check if the file is a temporary filename.
 -spec is_tempfile(filename()) -> boolean().
