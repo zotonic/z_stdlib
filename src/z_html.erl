@@ -440,14 +440,12 @@ sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
-    Lower = list_to_binary(z_string:to_lower(Elt)),
-    case allow_elt(Lower, ExtraElts) orelse (not lists:member(Lower, Stack) andalso allow_once(Lower)) of
+    case allow_elt(Elt, ExtraElts) orelse (not lists:member(Elt, Stack) andalso allow_once(Elt)) of
         true ->
             Attrs1 = lists:filter(fun({A,_}) -> allow_attr(A, ExtraAttrs) end, Attrs),
-            Attrs2 = [ {list_to_binary(z_string:to_lower(A)), V} || {A,V} <- Attrs1 ],
-            Stack1 = [Lower|Stack],
-            Tag = { Lower, 
-                    Attrs2,
+            Stack1 = [Elt|Stack],
+            Tag = { Elt, 
+                    Attrs1,
                     [ sanitize(Encl, Stack1, ExtraElts, ExtraAttrs, Options) || Encl <- Enclosed ]},
             case Options of
                 T when is_tuple(T), element(1, T) =:= context -> 
@@ -460,7 +458,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
                     end
             end;
         false ->
-            case skip_contents(Lower) of
+            case skip_contents(Elt) of
                 false ->
                     {nop, [ sanitize(Encl, Stack, ExtraElts, ExtraAttrs, Options) || Encl <- Enclosed ]};
                 true ->

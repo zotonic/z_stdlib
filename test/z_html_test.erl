@@ -56,6 +56,32 @@ unescape_test() ->
     ok.
 
 
+sanitize_test() ->
+    %% Html tags and attributes are case insensitive 
+    ?assertEqual(<<"<img src=\"img.jpg\" />">>, 
+        z_html:sanitize(<<"<img sRc='img.jpg'></img>">>)),
+
+    ?assertEqual(<<"<img src=\"img.jpg\" />">>, 
+        z_html:sanitize(<<"<IMG sRc='img.jpg'></img>">>)),
+
+    ?assertEqual(<<"<img src=\"img.jpg\" />">>, 
+        z_html:sanitize(<<"<img onload='bad_script()' src='img.jpg'></img>">>)),
+
+    ?assertEqual(<<"<div><p></p></div>">>, 
+        z_html:sanitize(<<"<div><p></P></div>">>)),
+
+    %% XML data islands are removed
+    ?assertEqual(<<"<div></div>">>, 
+        z_html:sanitize(<<"<div><xml id='data'><Score Property='test' Player='me'></Score></xml></DIV>">>)),
+
+    ?assertEqual(<<"<div>...</div>">>, 
+        z_html:sanitize(<<"<div><script type='text/javascript'>bad_script()</script>...</div>">>)),
+
+
+
+    ok.
+
+
 filter_css_test() ->
     ?assertEqual(<<"">>, z_html:sanitize(<<"<style></style">>)),
     ?assertEqual(<<"<p style=\"color: red\">No</p>">>, 
