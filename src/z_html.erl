@@ -349,7 +349,9 @@ strip([]) ->
 strip(Html) when is_binary(Html) ->
     strip(Html, in_text, <<>>);
 strip(L) when is_list(L) ->
-    strip(list_to_binary(L)).
+    strip(list_to_binary(L));
+strip(N) when is_integer(N) ->
+    strip(integer_to_list(N)).
 
 strip(<<>>, _, Acc) -> Acc;
 strip(<<$<,T/binary>>, in_text, Acc) ->

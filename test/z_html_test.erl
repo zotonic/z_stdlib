@@ -25,6 +25,10 @@ ensure_check_test() ->
 
 strip_test() ->
 	?assertEqual(<<"Hello">>, z_html:strip(<<"<p class='hello'>Hello</p>">>)),
+	?assertEqual(<<"Hello">>, z_html:strip(<<"Hello">>)),
+	?assertEqual(<<"">>, z_html:strip(<<"">>)),
+	?assertEqual([], z_html:strip([])),
+	?assertEqual(<<"1234">>, z_html:strip(1234)),
 	ok.
 
 abs_links_test() ->
