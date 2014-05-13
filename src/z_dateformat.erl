@@ -1,6 +1,7 @@
 %%% @author    Roberto Saccon <rsaccon@gmail.com> [http://rsaccon.com]
 %%% @author    Evan Miller <emmiller@gmail.com>
 %%% @copyright 2008 Roberto Saccon, Evan Miller
+%%% @copyright 2009-2014 Marc Worrell
 %%%
 %%% Adapted and expanded for Zotonic by Marc Worrell <marc@worrell.nl>
 
@@ -72,8 +73,8 @@ format({{_,_,_} = Date,{_,_,_} = Time}, FormatString, Options) ->
 format({_,_,_} = Date, FormatString, Options) ->
     iolist_to_binary(replace_tags(Date, {0,0,0}, FormatString, Options));
 format(DateTime, FormatString, _Options) ->
-   error_logger:warning_msg("z_dateformat: Unrecognized date parameter : ~p~n", [DateTime]),
-   FormatString.
+    error_logger:warning_msg("z_dateformat: Unrecognized date parameter : ~p~n", [DateTime]),
+    FormatString.
 
 replace_tags(Date, Time, Input, Options) when is_binary(Input) ->
     replace_tags(Date, Time, binary_to_list(Input), Options);
@@ -167,16 +168,13 @@ tag_to_value($b, {_,M,_}, _, Options) ->
 
 % ISO 8601 date format - 2004-02-12T15:19:21+00:00
 tag_to_value($c, Date, Time, Options) ->
-    LTime = {Date, Time},
-    UTime = erlang:localtime_to_universaltime(LTime),
-    DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) - 
-       calendar:datetime_to_gregorian_seconds(UTime),
-    {Secs, Sign} = case DiffSecs < 0 of
-        true -> {0-DiffSecs, $-};
-        false -> {DiffSecs, $+}
+    DiffMins = tzoffset({Date, Time}, Options),
+    {Mins, Sign} = case DiffMins < 0 of
+        true -> {0-DiffMins, $-};
+        false -> {DiffMins, $+}
     end,    
-    Hours   = Secs div 3600,
-    Minutes = (Secs rem 3600) div 60,
+    Hours   = Mins div 60,
+    Minutes = Mins rem 60,
     replace_tags(Date, Time, "Y-m-d", Options) 
         ++ [$T | replace_tags(Date, Time, "H:i:s", Options)]
         ++ [Sign|integer_to_list_zerofill(Hours)]
@@ -196,8 +194,17 @@ tag_to_value($F, {_,M,_}, _, Options) ->
    tr(monthname, M, Options);
 
 % '1' if Daylight Savings Time, '0' otherwise.
-tag_to_value($I, _, _, _Options) ->
-   "TODO";
+tag_to_value($I, Date, Time, Options) ->
+    try
+        case localtime_dst:check({Date,Time}, proplists:get_value(tz, Options, "GMT")) of
+            is_in_dst       -> "1";
+            is_not_in_dst   -> "0";
+            ambiguous_time  -> "0"  %"?"
+        end
+    catch
+        throw:{error, wrong_week_day} ->
+            "0"
+    end;
 
 % Day of the month without leading zeros; i.e. '1' to '31'
 tag_to_value($j, {_, _, D}, _, _Options) ->
@@ -242,8 +249,8 @@ tag_to_value($N, {_,M,_}, _, Options) ->
    tr(monthname, M, Options);
 
 % Difference to Greenwich time in hours; e.g. '+0200'
-tag_to_value($O, Date, Time, _Options) ->
-   Diff = utc_diff(Date, Time),
+tag_to_value($O, Date, Time, Options) ->
+   Diff = utc_diff(Date, Time, Options),
    Offset = if
       Diff < 0 ->
           io_lib:format("-~4..0w", [abs(Diff)]);
@@ -272,12 +279,17 @@ tag_to_value($t, {Y,M,_}, _, _Options) ->
    integer_to_list(calendar:last_day_of_the_month(Y,M));
 
 % Time zone of this machine; e.g. 'EST' or 'MDT'
-tag_to_value($T, _, _, _Options) ->
-   "TODO";
+tag_to_value($T, Date, Time, Options) ->
+    case proplists:get_value(tz, Options) of
+        undefined -> "";
+        <<>> -> "";
+        [] -> "";
+        TZ -> tz_name({Date,Time}, prefer_standard, TZ)
+    end;
 
 % Seconds since the Unix epoch (January 1 1970 00:00:00 GMT)
-tag_to_value($U, Date, Time, _Options) ->
-    [UtcTime|_] = calendar:local_time_to_universal_time_dst({Date, Time}), 
+tag_to_value($U, Date, Time, Options) ->
+    UtcTime = to_utc({Date, Time}, Options), 
     EpochSecs = calendar:datetime_to_gregorian_seconds(UtcTime)
                 - 62167219200, % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
     integer_to_list(EpochSecs);
@@ -308,8 +320,9 @@ tag_to_value($z, {Y,M,D}, _, _Options) ->
 % Time zone offset in seconds (i.e. '-43200' to '43200'). The offset for
 % timezones west of UTC is always negative, and for those east of UTC is
 % always positive.
-tag_to_value($Z, _, _, _Options) ->
-   "TODO";
+tag_to_value($Z, Date, Time, Options) ->
+    DiffMins = tzoffset({Date,Time}, Options),
+    integer_to_list(DiffMins*60);
 
 tag_to_value(C, Date, Time, _Options) ->
     error_logger:warning_msg("z_dateformat: Unimplemented tag : ~p [Date : ~p] [Time : ~p]", [C, Date, Time]),
@@ -348,13 +361,44 @@ weeks_in_year(Y) ->
     D2 = calendar:day_of_the_week(Y, 12, 31),
     if (D1 =:= 4 orelse D2 =:= 4) -> 53; true -> 52 end.
 
-utc_diff(Date, Time) ->
-   LTime = {Date, Time},
-   UTime = erlang:localtime_to_universaltime(LTime),
-   DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) - 
-       calendar:datetime_to_gregorian_seconds(UTime),
-   trunc((DiffSecs / 3600) * 100).
+utc_diff(Date, Time, Options) ->
+    DiffSecs = tzoffset({Date, Time}, Options) * 60,
+    trunc((DiffSecs / 3600) * 100).
 
+to_utc(LTime, Options) ->
+    case proplists:get_value(utc, Options) of
+        undefined ->
+            TzOffset = tzoffset(LTime, Options),
+            calendar:gregorian_seconds_to_datetime(
+                calendar:datetime_to_gregorian_seconds(LTime) + TzOffset * 60);
+        UTC ->
+            UTC
+    end.
+
+tzoffset(LTime, Options) ->
+    case proplists:get_value(utc, Options) of
+        undefined ->
+            tzoffset_1(LTime, erlang:localtime_to_universaltime(LTime));
+        UTime ->
+            tzoffset_1(LTime, UTime)
+    end.
+
+tzoffset_1(LTime, UTime) ->
+    DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) - 
+       calendar:datetime_to_gregorian_seconds(UTime),
+    DiffSecs div 60.
+
+tz_name(Date, Disambiguate, ToTZ) ->
+    case localtime:tz_name(Date, ToTZ) of
+        {ShortName, _} when is_list(ShortName) ->
+            ShortName;
+        {{ShortStandard,_},{ShortDST,_}} -> 
+            case Disambiguate of
+                prefer_standard -> ShortStandard;
+                prefer_daylight -> ShortDST;
+                both            -> {ambiguous, ShortStandard, ShortDST}
+            end
+    end.
 
 % Utility functions
 integer_to_list_zerofill(N) when is_float(N) ->
