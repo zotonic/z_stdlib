@@ -1,5 +1,7 @@
 % -*- coding: utf-8; Mode: erlang; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*-
 % ex: set softtabstop=4 tabstop=4 shiftwidth=4 expandtab fileencoding=utf-8:
+%% coding: utf-8
+
 %% @author Marc Worrell <marc@worrell.nl>
 %% @copyright 2009-2012 Marc Worrell
 %% Date: 2009-04-26
@@ -27,6 +29,8 @@
 
 -module(z_string).
 -author("Marc Worrell <marc@worrell.nl").
+
+-define(DOTS_UTF8, [226,128,166]).
 
 %% interface functions
 -export([
@@ -644,7 +648,7 @@ s_utf8(<<_, Rest/binary>>, Acc) ->
 truncate(undefined, _) ->
 	undefined;
 truncate(L, N) ->
-	truncate(L, N, "…").
+	truncate(L, N, ?DOTS_UTF8).
 
 truncate(B, N, Append) when is_binary(B) ->
 	truncate(z_convert:to_list(B), N, Append);
@@ -741,7 +745,7 @@ truncate(L, N, Append) ->
 truncatewords(undefined, _) ->
 	undefined;
 truncatewords(S, Words) ->
-    truncatewords(S, Words, "…").
+    truncatewords(S, Words, ?DOTS_UTF8).
 truncatewords(S, Words, Append) when is_binary(S) ->
     truncatewords(z_convert:to_list(S), in_space, Words, Append, []);
 truncatewords(S, Words, Append) when is_list(S) ->
