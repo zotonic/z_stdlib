@@ -1,10 +1,10 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2012 Marc Worrell
+%% @copyright 2009-2014 Marc Worrell
 %% Date: 2009-04-17
 %%
 %% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
 
-%% Copyright 2009-2012 Marc Worrell
+%% Copyright 2009-2014 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@
     escape_check/1,
     unescape/1,
     strip/1,
+    truncate/2,
+    truncate/3,
     sanitize/1,
     sanitize/2,
     noscript/1,
@@ -383,6 +385,72 @@ strip(<<H,T/binary>>, in_text, Acc) ->
 strip(<<_,T/binary>>, State, Acc) ->
     strip(T, State, Acc).
 
+
+%% @doc Truncate a previously sanitized HTML string.
+truncate(Html,Length) ->
+    truncate(Html, Length, <<>>).
+
+truncate(_, Length, _Append) when Length =< 0 ->
+    <<>>;
+truncate({trans, Tr}, Length, Append) ->
+    {trans, [{Lang,truncate(V,Length, Append)} || {Lang,V} <- Tr]};
+truncate(Html, Length, Append) when is_list(Html) ->
+    truncate(unicode:characters_to_binary(Html), Length, Append);
+truncate(Html, Length, Append) when is_binary(Html) ->
+    case size(Html) of
+        N when N =< Length ->
+            Html;
+        _ ->
+            truncate(Html, in_text, [], <<>>, <<>>, Length, Append)
+    end.
+
+truncate(<<>>, _State, _Stack, _TagAcc, Acc, _Length, _Append) ->
+    Acc;
+
+truncate(<<"<!--", Rest/binary>>, in_text, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_comment, Stack, <<>>, <<Acc/binary,"<!--">>, Length, Append);
+truncate(<<"-->", Rest/binary>>, in_comment, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary,"-->">>, Length, Append);
+truncate(<<C/utf8, Rest/binary>>, in_comment, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_comment, Stack, <<>>, <<Acc/binary,C/utf8>>, Length, Append);
+
+truncate(<<$<, $/, Rest/binary>>, in_text, Stack, <<>>, Acc, 0, Append) ->
+    truncate(Rest, in_tag, Stack, <<$<,$/>>, Acc, 0, Append);
+truncate(_Rest, in_text, [], _TagAcc, Acc, 0, Append) ->
+    <<Acc/binary,Append/binary>>;
+truncate(Rest, in_text, [Tag|Stack], _TagAcc, Acc, 0, Append) ->
+    CloseTag = make_closetag(Tag),
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary, Append/binary, CloseTag/binary>>, 0, <<>>);
+
+truncate(<<$/,$>, Rest/binary>>, in_tag, Stack, Tag, Acc, Length, Append) ->
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary,Tag/binary, $/, $>>>, Length, Append);
+truncate(<<$>, Rest/binary>>, in_tag, [_Tag|Stack], <<$<,$/,_/binary>> = CloseTag, Acc, Length, Append) ->
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary,CloseTag/binary,$>>>, Length, Append);
+truncate(<<$>, Rest/binary>>, in_tag, Stack, Tag, Acc, Length, Append) ->
+    truncate(Rest, in_text, [Tag|Stack], <<>>, <<Acc/binary,Tag/binary,$>>>, Length, Append);
+truncate(<<$<, Rest/binary>>, in_text, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_tag, Stack, <<$<>>, Acc, Length, Append);
+truncate(<<C/utf8, Rest/binary>>, in_tag, Stack, Tag, Acc, Length, Append) ->
+    truncate(Rest, in_tag, Stack, <<Tag/binary,C/utf8>>, Acc, Length, Append);
+
+truncate(<<$&, Rest/binary>>, in_text, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_element, Stack, <<>>, <<Acc/binary,$&>>, Length, Append);
+truncate(<<$;, Rest/binary>>, in_element, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary,$;>>, Length-1, Append);
+truncate(<<C, Rest/binary>>, in_element, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_element, Stack, <<>>, <<Acc/binary,C>>, Length, Append);
+
+truncate(<<C/utf8, Rest/binary>>, in_text, Stack, <<>>, Acc, Length, Append) ->
+    truncate(Rest, in_text, Stack, <<>>, <<Acc/binary, C/utf8>>, Length-1, Append).
+
+make_closetag(<<$<, Rest/binary>>) ->
+    case binary:split(Rest, <<" ">>) of
+        [Tag,_] ->
+            << $<,$/,Tag/binary,$> >>;
+        _ ->
+            [Tag|_] = binary:split(Rest, <<">">>),
+            << $<,$/,Tag/binary,$> >>
+    end.
 
 %% @doc Sanitize a (X)HTML string. Remove elements and attributes that might be harmful.
 %% @spec sanitize(binary()) -> binary()

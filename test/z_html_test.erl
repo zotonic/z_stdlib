@@ -60,6 +60,32 @@ unescape_test() ->
     ok.
 
 
+truncate_test() ->
+    ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 6)),
+    ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 5)),
+    ?assertEqual(<<"1234">>, z_html:truncate(<<"12345">>, 4)),
+    ?assertEqual(<<"<p>12345</p>">>, z_html:truncate(<<"<p>12345</p>">>, 5)),
+    ?assertEqual(<<"<p>1234</p>">>, z_html:truncate(<<"<p>12345</p>">>, 4)),
+    ?assertEqual(<<"<p>12<br/>34</p>">>, z_html:truncate(<<"<p>12<br/>345</p>">>, 4)),
+
+    ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 6, <<"...">>)),
+    ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 5, <<"...">>)),
+    ?assertEqual(<<"1234...">>, z_html:truncate(<<"12345">>, 4, <<"...">>)),
+    ?assertEqual(<<"<p>12345</p>">>, z_html:truncate(<<"<p>12345</p>">>, 5, <<"...">>)),
+    ?assertEqual(<<"<p>1234...</p>">>, z_html:truncate(<<"<p>12345</p>">>, 4, <<"...">>)),
+    ?assertEqual(<<"<p>12<br/>34...</p>">>, z_html:truncate(<<"<p>12<br/>345</p>">>, 4, <<"...">>)),
+
+    ?assertEqual(<<"12<a href='x'>34...</a>">>, z_html:truncate(<<"12<a href='x'>345</a>">>, 4, <<"...">>)),
+
+    ?assertEqual(<<"12&amp;45">>, z_html:truncate(<<"12&amp;45">>, 6, <<"...">>)),
+    ?assertEqual(<<"12&amp;45">>, z_html:truncate(<<"12&amp;45">>, 5, <<"...">>)),
+    ?assertEqual(<<"12&amp;4...">>, z_html:truncate(<<"12&amp;45">>, 4, <<"...">>)),
+    ?assertEqual(<<"12&amp;...">>, z_html:truncate(<<"12&amp;45">>, 3, <<"...">>)),
+
+    ?assertEqual(<<"12<!-- hello -->&amp;4...">>, z_html:truncate(<<"12<!-- hello -->&amp;45">>, 4, <<"...">>)),
+    ok.
+
+
 sanitize_test() ->
     %% Html tags and attributes are case insensitive 
     ?assertEqual(<<"<img src=\"img.jpg\" />">>, 
