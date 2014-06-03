@@ -42,6 +42,8 @@ last_char_test() ->
 to_name_test() ->
     A = <<"üçgen"/utf8>>,
     <<"ucgen">> = z_string:to_name(A),
+    <<"hola">> = z_string:to_name(hola),
+    <<"hola">> = z_string:to_name("hola"),
     ok.
 
 -else.
@@ -78,6 +80,8 @@ last_char_test() ->
 to_name_test() ->
     A = <<"üçgen">>,
     <<"ucgen">> = z_string:to_name(A),
+    <<"hola">> = z_string:to_name(hola),
+    <<"hola">> = z_string:to_name("hola"),
     ok.
 
 -endif.
