@@ -654,7 +654,9 @@ to_name(undefined) ->
 	<<$_>>;
 to_name(Name) when is_atom(Name) ->
     to_name(z_convert:to_binary(Name));
-to_name(Name) ->
+to_name(Name) when is_list(Name) ->
+    to_name(iolist_to_binary(Name));
+to_name(Name) when is_binary(Name) ->
     to_name(Name, <<>>, 0).
 
 -ifdef(coding_utf8).
