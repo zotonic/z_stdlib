@@ -1,5 +1,6 @@
 REBAR := ./rebar
 REBAR_URL := https://github.com/rebar/rebar/wiki/rebar
+ERL       ?= erl
 
 .PHONY: compile test
 
