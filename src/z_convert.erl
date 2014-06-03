@@ -57,8 +57,8 @@
 
 
 %% @doc Convert to lower case, strip surrounding whitespace.
--spec clean_lower(term()) -> string().
-clean_lower(L) -> string:strip(z_string:to_lower(to_list(L))).
+-spec clean_lower(binary()|list()|atom()) -> binary().
+clean_lower(L) -> z_string:trim(z_string:to_lower(L)).
 
 
 %% @doc Convert (almost) any value to a list.

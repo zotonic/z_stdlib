@@ -855,12 +855,12 @@ nl2br_bin(<<C, Post/binary>>, Acc) ->
 %% @doc Given a HTML list, scrape all `<link>' elements and return their attributes. Attribute names are lowercased.
 %% @spec scrape_link_elements(string()) -> [LinkAttributes]
 scrape_link_elements(Html) ->
-    case re:run(Html, "<link[^>]+>", [global, caseless, {capture,all,list}]) of
+    case re:run(Html, "<link[^>]+>", [global, caseless, {capture,all,binary}]) of
         {match, Elements} ->
             F = fun(El) ->
                         H = iolist_to_binary(["<p>", El, "</p>"]),
                         {<<"p">>, [], [{_, Attrs, []}]} = mochiweb_html:parse(H),
-                        [{z_string:to_lower(binary_to_list(K)),binary_to_list(V)} || {K,V} <- lists:flatten(Attrs)]
+                        [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)]
                 end,
             [F(El) || [El] <- Elements];
         nomatch ->

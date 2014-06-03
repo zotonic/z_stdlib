@@ -7,7 +7,7 @@
 
 
 to_lower_to_upper_test_disabled() ->
-    A = "üçgen",
+    A = <<"üçgen"/utf8>>,
     A = z_string:to_lower(z_string:to_upper(A)),
     ok.
 
@@ -15,24 +15,24 @@ first_char_test_disabled() ->
     ?assertEqual($a, z_string:first_char("aap")),
     ?assertEqual($a, z_string:first_char(<<"aap">>)),
     ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
-    ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx">>)),
+    ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx"/utf8>>)),
     ?assertEqual(263, z_string:first_char("ćaap")),
-    ?assertEqual(263, z_string:first_char(<<"ćaap">>)),
+    ?assertEqual(263, z_string:first_char(<<"ćaap"/utf8>>)),
     ok.
 
 last_char_test_disabled() ->
     ?assertEqual($p, z_string:last_char("aap")),
     ?assertEqual($p, z_string:last_char(<<"aap">>)),
     ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
-    ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ">>)),
+    ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ"/utf8>>)),
     ?assertEqual(263, z_string:last_char("aapć")),
-    ?assertEqual(263, z_string:last_char(<<"aapć">>)),
+    ?assertEqual(263, z_string:last_char(<<"aapć"/utf8>>)),
     ok.
 
 
 to_name_test() ->
-    A = "üçgen",
-    "ucgen" = z_string:to_name(A),
+    A = <<"üçgen"/utf8>>,
+    <<"ucgen">> = z_string:to_name(A),
     ok.
 
 concat_test() ->

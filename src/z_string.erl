@@ -3,8 +3,7 @@
 %% coding: utf-8
 
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2012 Marc Worrell
-%% Date: 2009-04-26
+%% @copyright 2009-2014 Marc Worrell
 %% @doc String related functions
 
 %% @todo Check valid chars for filenames, allow chinese, japanese, etc?
@@ -13,7 +12,7 @@
 %% Kangxi Radicals: Range 2F00-2FDF
 %% See also: http://www.utf8-chartable.de/
 
-%% Copyright 2009-2012 Marc Worrell
+%% Copyright 2009-2014 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +29,7 @@
 -module(z_string).
 -author("Marc Worrell <marc@worrell.nl").
 
--define(DOTS_UTF8, [226,128,166]).
+-define(DOTS_UTF8, <<226,128,166>>).
 
 %% interface functions
 -export([
@@ -70,12 +69,14 @@
 
 
 %% @doc Remove whitespace at the start and end of the string
+-spec trim(binary()|list()) -> binary()|list().
 trim(B) when is_binary(B) ->
 	trim_right(trim_left(B));
 trim(L) when is_list(L) ->
 	binary_to_list(trim(iolist_to_binary(L))).
 
 %% @doc Remove all occurences of a character at the start and end of a string.
+-spec trim(binary()|list(), integer()) -> binary()|list().
 trim(B, Char) when is_binary(B) ->
 	trim_right(trim_left(B, Char), Char);
 trim(L, Char) when is_list(L) ->
@@ -83,10 +84,12 @@ trim(L, Char) when is_list(L) ->
 
 
 %% @doc Remove whitespace at the start the string
+-spec trim_left(binary()|list()) -> binary()|list().
 trim_left(S) ->
     trim_left_func(S, fun(C) -> C =< 32 end).
 
 %% @doc Remove all occurences of a char at the start of a string
+-spec trim_left(binary()|list(), integer()) -> binary()|list().
 trim_left(S, Char) ->
     trim_left_func(S, fun(C) -> C == Char end).
 
@@ -113,35 +116,38 @@ trim_left_func(Other, _F) ->
     
 	
 %% @doc Remove whitespace at the end of the string
+-spec trim_right(binary()|list()) -> binary()|list().
 trim_right(B) when is_binary(B) ->
 	trim_right(B, <<>>, <<>>);
 trim_right(L) ->
 	binary_to_list(trim_right(iolist_to_binary(L))).
 
-	trim_right(<<C, Rest/binary>>, WS, Acc) ->
+	trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
 		case C of
-			W when W =< 32 -> trim_right(Rest, <<WS/binary, C>>, Acc);
-			_ -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C>>)
+			W when W =< 32 -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
+			_ -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
 		end;
 	trim_right(<<>>, _WS, Acc) ->
 		Acc.
 
 %% @doc Remove all occurences of a char at the end of the string
+-spec trim_right(binary()|list(), integer()) -> binary()|list().
 trim_right(B, Char) when is_binary(B) ->
 	trim_right(B, Char, <<>>, <<>>);
 trim_right(L, Char) ->
 	binary_to_list(trim_right(iolist_to_binary(L), Char)).
 
-	trim_right(<<C, Rest/binary>>, Char, WS, Acc) ->
+	trim_right(<<C/utf8, Rest/binary>>, Char, WS, Acc) ->
 		case C of
-			Char -> trim_right(Rest, Char, <<WS/binary, C>>, Acc);
-			_ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C>>)
+			Char -> trim_right(Rest, Char, <<WS/binary, C/utf8>>, Acc);
+			_ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
 		end;
 	trim_right(<<>>, _Char, _WS, Acc) ->
 		Acc.
 
 %% @doc Check if the variable is a one dimensional list, probably a string
-is_string([]) -> 
+-spec is_string(list()) -> boolean().
+is_string([]) ->
     true;
 is_string([C|Rest]) when 
 		is_integer(C)
@@ -153,6 +159,7 @@ is_string(_) ->
 
 
 %% @doc Return the first character of a string.
+-spec first_char(binary()|list()) -> pos_integer().
 first_char([]) -> undefined;
 first_char([H|T]) when is_integer(H) ->
     <<C/utf8, _/binary>> = list_to_binary(truncate([H|T], 1, "")),
@@ -162,6 +169,7 @@ first_char(<<C/utf8, _/binary>>) -> C.
 
 
 %% @doc Return the last character of a string
+-spec last_char(binary()|list()) -> pos_integer().
 last_char([]) -> undefined;
 last_char(L) when is_list(L) -> last_char(z_convert:to_binary(L));
 last_char(<<>>) -> undefined;
@@ -190,18 +198,29 @@ unquote(S, Q) ->
 
 
 %% @doc Remove all spaces and control characters from a string.
+-spec nospaces(binary()|list()) -> binary()|list().
 nospaces(B) when is_binary(B) ->
-    nospaces(binary_to_list(B));
-nospaces(L) ->
-    nospaces(L, []).
+    nospaces_bin(B, <<>>);
+nospaces(L) when is_list(L) ->
+    nospaces_list(L, []).
 
-nospaces([], Acc) ->
+nospaces_list([], Acc) ->
     lists:reverse(Acc);
-nospaces([C|Rest], Acc) when C =< 32 ->
-    nospaces(Rest, Acc);
-nospaces([C|Rest], Acc) ->
-    nospaces(Rest, [C|Acc]).
+nospaces_list([C|Rest], Acc) when C =< 32 ->
+    nospaces_list(Rest, Acc);
+nospaces_list([B|Rest], Acc) when is_binary(B) ->
+    nospaces_list(Rest, [nospaces_bin(B, <<>>)|Acc]);
+nospaces_list([L|Rest], Acc) when is_list(L) ->
+    nospaces_list(Rest, [nospaces_list(L,[])|Acc]);
+nospaces_list([C|Rest], Acc) ->
+    nospaces_list(Rest, [C|Acc]).
 
+nospaces_bin(<<>>, Acc) ->
+	Acc;
+nospaces_bin(<<C,Rest/binary>>, Acc) when C =< 32 ->
+	nospaces_bin(Rest, Acc);
+nospaces_bin(<<C,Rest/binary>>, Acc) ->
+	nospaces_bin(Rest, <<Acc/binary,C>>).
 
 
 %% @doc Make sure that the string is on one line only, replace control characters with spaces
@@ -219,188 +238,201 @@ line(L) ->
 
 
 %% @doc Return a lowercase string for the input
-%% @spec to_lower(Value) -> String
+-spec to_lower(string()|binary()|atom()) -> binary().
 to_lower(B) when is_binary(B) ->
-    to_lower(binary_to_list(B));
+    to_lower(B,<<>>);
+to_lower(undefined) ->
+	<<>>;
 to_lower(A) when is_atom(A) ->
-    to_lower(atom_to_list(A));
+    to_lower(z_convert:to_binary(A));
 to_lower(L) when is_list(L) ->
-    to_lower(lists:flatten(L), []).
+    to_lower(iolist_to_binary(L)).
 
-	to_lower([], Acc) -> lists:reverse(Acc);
-    to_lower([B|T], Acc) when is_binary(B) -> to_lower(binary_to_list(B)++T, Acc);
-	to_lower([H|T], Acc) when H >= $A andalso H =< $Z -> to_lower(T, [H+32|Acc]); 
-	to_lower("Å"++T, Acc) -> to_lower(T, [165,195|Acc]);
-	to_lower("Ä"++T, Acc) -> to_lower(T, [164,195|Acc]);
-	to_lower("Á"++T, Acc) -> to_lower(T, [161,195|Acc]);
-	to_lower("À"++T, Acc) -> to_lower(T, [160,195|Acc]);
-	to_lower("Ë"++T, Acc) -> to_lower(T, [171,195|Acc]);
-	to_lower("Ê"++T, Acc) -> to_lower(T, [170,195|Acc]);
-	to_lower("É"++T, Acc) -> to_lower(T, [169,195|Acc]);
-	to_lower("È"++T, Acc) -> to_lower(T, [168,195|Acc]);
-	to_lower("Ï"++T, Acc) -> to_lower(T, [175,195|Acc]);
-	to_lower("Î"++T, Acc) -> to_lower(T, [174,195|Acc]);
-	to_lower("Í"++T, Acc) -> to_lower(T, [173,195|Acc]);
-	to_lower("Ì"++T, Acc) -> to_lower(T, [172,195|Acc]);
-	to_lower("Ü"++T, Acc) -> to_lower(T, [188,195|Acc]);
-	to_lower("Û"++T, Acc) -> to_lower(T, [187,195|Acc]);
-	to_lower("Ú"++T, Acc) -> to_lower(T, [186,195|Acc]);
-	to_lower("Ù"++T, Acc) -> to_lower(T, [185,195|Acc]);
-	to_lower("Ö"++T, Acc) -> to_lower(T, [182,195|Acc]);
-	to_lower("Ô"++T, Acc) -> to_lower(T, [180,195|Acc]);
-	to_lower("Ó"++T, Acc) -> to_lower(T, [179,195|Acc]);
-	to_lower("Ò"++T, Acc) -> to_lower(T, [178,195|Acc]);
-	to_lower("Ø"++T, Acc) -> to_lower(T, [184,195|Acc]);
-	to_lower("Ç"++T, Acc) -> to_lower(T, [167,195|Acc]);
-	to_lower("Æ"++T, Acc) -> to_lower(T, [166,195|Acc]);
-	to_lower("Œ"++T, Acc) -> to_lower(T, [147,197|Acc]);
-	% Cyrillic support
-	to_lower("А"++T, Acc) -> to_lower(T, [176,208|Acc]);
-	to_lower("Б"++T, Acc) -> to_lower(T, [177,208|Acc]);
-	to_lower("В"++T, Acc) -> to_lower(T, [178,208|Acc]);
-	to_lower("Г"++T, Acc) -> to_lower(T, [179,208|Acc]);
-	to_lower("Д"++T, Acc) -> to_lower(T, [180,208|Acc]);
-	to_lower("Е"++T, Acc) -> to_lower(T, [181,208|Acc]);
-	to_lower("Ё"++T, Acc) -> to_lower(T, [145,209|Acc]);
-	to_lower("Ж"++T, Acc) -> to_lower(T, [182,208|Acc]);
-	to_lower("З"++T, Acc) -> to_lower(T, [183,208|Acc]);
-	to_lower("И"++T, Acc) -> to_lower(T, [184,208|Acc]);
-	to_lower("Й"++T, Acc) -> to_lower(T, [185,208|Acc]);
-	to_lower("К"++T, Acc) -> to_lower(T, [186,208|Acc]);
-	to_lower("Л"++T, Acc) -> to_lower(T, [187,208|Acc]);
-	to_lower("М"++T, Acc) -> to_lower(T, [188,208|Acc]);
-	to_lower("Н"++T, Acc) -> to_lower(T, [189,208|Acc]);
-	to_lower("О"++T, Acc) -> to_lower(T, [190,208|Acc]);
-	to_lower("П"++T, Acc) -> to_lower(T, [191,208|Acc]);
-	to_lower("Р"++T, Acc) -> to_lower(T, [128,209|Acc]);
-	to_lower("С"++T, Acc) -> to_lower(T, [129,209|Acc]);
-	to_lower("Т"++T, Acc) -> to_lower(T, [130,209|Acc]);
-	to_lower("У"++T, Acc) -> to_lower(T, [131,209|Acc]);
-	to_lower("Ф"++T, Acc) -> to_lower(T, [132,209|Acc]);
-	to_lower("Х"++T, Acc) -> to_lower(T, [133,209|Acc]);
-	to_lower("Ц"++T, Acc) -> to_lower(T, [134,209|Acc]);
-	to_lower("Ч"++T, Acc) -> to_lower(T, [135,209|Acc]);
-	to_lower("Ш"++T, Acc) -> to_lower(T, [136,209|Acc]);
-	to_lower("Щ"++T, Acc) -> to_lower(T, [137,209|Acc]);
-	to_lower("Ъ"++T, Acc) -> to_lower(T, [138,209|Acc]);
-	to_lower("Ы"++T, Acc) -> to_lower(T, [139,209|Acc]);
-	to_lower("Ь"++T, Acc) -> to_lower(T, [140,209|Acc]);
-	to_lower("Э"++T, Acc) -> to_lower(T, [141,209|Acc]);
-	to_lower("Ю"++T, Acc) -> to_lower(T, [142,209|Acc]);
-	to_lower("Я"++T, Acc) -> to_lower(T, [143,209|Acc]);
-	% Extra Ukrainian characters
-	to_lower("Ґ"++T, Acc) -> to_lower(T, [145,210|Acc]);
-	to_lower("Ї"++T, Acc) -> to_lower(T, [151,209|Acc]);
-	to_lower("І"++T, Acc) -> to_lower(T, [150,209|Acc]);
-	to_lower("Є"++T, Acc) -> to_lower(T, [148,209|Acc]);
-	% Polish support
-	to_lower("Ą"++T, Acc) -> to_lower(T, [133,196|Acc]);
-	to_lower("Ę"++T, Acc) -> to_lower(T, [153,196|Acc]);
-	to_lower("Ć"++T, Acc) -> to_lower(T, [135,196|Acc]);
-	to_lower("Ł"++T, Acc) -> to_lower(T, [130,197|Acc]);
-	to_lower("Ń"++T, Acc) -> to_lower(T, [132,197|Acc]);
-	to_lower("Ś"++T, Acc) -> to_lower(T, [155,197|Acc]);
-	to_lower("Ź"++T, Acc) -> to_lower(T, [186,197|Acc]);
-	to_lower("Ż"++T, Acc) -> to_lower(T, [188,197|Acc]);
-    % Turkish support
-	to_lower("Ş"++T, Acc) -> to_lower(T, [159,197|Acc]);
-	to_lower("Ğ"++T, Acc) -> to_lower(T, [159,196|Acc]);
-	to_lower("İ"++T, Acc) -> to_lower(T, [177,196|Acc]);
-	% Other characters are taken as-is
-	to_lower([H|T], Acc) -> to_lower(T, [H|Acc]).
+to_lower(<<>>, Acc) ->
+	Acc;
+to_lower(<<H,T/binary>>, Acc) when H >= $A andalso H =< $Z ->
+	H1 = H + 32,
+	to_lower(T,<<Acc/binary,H1>>); 
+to_lower(<<H,T/binary>>, Acc) when H < 128 ->
+	to_lower(T,<<Acc/binary,H>>); 
+to_lower(<<"Å"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,165>>);
+to_lower(<<"Ä"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,164>>);
+to_lower(<<"Á"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,161>>);
+to_lower(<<"À"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,160>>);
+to_lower(<<"Ë"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,171>>);
+to_lower(<<"Ê"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,170>>);
+to_lower(<<"É"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,169>>);
+to_lower(<<"È"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,168>>);
+to_lower(<<"Ï"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,175>>);
+to_lower(<<"Î"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,174>>);
+to_lower(<<"Í"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,173>>);
+to_lower(<<"Ì"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,172>>);
+to_lower(<<"Ü"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,188>>);
+to_lower(<<"Û"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,187>>);
+to_lower(<<"Ú"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,186>>);
+to_lower(<<"Ù"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,185>>);
+to_lower(<<"Ö"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,182>>);
+to_lower(<<"Ô"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,180>>);
+to_lower(<<"Ó"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,179>>);
+to_lower(<<"Ò"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,178>>);
+to_lower(<<"Ø"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,184>>);
+to_lower(<<"Ç"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,167>>);
+to_lower(<<"Æ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,166>>);
+to_lower(<<"Œ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,147>>);
+% Cyrillic support
+to_lower(<<"А"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,176>>);
+to_lower(<<"Б"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,177>>);
+to_lower(<<"В"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,178>>);
+to_lower(<<"Г"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,179>>);
+to_lower(<<"Д"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,180>>);
+to_lower(<<"Е"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,181>>);
+to_lower(<<"Ё"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,145>>);
+to_lower(<<"Ж"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,182>>);
+to_lower(<<"З"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,183>>);
+to_lower(<<"И"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,184>>);
+to_lower(<<"Й"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,185>>);
+to_lower(<<"К"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,186>>);
+to_lower(<<"Л"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,187>>);
+to_lower(<<"М"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,188>>);
+to_lower(<<"Н"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,189>>);
+to_lower(<<"О"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,190>>);
+to_lower(<<"П"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,191>>);
+to_lower(<<"Р"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,128>>);
+to_lower(<<"С"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,129>>);
+to_lower(<<"Т"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,130>>);
+to_lower(<<"У"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,131>>);
+to_lower(<<"Ф"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,132>>);
+to_lower(<<"Х"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,133>>);
+to_lower(<<"Ц"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,134>>);
+to_lower(<<"Ч"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,135>>);
+to_lower(<<"Ш"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,136>>);
+to_lower(<<"Щ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,137>>);
+to_lower(<<"Ъ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,138>>);
+to_lower(<<"Ы"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,139>>);
+to_lower(<<"Ь"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,140>>);
+to_lower(<<"Э"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,141>>);
+to_lower(<<"Ю"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,142>>);
+to_lower(<<"Я"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,143>>);
+% Extra Ukrainian characters
+to_lower(<<"Ґ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,210,145>>);
+to_lower(<<"Ї"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,151>>);
+to_lower(<<"І"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,150>>);
+to_lower(<<"Є"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,209,148>>);
+% Polish support
+to_lower(<<"Ą"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,196,133>>);
+to_lower(<<"Ę"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,196,153>>);
+to_lower(<<"Ć"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,196,135>>);
+to_lower(<<"Ł"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,130>>);
+to_lower(<<"Ń"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,132>>);
+to_lower(<<"Ś"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,155>>);
+to_lower(<<"Ź"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,186>>);
+to_lower(<<"Ż"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,188>>);
+% Turkish support
+to_lower(<<"Ş"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,159>>);
+to_lower(<<"Ğ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,196,159>>);
+to_lower(<<"İ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,196,177>>);
+% Other characters are taken as-is
+to_lower(<<H/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,H/utf8>>).
 
 
 %% @doc Return a uppercase string for the input
-%% @spec to_upper(Value) -> String
+-spec to_upper(string()|binary()|atom()) -> binary().
 to_upper(B) when is_binary(B) ->
-    to_upper(binary_to_list(B));
+	to_upper(B,<<>>);
+to_upper(undefined) ->
+	<<>>;
 to_upper(A) when is_atom(A) ->
-    to_upper(atom_to_list(A));
+    to_upper(z_convert:to_binary(A));
 to_upper(L) when is_list(L) ->
-    to_upper(lists:flatten(L), []).
+    to_upper(iolist:to_binary(L), <<>>).
 
-	to_upper([], Acc) -> lists:reverse(Acc);
-    to_upper([B|T], Acc) when is_binary(B) -> to_upper(binary_to_list(B)++T, Acc);
-	to_upper([H|T], Acc) when H >= $a andalso H =< $z -> to_upper(T, [H-32|Acc]); 
-	to_upper("å"++T, Acc) -> to_upper(T, [133,195|Acc]);
-	to_upper("ä"++T, Acc) -> to_upper(T, [132,195|Acc]);
-	to_upper("á"++T, Acc) -> to_upper(T, [129,195|Acc]);
-	to_upper("à"++T, Acc) -> to_upper(T, [128,195|Acc]);
-	to_upper("ë"++T, Acc) -> to_upper(T, [139,195|Acc]);
-	to_upper("ê"++T, Acc) -> to_upper(T, [138,195|Acc]);
-	to_upper("é"++T, Acc) -> to_upper(T, [137,195|Acc]);
-	to_upper("è"++T, Acc) -> to_upper(T, [136,195|Acc]);
-	to_upper("ï"++T, Acc) -> to_upper(T, [143,195|Acc]);
-	to_upper("Î"++T, Acc) -> to_upper(T, [142,195|Acc]);
-	to_upper("í"++T, Acc) -> to_upper(T, [141,195|Acc]);
-	to_upper("ì"++T, Acc) -> to_upper(T, [140,195|Acc]);
-	to_upper("ü"++T, Acc) -> to_upper(T, [156,195|Acc]);
-	to_upper("û"++T, Acc) -> to_upper(T, [155,195|Acc]);
-	to_upper("ú"++T, Acc) -> to_upper(T, [154,195|Acc]);
-	to_upper("ù"++T, Acc) -> to_upper(T, [153,195|Acc]);
-	to_upper("ö"++T, Acc) -> to_upper(T, [150,195|Acc]);
-	to_upper("ô"++T, Acc) -> to_upper(T, [148,195|Acc]);
-	to_upper("ó"++T, Acc) -> to_upper(T, [147,195|Acc]);
-	to_upper("ò"++T, Acc) -> to_upper(T, [146,195|Acc]);
-	to_upper("ø"++T, Acc) -> to_upper(T, [152,195|Acc]);
-	to_upper("ç"++T, Acc) -> to_upper(T, [135,195|Acc]);
-	to_upper("æ"++T, Acc) -> to_upper(T, [134,195|Acc]);
-	to_upper("œ"++T, Acc) -> to_upper(T, [146,197|Acc]);
-	% Cyrillic support
-	to_upper("а"++T, Acc) -> to_upper(T, [144,208|Acc]);
-	to_upper("б"++T, Acc) -> to_upper(T, [145,208|Acc]);
-	to_upper("в"++T, Acc) -> to_upper(T, [146,208|Acc]);
-	to_upper("г"++T, Acc) -> to_upper(T, [147,208|Acc]);
-	to_upper("д"++T, Acc) -> to_upper(T, [148,208|Acc]);
-	to_upper("е"++T, Acc) -> to_upper(T, [149,208|Acc]);
-	to_upper("ё"++T, Acc) -> to_upper(T, [129,208|Acc]);
-	to_upper("ж"++T, Acc) -> to_upper(T, [150,208|Acc]);
-	to_upper("з"++T, Acc) -> to_upper(T, [151,208|Acc]);
-	to_upper("и"++T, Acc) -> to_upper(T, [152,208|Acc]);
-	to_upper("й"++T, Acc) -> to_upper(T, [153,208|Acc]);
-	to_upper("к"++T, Acc) -> to_upper(T, [154,208|Acc]);
-	to_upper("л"++T, Acc) -> to_upper(T, [155,208|Acc]);
-	to_upper("м"++T, Acc) -> to_upper(T, [156,208|Acc]);
-	to_upper("н"++T, Acc) -> to_upper(T, [157,208|Acc]);
-	to_upper("о"++T, Acc) -> to_upper(T, [158,208|Acc]);
-	to_upper("п"++T, Acc) -> to_upper(T, [159,208|Acc]);
-	to_upper("р"++T, Acc) -> to_upper(T, [160,208|Acc]);
-	to_upper("с"++T, Acc) -> to_upper(T, [161,208|Acc]);
-	to_upper("т"++T, Acc) -> to_upper(T, [162,208|Acc]);
-	to_upper("у"++T, Acc) -> to_upper(T, [163,208|Acc]);
-	to_upper("ф"++T, Acc) -> to_upper(T, [164,208|Acc]);
-	to_upper("х"++T, Acc) -> to_upper(T, [165,208|Acc]);
-	to_upper("ц"++T, Acc) -> to_upper(T, [166,208|Acc]);
-	to_upper("ч"++T, Acc) -> to_upper(T, [167,208|Acc]);
-	to_upper("ш"++T, Acc) -> to_upper(T, [168,208|Acc]);
-	to_upper("щ"++T, Acc) -> to_upper(T, [169,208|Acc]);
-	to_upper("ъ"++T, Acc) -> to_upper(T, [170,208|Acc]);
-	to_upper("ы"++T, Acc) -> to_upper(T, [171,208|Acc]);
-	to_upper("ь"++T, Acc) -> to_upper(T, [172,208|Acc]);
-	to_upper("э"++T, Acc) -> to_upper(T, [173,208|Acc]);
-	to_upper("ю"++T, Acc) -> to_upper(T, [174,208|Acc]);
-	to_upper("я"++T, Acc) -> to_upper(T, [175,208|Acc]);
-	% Extra Ukrainian characters
-	to_upper("ґ"++T, Acc) -> to_upper(T, [144,210|Acc]);
-	to_upper("ї"++T, Acc) -> to_upper(T, [135,208|Acc]);
-	to_upper("і"++T, Acc) -> to_upper(T, [143,208|Acc]);
-	to_upper("є"++T, Acc) -> to_upper(T, [132,208|Acc]);
-	% Polish support
-	to_upper("ą"++T, Acc) -> to_upper(T, [132,196|Acc]);
-	to_upper("ę"++T, Acc) -> to_upper(T, [152,196|Acc]);
-	to_upper("ć"++T, Acc) -> to_upper(T, [134,196|Acc]);
-	to_upper("ł"++T, Acc) -> to_upper(T, [129,197|Acc]);
-	to_upper("ń"++T, Acc) -> to_upper(T, [131,197|Acc]);
-	to_upper("ś"++T, Acc) -> to_upper(T, [154,197|Acc]);
-	to_upper("ź"++T, Acc) -> to_upper(T, [185,197|Acc]);
-	to_upper("ż"++T, Acc) -> to_upper(T, [187,197|Acc]);
-	% Turkish support
-	to_upper("ş"++T, Acc) -> to_upper(T, [158,197|Acc]);
-	to_upper("ğ"++T, Acc) -> to_upper(T, [158,196|Acc]);
-	to_upper("ı"++T, Acc) -> to_upper(T, [176,196|Acc]);
+to_upper(<<>>, Acc) -> 
+	Acc;
+to_upper(<<H,T/binary>>, Acc) when H >= $a andalso H =< $z ->
+	H1 = H - 32,
+	to_upper(T,<<Acc/binary,H1>>); 
+to_upper(<<H,T/binary>>, Acc) when H < 128 ->
+	to_upper(T,<<Acc/binary,H>>); 
+to_upper(<<"å"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,133>>);
+to_upper(<<"ä"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,132>>);
+to_upper(<<"á"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,129>>);
+to_upper(<<"à"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,128>>);
+to_upper(<<"ë"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,139>>);
+to_upper(<<"ê"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,138>>);
+to_upper(<<"é"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,137>>);
+to_upper(<<"è"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,136>>);
+to_upper(<<"ï"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,143>>);
+to_upper(<<"Î"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,142>>);
+to_upper(<<"í"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,141>>);
+to_upper(<<"ì"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,140>>);
+to_upper(<<"ü"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,156>>);
+to_upper(<<"û"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,155>>);
+to_upper(<<"ú"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,154>>);
+to_upper(<<"ù"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,153>>);
+to_upper(<<"ö"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,150>>);
+to_upper(<<"ô"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,148>>);
+to_upper(<<"ó"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,147>>);
+to_upper(<<"ò"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,146>>);
+to_upper(<<"ø"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,152>>);
+to_upper(<<"ç"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,135>>);
+to_upper(<<"æ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,134>>);
+to_upper(<<"œ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,146>>);
+% Cyrillic support
+to_upper(<<"а"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,144>>);
+to_upper(<<"б"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,145>>);
+to_upper(<<"в"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,146>>);
+to_upper(<<"г"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,147>>);
+to_upper(<<"д"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,148>>);
+to_upper(<<"е"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,149>>);
+to_upper(<<"ё"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,129>>);
+to_upper(<<"ж"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,150>>);
+to_upper(<<"з"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,151>>);
+to_upper(<<"и"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,152>>);
+to_upper(<<"й"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,153>>);
+to_upper(<<"к"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,154>>);
+to_upper(<<"л"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,155>>);
+to_upper(<<"м"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,156>>);
+to_upper(<<"н"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,157>>);
+to_upper(<<"о"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,158>>);
+to_upper(<<"п"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,159>>);
+to_upper(<<"р"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,160>>);
+to_upper(<<"с"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,161>>);
+to_upper(<<"т"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,162>>);
+to_upper(<<"у"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,163>>);
+to_upper(<<"ф"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,164>>);
+to_upper(<<"х"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,165>>);
+to_upper(<<"ц"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,166>>);
+to_upper(<<"ч"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,167>>);
+to_upper(<<"ш"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,168>>);
+to_upper(<<"щ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,169>>);
+to_upper(<<"ъ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,170>>);
+to_upper(<<"ы"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,171>>);
+to_upper(<<"ь"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,172>>);
+to_upper(<<"э"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,173>>);
+to_upper(<<"ю"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,174>>);
+to_upper(<<"я"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,175>>);
+% Extra Ukrainian characters
+to_upper(<<"ґ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,210,144>>);
+to_upper(<<"ї"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,135>>);
+to_upper(<<"і"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,143>>);
+to_upper(<<"є"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,132>>);
+% Polish support
+to_upper(<<"ą"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,132>>);
+to_upper(<<"ę"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,152>>);
+to_upper(<<"ć"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,134>>);
+to_upper(<<"ł"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,129>>);
+to_upper(<<"ń"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,131>>);
+to_upper(<<"ś"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,154>>);
+to_upper(<<"ź"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,185>>);
+to_upper(<<"ż"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,187>>);
+% Turkish support
+to_upper(<<"ş"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,158>>);
+to_upper(<<"ğ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,158>>);
+to_upper(<<"ı"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,176>>);
 
-	% Other chars are taken as-is
-	to_upper([H|T], Acc) -> to_upper(T, [H|Acc]).
+% Other chars are taken as-is
+to_upper(<<H/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,H/utf8>>).
+
 
 %% @doc Filter a filename so that we obtain a basename that is safe to use.
 %% @spec to_rootname(string()) -> string()
@@ -409,188 +441,190 @@ to_rootname(Filename) ->
 
 
 %% @doc Map a string to a slug that can be used in the uri of a page. Same as a name, but then with dashes instead of underscores.
-%% @spec to_slug(String) -> String
+-spec to_slug(string()|binary()|atom()) -> binary().
 to_slug(Title) ->
-    Slug = to_name(Title),
-    [ case C of $_ -> $-; _ -> C end || C <- Slug ].
+	binary:replace(to_name(Title), <<$_>>, <<$->>, [global]). 
 
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
-%% @spec to_name(String) -> String
+-spec to_name(string()|binary()|atom()) -> binary().
 to_name({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
         undefined -> 
             case Tr of
                 [{_,V}|_] -> to_name(V);
-                _ -> to_name([])
+                _ -> to_name(<<>>)
             end;
-        V -> to_name(V)
+        V -> 
+        	to_name(V)
     end;
-to_name(Name) when is_binary(Name) ->
-    to_name(binary_to_list(Name));
+to_name(undefined) ->
+	<<$_>>;
 to_name(Name) when is_atom(Name) ->
-    to_name(atom_to_list(Name));
+    to_name(z_convert:to_binary(Name));
 to_name(Name) ->
-    to_name(Name, [], 0).
+    to_name(Name, <<>>, 0).
 
-to_name([], Acc, _I) ->
-    case string:strip(lists:reverse(Acc), both, $_) of
-        [] -> "_";
+to_name(<<>>, Acc, _I) ->
+    case trim(Acc, $_) of
+        <<>> -> <<"_">>;
         Name -> Name
     end;
 to_name(_, Acc, N) when N >= 80 ->
-    to_name([], Acc, 80);
-to_name([C|T], Acc, I) when C >= $A andalso C =< $Z ->
-    to_name(T, [C+32|Acc], I+1);
-to_name([C|T], Acc, I) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
-    to_name(T, [C|Acc], I+1);
-to_name("ä"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("ë"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("ï"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("ü"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("ö"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("Ä"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("Ë"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("Ï"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("Ü"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("Ö"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("é"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("è"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("É"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("È"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("í"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("ì"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("Í"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("Ì"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("ú"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("ù"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("Ú"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("Ù"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("ó"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("ò"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("Ó"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("Ò"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("ß"++T, Acc, I) -> to_name(T, [$s,$s|Acc], I+2);
-to_name("ç"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("Ç"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("ø"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("Ø"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("å"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("Å"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("€"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("ÿ"++T, Acc, I) -> to_name(T, [$i,$j|Acc], I+2);
-to_name("@"++T, Acc, I) -> to_name(T, [$_,$t,$a,$_|Acc], I+4);
+    to_name(<<>>, Acc, 80);
+to_name(<<C, T/binary>>, Acc, I) when C >= $A andalso C =< $Z ->
+	C1 = C+32,
+    to_name(T, <<Acc/binary,C1>>, I+1);
+to_name(<<C,T/binary>>, Acc, I) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
+    to_name(T, <<Acc/binary,C>>, I+1);
+to_name(<<"ä"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"ë"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"ï"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"ü"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"ö"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"Ä"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"Ë"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"Ï"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"Ü"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"Ö"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"é"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"è"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"É"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"È"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"í"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"ì"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"Í"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"Ì"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"ú"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"ù"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"Ú"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"Ù"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"ó"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"ò"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"Ó"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"Ò"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"ß"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$s>>, I+2);
+to_name(<<"ç"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"Ç"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"ø"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"Ø"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"Å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"€"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"ÿ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i,$j>>, I+2);
+to_name(<<"@"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$t,$a,$_>>, I+4);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
-to_name("А"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("а"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("Б"++T, Acc, I) -> to_name(T, [$b|Acc], I+1);
-to_name("б"++T, Acc, I) -> to_name(T, [$b|Acc], I+1);
-to_name("В"++T, Acc, I) -> to_name(T, [$v|Acc], I+1);
-to_name("в"++T, Acc, I) -> to_name(T, [$v|Acc], I+1);
-to_name("Г"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("г"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("Д"++T, Acc, I) -> to_name(T, [$d|Acc], I+1);
-to_name("д"++T, Acc, I) -> to_name(T, [$d|Acc], I+1);
-to_name("Е"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("е"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("Ё"++T, Acc, I) -> to_name(T, [$o,$y|Acc], I+2);
-to_name("ё"++T, Acc, I) -> to_name(T, [$o,$y|Acc], I+2);
-to_name("Ж"++T, Acc, I) -> to_name(T, [$h,$z|Acc], I+2);
-to_name("ж"++T, Acc, I) -> to_name(T, [$h,$z|Acc], I+2);
-to_name("З"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
-to_name("з"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
-to_name("И"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("и"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("Й"++T, Acc, I) -> to_name(T, [$j|Acc], I+1);
-to_name("й"++T, Acc, I) -> to_name(T, [$j|Acc], I+1);
-to_name("К"++T, Acc, I) -> to_name(T, [$k|Acc], I+1);
-to_name("к"++T, Acc, I) -> to_name(T, [$k|Acc], I+1);
-to_name("Л"++T, Acc, I) -> to_name(T, [$l|Acc], I+1);
-to_name("л"++T, Acc, I) -> to_name(T, [$l|Acc], I+1);
-to_name("М"++T, Acc, I) -> to_name(T, [$m|Acc], I+1);
-to_name("м"++T, Acc, I) -> to_name(T, [$m|Acc], I+1);
-to_name("Н"++T, Acc, I) -> to_name(T, [$n|Acc], I+1);
-to_name("н"++T, Acc, I) -> to_name(T, [$n|Acc], I+1);
-to_name("О"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("о"++T, Acc, I) -> to_name(T, [$o|Acc], I+1);
-to_name("П"++T, Acc, I) -> to_name(T, [$p|Acc], I+1);
-to_name("п"++T, Acc, I) -> to_name(T, [$p|Acc], I+1);
-to_name("Р"++T, Acc, I) -> to_name(T, [$r|Acc], I+1);
-to_name("р"++T, Acc, I) -> to_name(T, [$r|Acc], I+1);
-to_name("С"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("с"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("Т"++T, Acc, I) -> to_name(T, [$t|Acc], I+1);
-to_name("т"++T, Acc, I) -> to_name(T, [$t|Acc], I+1);
-to_name("У"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("у"++T, Acc, I) -> to_name(T, [$u|Acc], I+1);
-to_name("Ф"++T, Acc, I) -> to_name(T, [$f|Acc], I+1);
-to_name("ф"++T, Acc, I) -> to_name(T, [$f|Acc], I+1);
-to_name("Х"++T, Acc, I) -> to_name(T, [$h|Acc], I+1);
-to_name("х"++T, Acc, I) -> to_name(T, [$h|Acc], I+1);
-to_name("Ц"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("ц"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("Ч"++T, Acc, I) -> to_name(T, [$h,$c|Acc], I+2);
-to_name("ч"++T, Acc, I) -> to_name(T, [$h,$c|Acc], I+2);
-to_name("Ш"++T, Acc, I) -> to_name(T, [$h,$s|Acc], I+2);
-to_name("ш"++T, Acc, I) -> to_name(T, [$h,$s|Acc], I+2);
-to_name("Щ"++T, Acc, I) -> to_name(T, [$h,$h,$s|Acc], I+3);
-to_name("щ"++T, Acc, I) -> to_name(T, [$h,$h,$s|Acc], I+3);
-to_name("Ъ"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("ъ"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("Ы"++T, Acc, I) -> to_name(T, [$y|Acc], I+1);
-to_name("ы"++T, Acc, I) -> to_name(T, [$y|Acc], I+1);
-to_name("Ь"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("ь"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("Э"++T, Acc, I) -> to_name(T, [$h,$e|Acc], I+2);
-to_name("э"++T, Acc, I) -> to_name(T, [$h,$e|Acc], I+2);
-to_name("Ю"++T, Acc, I) -> to_name(T, [$u,$y|Acc], I+2);
-to_name("ю"++T, Acc, I) -> to_name(T, [$u,$y|Acc], I+2);
-to_name("Я"++T, Acc, I) -> to_name(T, [$a,$y|Acc], I+2);
-to_name("я"++T, Acc, I) -> to_name(T, [$a,$y|Acc], I+2);
+to_name(<<"А"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"а"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"Б"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
+to_name(<<"б"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
+to_name(<<"В"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
+to_name(<<"в"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
+to_name(<<"Г"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"г"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"Д"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
+to_name(<<"д"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
+to_name(<<"Е"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"е"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"Ё"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$y>>, I+2);
+to_name(<<"ё"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$y>>, I+2);
+to_name(<<"Ж"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$z>>, I+2);
+to_name(<<"ж"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$z>>, I+2);
+to_name(<<"З"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"з"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"И"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"и"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"Й"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
+to_name(<<"й"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
+to_name(<<"К"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
+to_name(<<"к"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
+to_name(<<"Л"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"л"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"М"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
+to_name(<<"м"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
+to_name(<<"Н"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"н"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"О"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"о"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"П"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
+to_name(<<"п"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
+to_name(<<"Р"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
+to_name(<<"р"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
+to_name(<<"С"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"с"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"Т"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"т"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"У"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"у"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"Ф"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
+to_name(<<"ф"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
+to_name(<<"Х"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
+to_name(<<"х"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
+to_name(<<"Ц"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"ц"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"Ч"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$c>>, I+2);
+to_name(<<"ч"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$c>>, I+2);
+to_name(<<"Ш"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$s>>, I+2);
+to_name(<<"ш"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$s>>, I+2);
+to_name(<<"Щ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$h,$s>>, I+3);
+to_name(<<"щ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$h,$s>>, I+3);
+to_name(<<"Ъ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"ъ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"Ы"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
+to_name(<<"ы"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
+to_name(<<"Ь"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"ь"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"Э"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$e>>, I+2);
+to_name(<<"э"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$e>>, I+2);
+to_name(<<"Ю"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$y>>, I+2);
+to_name(<<"ю"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$y>>, I+2);
+to_name(<<"Я"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$y>>, I+2);
+to_name(<<"я"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$y>>, I+2);
 % Ukrainian support
-to_name("Ґ"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("ґ"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("Ї"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("ї"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("І"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("і"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("Є"++T, Acc, I) -> to_name(T, [$e,$y|Acc], I+2);
-to_name("є"++T, Acc, I) -> to_name(T, [$e,$y|Acc], I+2);
+to_name(<<"Ґ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"ґ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"Ї"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"ї"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"І"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"і"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"Є"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$y>>, I+2);
+to_name(<<"є"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$y>>, I+2);
 % Polish support
-to_name("Ą"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("ą"++T, Acc, I) -> to_name(T, [$a|Acc], I+1);
-to_name("Ę"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("ę"++T, Acc, I) -> to_name(T, [$e|Acc], I+1);
-to_name("Ć"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("ć"++T, Acc, I) -> to_name(T, [$c|Acc], I+1);
-to_name("Ł"++T, Acc, I) -> to_name(T, [$l|Acc], I+1);
-to_name("ł"++T, Acc, I) -> to_name(T, [$l|Acc], I+1);
-to_name("Ń"++T, Acc, I) -> to_name(T, [$n|Acc], I+1);
-to_name("ń"++T, Acc, I) -> to_name(T, [$n|Acc], I+1);
-to_name("Ś"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("ś"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("Ź"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
-to_name("ź"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
-to_name("Ż"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
-to_name("ż"++T, Acc, I) -> to_name(T, [$z|Acc], I+1);
+to_name(<<"Ą"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"ą"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"Ę"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"ę"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"Ć"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"ć"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
+to_name(<<"Ł"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"ł"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"Ń"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"ń"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"Ś"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"ś"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"Ź"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"ź"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"Ż"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"ż"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
 % Turkish support
-to_name("Ş"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("ş"++T, Acc, I) -> to_name(T, [$s|Acc], I+1);
-to_name("Ğ"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("ğ"++T, Acc, I) -> to_name(T, [$g|Acc], I+1);
-to_name("İ"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
-to_name("ı"++T, Acc, I) -> to_name(T, [$i|Acc], I+1);
+to_name(<<"Ş"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"ş"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"Ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"İ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"ı"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
 % Some entities - we might want to add generic code here, depends
 % on where to_name/1 is used (can we assume that the input is always html?)
-to_name("&amp;"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("&lt;"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("&gt;"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
-to_name("&#39;"++T, Acc, I) -> to_name(T, [$_|Acc], I+1);
+to_name(<<"&amp;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"&lt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"&gt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"&#39;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
+to_name(<<"&quot;",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 % Other sequences of characters are mapped to $_
-to_name([_C|T], [$_|_] = Acc, I) ->
+to_name(<<_C/utf8,T/binary>>, <<$_,_/binary>> = Acc, I) ->
     to_name(T, Acc, I+1);
-to_name([_C|T], Acc, I) ->
-    to_name(T, [$_|Acc], I+1).
+to_name(<<_C/utf8,T/binary>>, Acc, I) ->
+    to_name(T, <<Acc/binary,$_>>, I+1).
 
 
 %% @doc Replace a string inside another string
@@ -636,8 +670,7 @@ s_utf8(<<2#11110:5, A:3, 2#10:2, B:6, 2#10:2, C:6, 2#10:2, D:6, Rest/binary>>,
         Acc) when
         <<0:3, A:3, B:6, C:6, D:6>> >= <<16#10000:24>> andalso
         <<0:3, A:3, B:6, C:6, D:6>> =< <<16#10FFFF:24>> ->
-    s_utf8(Rest,
-        <<Acc/binary, 2#11110:5, A:3, 2#10:2, B:6, 2#10:2, C:6, 2#10:2, D:6>>);
+    s_utf8(Rest, <<Acc/binary, 2#11110:5, A:3, 2#10:2, B:6, 2#10:2, C:6, 2#10:2, D:6>>);
 
 %% Drop illegal utf-8 character.
 s_utf8(<<_, Rest/binary>>, Acc) ->
@@ -650,96 +683,68 @@ truncate(undefined, _) ->
 truncate(L, N) ->
 	truncate(L, N, ?DOTS_UTF8).
 
-truncate(B, N, Append) when is_binary(B) ->
-	truncate(z_convert:to_list(B), N, Append);
 truncate(_L, N, _Append) when N =< 0 ->
-	[];
+	<<>>;
+truncate(B, N, Append) when is_binary(B) ->
+	truncate(B, N, Append, in_word, <<>>, in_word, <<>>);
 truncate(L, N, Append) ->
-	truncate(L, N, Append, in_word, [], in_word, []).
+	truncate(iolist_to_binary(L), N, Append).
 	
 
-	truncate([], _, _Append, _LastState, _Last, _AccState, Acc) ->
-		lists:reverse(Acc);
-	truncate(_, 0, _Append, sentence, Last, _AccState, _Acc) ->
-		lists:reverse(Last);
-	truncate(_, 0, Append, _, [], _AccState, Acc) ->
-		lists:reverse(insert_acc(Append, Acc));
-	truncate(_, 0, Append, _LastState, Last, _AccState, _Acc) ->
-		lists:reverse(insert_acc(Append, Last));
+truncate(<<>>, _, _Append, _LastState, _Last, _AccState, Acc) ->
+	Acc;
+truncate(_, 0, _Append, sentence, Last, _AccState, _Acc) ->
+	Last;
+truncate(_, 0, Append, _, <<>>, _AccState, Acc) ->
+	<<Acc/binary, Append/binary>>;
+truncate(_, 0, Append, _LastState, Last, _AccState, _Acc) ->
+	<<Last/binary, Append/binary>>;
 
-	%% HTML element (we only allow self closing elements like <br/> and <hr/>)
-	truncate([$>|Rest], N, Append, _LastState, Last, in_element, Acc) ->
-		truncate(Rest, N, Append, sentence, Last, in_word, [$>|Acc]);
+%% HTML element (we only allow self closing elements like <br/> and <hr/>)
+truncate(<<$>,Rest/binary>>, N, Append, _LastState, Last, in_element, Acc) ->
+	truncate(Rest, N, Append, sentence, Last, in_word, <<Acc/binary,$>>>);
 
-	truncate([C|Rest], N, Append, LastState, Last, in_element, Acc) ->
-		truncate(Rest, N, Append, LastState, Last, in_element, [C|Acc]);
+truncate(<<C/utf8,Rest>>, N, Append, LastState, Last, in_element, Acc) ->
+	truncate(Rest, N, Append, LastState, Last, in_element, <<Acc/binary,C/utf8>>);
 
-	truncate([$<|Rest], N, Append, LastState, _Last, _AccState, Acc) ->
-		truncate(Rest, N, Append, LastState, Acc, in_element, [$<|Acc]);
+truncate(<<$<,Rest/binary>>, N, Append, LastState, _Last, _AccState, Acc) ->
+	truncate(Rest, N, Append, LastState, Acc, in_element, <<Acc/binary,$<>>);
 
-	truncate([C|Rest], N, Append, LastState, Last, AccState, Acc) 
-		when C == $.; C == $!; C == $? ->
-			case AccState of
-				in_word -> truncate(Rest, N-1, Append, sentence, [C|Acc], sentence, [C|Acc]);
-				word    -> truncate(Rest, N-1, Append, sentence, [C|Acc], sentence, [C|Acc]);
-				_ 		-> truncate(Rest, N-1, Append, LastState, Last,   sentence, [C|Acc])
-			end;
-	truncate([C|Rest], N, Append, LastState, Last, AccState, Acc) 
-		when C == $;; C == $-; C == $, ->
-			case AccState of
-				in_word -> truncate(Rest, N-1, Append, sentence,  Acc,  word, [C|Acc]);
-				_ 		-> truncate(Rest, N-1, Append, LastState, Last, word, [C|Acc])
-			end;
-	truncate([C|Rest], N, Append, LastState, Last, AccState, Acc) 
-		when C == 32; C == 9; C == 10; C == 13; C == $/; C == $|; C == $(; C == $); C == $" ->
-			case AccState of
-				in_word -> truncate(Rest, N-1, Append, word, Acc, word, [C|Acc]);
-				_       -> truncate(Rest, N-1, Append, LastState, Last, word, [C|Acc])
-			end;
-	truncate([$&|_]=Input, N, Append, LastState, Last, AccState, Acc) ->
-		{Rest1,Acc1} = get_entity(Input,Acc),
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+	when C =:= $.; C =:= $!; C =:= $? ->
 		case AccState of
-			in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
-			_ 		-> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
+			in_word -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
+			word    -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
+			_ 		-> truncate(Rest, N-1, Append, LastState, Last,   sentence, <<Acc/binary,C>>)
 		end;
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+	when C =:= $;; C =:= $-; C =:= $, ->
+		case AccState of
+			in_word -> truncate(Rest, N-1, Append, sentence,  Acc,  word, <<Acc/binary,C>>);
+			_ 		-> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
+		end;
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+	when C =:= 32; C =:= 9; C =:= 10; C =:= 13; C =:= $/; C =:= $|; C =:= $(; C =:= $); C =:= $" ->
+		case AccState of
+			in_word -> truncate(Rest, N-1, Append, word, Acc, word, <<Acc/binary,C>>);
+			_       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
+		end;
+truncate(<<$&,_binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
+	{Rest1,Acc1} = get_entity(Input,Acc),
+	case AccState of
+		in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
+		_ 		-> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
+	end;
+truncate(<<C/utf8,Rest/binary>>, N, Append, LastState, Last, _AccState, Acc) ->
+	truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>).
 
-	%% Overlong encoding: start of a 2-byte sequence, but code point <= 127
-	truncate([X,A|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 192, X =< 193 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [A,X|Acc]);
-	%% Start of 2-byte sequence
-	truncate([X,A|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 194, X =< 223 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [A,X|Acc]);
-	%% Start of 3-byte sequence
-	truncate([X,A,B|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 224, X =< 239 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [B,A,X|Acc]);
-	%% Start of 4-byte sequence
-	truncate([X,A,B,C|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 240, X =< 244 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [C,B,A,X|Acc]);
-	%% Restricted by RFC 3629: start of 4-byte sequence for codepoint above 10FFFF
-	truncate([X,A,B,C|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 245, X =< 247 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [C,B,A,X|Acc]);
-	%% Restricted by RFC 3629: start of 5-byte sequence
-	truncate([X,A,B,C,D|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 248, X =< 251 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [D,C,B,A,X|Acc]);
-	%% Restricted by RFC 3629: start of 6-byte sequence
-	truncate([X,A,B,C,D,E|Rest], N, Append, LastState, Last, _AccState, Acc) when X >= 252, X =< 253 ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [E,D,C,B,A,X|Acc]);
 
-	%% Any other character
-	truncate([C|Rest], N, Append, LastState, Last, _AccState, Acc) ->
-		truncate(Rest, N-1, Append, LastState, Last, in_word, [C|Acc]).
-
-	insert_acc([], Acc) ->
-		Acc;
-	insert_acc([H|T], Acc) ->
-		insert_acc(T, [H|Acc]).
-	
-    get_entity([], Acc) ->
-    	{[],Acc};
-    get_entity([$;|Rest], Acc) ->
-    	{Rest,[$;|Acc]};
-    get_entity([C|Rest], Acc) ->
-    	get_entity(Rest, [C|Acc]).
+get_entity(<<>>, Acc) ->
+	{<<>>, Acc};
+get_entity(<<$;,Rest/binary>>, Acc) ->
+	{Rest,<<Acc/binary,$;>>};
+get_entity(<<C,Rest/binary>>, Acc) ->
+	get_entity(Rest, <<Acc/binary,C>>).
 
 
 truncatewords(undefined, _) ->
@@ -747,33 +752,33 @@ truncatewords(undefined, _) ->
 truncatewords(S, Words) ->
     truncatewords(S, Words, ?DOTS_UTF8).
 truncatewords(S, Words, Append) when is_binary(S) ->
-    truncatewords(z_convert:to_list(S), in_space, Words, Append, []);
+    truncatewords(S, in_space, Words, Append, <<>>);
 truncatewords(S, Words, Append) when is_list(S) ->
-    truncatewords(S, in_space, Words, Append, []).
+    truncatewords(iolist_to_binary(S), in_space, Words, Append, <<>>).
 
-    truncatewords(_S, _State, 0, Append, Acc) ->
-        lists:reverse(trim_left_func(Acc, fun iswordsep/1), Append);
-    truncatewords([], _State, _Words, _Append, Acc) ->
-        lists:reverse(Acc);
-    truncatewords([C|Rest], in_space, Words, Append, Acc) ->
-        case iswordsep(C) of
-            true -> truncatewords(Rest, in_space, Words, Append, [C|Acc]);
-            false -> truncatewords(Rest, in_word, Words, Append, [C|Acc])
-        end;
-    truncatewords([C|Rest], in_word, Words, Append, Acc) ->
-        case iswordsep(C) of
-            true -> truncatewords(Rest, in_space, Words-1, Append, [C|Acc]);
-            false -> truncatewords(Rest, in_word, Words, Append, [C|Acc])
-        end.
+truncatewords(_S, _State, 0, Append, Acc) ->
+    trim_left_func(<<Acc/binary,Append/binary>>, fun iswordsep/1);
+truncatewords(<<>>, _State, _Words, _Append, Acc) ->
+	Acc;
+truncatewords(<<C/utf8,Rest/binary>>, in_space, Words, Append, Acc) ->
+    case iswordsep(C) of
+        true -> truncatewords(Rest, in_space, Words, Append, <<Acc/binary,C/utf8>>);
+        false -> truncatewords(Rest, in_word, Words, Append, <<Acc/binary,C/utf8>>)
+    end;
+truncatewords(<<C/utf8,Rest>>, in_word, Words, Append, Acc) ->
+    case iswordsep(C) of
+        true -> truncatewords(Rest, in_space, Words-1, Append, <<Acc/binary,C/utf8>>);
+        false -> truncatewords(Rest, in_word, Words, Append, <<Acc/binary,C/utf8>>)
+    end.
 
-    iswordsep($\s) -> true;
-    iswordsep($\n) -> true;
-    iswordsep($\r) -> true;
-    iswordsep($\t) -> true;
-    iswordsep($,) -> true;
-    iswordsep($:) -> true;
-    iswordsep($;) -> true;
-    iswordsep(_) -> false.
+iswordsep($\s) -> true;
+iswordsep($\n) -> true;
+iswordsep($\r) -> true;
+iswordsep($\t) -> true;
+iswordsep($,) -> true;
+iswordsep($:) -> true;
+iswordsep($;) -> true;
+iswordsep(_) -> false.
 
 
 %% @doc Split the binary into lines. Line separators can be \r, \n or \r\n.
