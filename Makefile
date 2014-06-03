@@ -1,5 +1,5 @@
 REBAR := ./rebar
-REBAR_URL := https://github.com/downloads/basho/rebar/rebar
+REBAR_URL := https://github.com/rebar/rebar/wiki/rebar
 
 .PHONY: compile test
 
@@ -16,7 +16,7 @@ clean:
 	$(REBAR) clean
 
 ./rebar:
-	erl -noshell -s inets start -s ssl start \
-        -eval '{ok, saved_to_file} = httpc:request(get, {"$(REBAR_URL)", []}, [], [{stream, "./rebar"}])' \
-        -s inets stop -s init stop
+	$(ERL) -noshell -s inets -s ssl \
+	  -eval '{ok, saved_to_file} = httpc:request(get, {"$(REBAR_URL)", []}, [], [{stream, "./rebar"}])' \
+	  -s init stop
 	chmod +x ./rebar
