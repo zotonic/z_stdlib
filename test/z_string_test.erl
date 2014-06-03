@@ -1,17 +1,26 @@
-%% @author Arjan Scherpenisse <arjan@scherpenisse.net>
+% -*- coding: utf-8; Mode: erlang; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*-
+% ex: set softtabstop=4 tabstop=4 shiftwidth=4 expandtab fileencoding=utf-8:
 %% coding: utf-8
+
+%% @author Arjan Scherpenisse <arjan@scherpenisse.net>
 
 -module(z_string_test).
 
 -include_lib("eunit/include/eunit.hrl").
 
+-ifdef(coding_utf8).
 
-to_lower_to_upper_test_disabled() ->
+to_upper_test() ->
+    A = <<"üçgen"/utf8>>,
+    <<"ÜÇGEN"/utf8>> = z_string:to_upper(A),
+    ok.
+
+to_lower_to_upper_test() ->
     A = <<"üçgen"/utf8>>,
     A = z_string:to_lower(z_string:to_upper(A)),
     ok.
 
-first_char_test_disabled() ->
+first_char_test() ->
     ?assertEqual($a, z_string:first_char("aap")),
     ?assertEqual($a, z_string:first_char(<<"aap">>)),
     ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
@@ -20,7 +29,7 @@ first_char_test_disabled() ->
     ?assertEqual(263, z_string:first_char(<<"ćaap"/utf8>>)),
     ok.
 
-last_char_test_disabled() ->
+last_char_test() ->
     ?assertEqual($p, z_string:last_char("aap")),
     ?assertEqual($p, z_string:last_char(<<"aap">>)),
     ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
@@ -29,11 +38,47 @@ last_char_test_disabled() ->
     ?assertEqual(263, z_string:last_char(<<"aapć"/utf8>>)),
     ok.
 
-
 to_name_test() ->
     A = <<"üçgen"/utf8>>,
     <<"ucgen">> = z_string:to_name(A),
     ok.
+
+-else.
+
+to_upper_test() ->
+    A = <<"üçgen">>,
+    <<"ÜÇGEN">> = z_string:to_upper(A),
+    ok.
+
+to_lower_to_upper_test() ->
+    A = <<"üçgen">>,
+    A = z_string:to_lower(z_string:to_upper(A)),
+    ok.
+
+first_char_test() ->
+    ?assertEqual($a, z_string:first_char("aap")),
+    ?assertEqual($a, z_string:first_char(<<"aap">>)),
+    ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
+    ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx">>)),
+    ?assertEqual(263, z_string:first_char("ćaap")),
+    ?assertEqual(263, z_string:first_char(<<"ćaap">>)),
+    ok.
+
+last_char_test() ->
+    ?assertEqual($p, z_string:last_char("aap")),
+    ?assertEqual($p, z_string:last_char(<<"aap">>)),
+    ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
+    ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ">>)),
+    ?assertEqual(263, z_string:last_char("aapć")),
+    ?assertEqual(263, z_string:last_char(<<"aapć">>)),
+    ok.
+
+to_name_test() ->
+    A = <<"üçgen">>,
+    <<"ucgen">> = z_string:to_name(A),
+    ok.
+
+-endif.
 
 concat_test() ->
     <<"abcdef">> = z_string:concat(<<"abc">>, <<"def">>),
