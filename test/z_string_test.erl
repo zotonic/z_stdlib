@@ -13,7 +13,7 @@
 to_upper_test() ->
     A = <<"üçgen"/utf8>>,
     <<"ÜÇGEN"/utf8>> = z_string:to_upper(A),
-    "HOLA" = z_string:to_upper("hola"),
+    <<"HOLA">> = z_string:to_upper("hola"),
     ok.
 
 to_lower_to_upper_test() ->
@@ -49,7 +49,7 @@ to_name_test() ->
 to_upper_test() ->
     A = <<"üçgen">>,
     <<"ÜÇGEN">> = z_string:to_upper(A),
-    "HOLA" = z_string:to_upper("hola"),
+    <<"HOLA">> = z_string:to_upper("hola"),
     ok.
 
 to_lower_to_upper_test() ->
