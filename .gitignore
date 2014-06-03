@@ -6,3 +6,4 @@ priv
 *.plt
 ebin/z_stdlib.app
 rebar
+.rebar
