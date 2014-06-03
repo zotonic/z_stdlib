@@ -443,7 +443,7 @@ to_upper(undefined) ->
 to_upper(A) when is_atom(A) ->
     to_upper(z_convert:to_binary(A));
 to_upper(L) when is_list(L) ->
-    to_upper(iolist:to_binary(L), <<>>).
+    to_upper(iolist_to_binary(L), <<>>).
 
 -ifdef(coding_utf8).
 
