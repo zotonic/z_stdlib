@@ -1047,10 +1047,10 @@ truncate(L, N) ->
 
 truncate(_L, N, _Append) when N =< 0 ->
 	<<>>;
-truncate(B, N, Append) when is_binary(B) ->
+truncate(B, N, Append) when is_binary(B), is_binary(Append) ->
 	truncate(B, N, Append, in_word, <<>>, in_word, <<>>);
 truncate(L, N, Append) ->
-	truncate(iolist_to_binary(L), N, Append).
+	truncate(z_convert:to_binary(L), N, z_convert:to_binary(Append)).
 	
 
 truncate(<<>>, _, _Append, _LastState, _Last, _AccState, Acc) ->
@@ -1119,7 +1119,8 @@ truncatewords(S, Words, Append) when is_list(S) ->
     truncatewords(iolist_to_binary(S), in_space, Words, Append, <<>>).
 
 truncatewords(_S, _State, 0, Append, Acc) ->
-    trim_left_func(<<Acc/binary,Append/binary>>, fun iswordsep/1);
+    Append1 = z_convert:to_binary(Append), 
+    trim_left_func(<<Acc/binary,Append1/binary>>, fun iswordsep/1);
 truncatewords(<<>>, _State, _Words, _Append, Acc) ->
 	Acc;
 truncatewords(<<C/utf8,Rest/binary>>, in_space, Words, Append, Acc) ->
