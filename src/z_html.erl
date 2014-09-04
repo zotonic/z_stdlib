@@ -539,6 +539,8 @@ flatten({nop, Enclosed}) ->
 flatten({comment, Text}) ->
     Comment = escape_html_comment(Text, <<>>),
     <<"<!--", Comment/binary, "-->">>;
+flatten({sanitized_html, Html}) ->
+    Html;
 flatten({Elt, Attrs, Enclosed}) ->
     EncBin = flatten(Enclosed),
     Attrs1 = [flatten_attr(Attr) || Attr <- Attrs ],
