@@ -492,13 +492,13 @@ sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
     Sanitized = sanitize(Parsed, [], ExtraElts, ExtraAttrs, Options),
     flatten(Sanitized).
 
-sanitize(B, _Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
-    case sanitize_callback({'TextNode', B}, Options) of
+sanitize(B, Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
+    case sanitize_callback({'TextNode', B}, Stack, Options) of
         {'TextNode', B1} -> escape(iolist_to_binary(B1));
         Other -> Other
     end; 
-sanitize({comment, _Text} = Comment, _Stack, _ExtraElts, _ExtraAttrs, Options) ->
-    sanitize_callback(Comment, Options);
+sanitize({comment, _Text} = Comment, Stack, _ExtraElts, _ExtraAttrs, Options) ->
+    sanitize_callback(Comment, Stack, Options);
 sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
@@ -511,7 +511,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
             Tag = { Elt, 
                     Attrs1,
                     [ sanitize(Encl, Stack1, ExtraElts, ExtraAttrs, Options) || Encl <- Enclosed ]},
-            sanitize_callback(Tag, Options);
+            sanitize_callback(Tag, Stack, Options);
         false ->
             case skip_contents(Elt) of
                 false ->
@@ -521,13 +521,15 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
             end
     end.
 
-sanitize_callback(Element, Context) when is_tuple(Context), element(1, Context) =:= context ->
+sanitize_callback(Element, _Stack, Context) when is_tuple(Context), element(1, Context) =:= context ->
     z_notifier:foldl(sanitize_element, Element, Context);
-sanitize_callback(Element, Options) ->
+sanitize_callback(Element, Stack, Options) ->
     case proplists:get_value(element, Options) of
         undefined -> Element;
-        F when is_function(F) -> F(Element);
-        {M,F,A} -> erlang:apply(M, F, [Element|A])
+        {M,F,A} -> erlang:apply(M, F, [Element,Stack|A]);
+        F when is_function(F,1) -> F(Element);
+        F when is_function(F,2) -> F(Element,Options);
+        F when is_function(F,3) -> F(Element,Stack,Options)
     end.
 
 
