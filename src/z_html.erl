@@ -492,19 +492,13 @@ sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
     Sanitized = sanitize(Parsed, [], ExtraElts, ExtraAttrs, Options),
     flatten(Sanitized).
 
-sanitize(B, _Stack, _ExtraElts, _ExtraAttrs, _Options) when is_binary(B) ->
-    escape(B);
+sanitize(B, _Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
+    case sanitize_callback({'TextNode', B}, Options) of
+        {'TextNode', B1} -> escape(iolist_to_binary(B1));
+        Other -> Other
+    end; 
 sanitize({comment, _Text} = Comment, _Stack, _ExtraElts, _ExtraAttrs, Options) ->
-    case Options of
-        T when is_tuple(T), element(1, T) =:= context -> 
-            z_notifier:foldl(sanitize_element, Comment, Options);
-        _ ->
-            case proplists:get_value(element, Options) of
-                undefined -> Comment;
-                F when is_function(F) -> F(Comment);
-                {M,F,A} -> erlang:apply(M, F, [Comment|A])
-            end
-    end;
+    sanitize_callback(Comment, Options);
 sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
@@ -517,16 +511,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
             Tag = { Elt, 
                     Attrs1,
                     [ sanitize(Encl, Stack1, ExtraElts, ExtraAttrs, Options) || Encl <- Enclosed ]},
-            case Options of
-                T when is_tuple(T), element(1, T) =:= context -> 
-                    z_notifier:foldl(sanitize_element, Tag, Options);
-                _ ->
-                    case proplists:get_value(element, Options) of
-                        undefined -> Tag;
-                        F when is_function(F) -> F(Tag);
-                        {M,F,A} -> erlang:apply(M, F, [Tag|A])
-                    end
-            end;
+            sanitize_callback(Tag, Options);
         false ->
             case skip_contents(Elt) of
                 false ->
@@ -535,6 +520,16 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
                     {nop, []}
             end
     end.
+
+sanitize_callback(Element, Context) when is_tuple(Context), element(1, Context) =:= context ->
+    z_notifier:foldl(sanitize_element, Element, Context);
+sanitize_callback(Element, Options) ->
+    case proplists:get_value(element, Options) of
+        undefined -> Element;
+        F when is_function(F) -> F(Element);
+        {M,F,A} -> erlang:apply(M, F, [Element|A])
+    end.
+
 
 %% @doc Flatten the sanitized html tree to a binary 
 flatten(B) when is_binary(B) ->
