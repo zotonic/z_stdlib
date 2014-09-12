@@ -106,10 +106,24 @@ sanitize_test() ->
 
     ?assertEqual(<<"<div>...</div>">>, 
         z_html:sanitize(<<"<div><script type='text/javascript'>bad_script()</script>...</div>">>)),
+    
+    %% Custom tags.
+    ?assertEqual(<<"<div><erlang>Let it crash!</erlang></div>">>, 
+        z_html:sanitize(<<"<div><erlang scary='no'>Let it crash!</erlang></div>">>, [
+                {elt_extra, [<<"erlang">>]}
+            ])),
 
-
+    %% Custom tags and attributes.
+    ?assertEqual(<<"<div><erlang scary=\"no\" trap_exit=\"true\">Let it crash!</erlang></div>">>, 
+        z_html:sanitize(<<"<div><erlang scary=\"no\" trap_exit=\"true\">Let it crash!</erlang></div>">>, [
+                {elt_extra, [<<"erlang">>]},
+                {attr_extra, [<<"trap_exit">>, <<"scary">>]}
+            ])),
 
     ok.
+
+
+
 
 
 filter_css_test() ->

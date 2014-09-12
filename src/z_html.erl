@@ -36,6 +36,7 @@
     truncate/3,
     sanitize/1,
     sanitize/2,
+    sanitize/4,
     noscript/1,
     sanitize_uri/1,
     escape_link/2,
@@ -457,6 +458,7 @@ make_closetag(<<$<, Rest/binary>>) ->
 sanitize(Html) ->
     sanitize(Html, []).
 
+
 sanitize({trans, Tr}, Options) ->
     {trans, [{Lang, sanitize(V, Options)} || {Lang,V} <- Tr]};
 sanitize(Html, Options) when is_binary(Html) ->
@@ -464,33 +466,27 @@ sanitize(Html, Options) when is_binary(Html) ->
 sanitize(Html, Options) when is_list(Html) ->
     sanitize_opts(iolist_to_binary(["<sanitize>", Html, "</sanitize>"]), Options).
 
+sanitize_opts(Html, Context) when is_tuple(Context), element(1, Context) =:= context ->
+    ExtraElts = m_config:get_value(site, html_elt_extra, <<>>, Context),
+    ExtraAttrs = m_config:get_value(site, html_attr_extra, <<>>, Context),
+    sanitize1(Html, ExtraElts, ExtraAttrs, Context);
 sanitize_opts(Html, Options) ->
-    ExtraAttrs = case Options of
-                    T when is_tuple(T), element(1, T) =:= context -> 
-                        m_config:get_value(site, html_attr_extra, <<>>, Options);
-                    _ ->
-                        proplists:get_value(attr_extra, Options, [])
-                 end,
-    ExtraElts =  case Options of
-                    T2 when is_tuple(T2), element(1, T2) =:= context -> 
-                         m_config:get_value(site, html_elt_extra, <<>>, Options);
-                    _ ->
-                        proplists:get_value(elt_extra, Options, [])
-                 end,
-    ExtraAttrs1 = case is_binary(ExtraAttrs) of
-                      true -> binary:split(ExtraAttrs, <<",">>, [global]);
-                      false -> ExtraAttrs
-                  end,
-    ExtraElts1 = case is_binary(ExtraElts) of
-                      true -> binary:split(ExtraElts, <<",">>, [global]);
-                      false -> ExtraElts
-                  end,
-    sanitize1(Html, ExtraElts1, ExtraAttrs1, Options).
+    sanitize1(Html, proplists:get_value(elt_extra, Options, []), 
+        proplists:get_value(attr_extra, Options, []), Options).
 
 sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
     Parsed = mochiweb_html:parse(ensure_escaped_amp(Html)),
-    Sanitized = sanitize(Parsed, [], ExtraElts, ExtraAttrs, Options),
+    Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
     flatten(Sanitized).
+
+%% @doc Sanitize a mochiwebparse tree. Remove harmful elements and attributes.
+%% @spec sanitize(mochiweb_html:html_node(), binary() | list(), binary() | list(), any())
+sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) when is_binary(ExtraElts) ->
+    sanitize(ParseTree, binary:split(ExtraElts, <<",">>, [global]), ExtraAttrs, Options);
+sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) when is_binary(ExtraAttrs) ->
+    sanitize(ParseTree, ExtraElts, binary:split(ExtraAttrs, <<",">>, [global]), Options);
+sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) ->
+    sanitize(ParseTree, [], ExtraElts, ExtraAttrs, Options).
 
 sanitize(B, Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
     case sanitize_callback({'TextNode', B}, Stack, Options) of
