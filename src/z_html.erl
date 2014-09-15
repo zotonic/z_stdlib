@@ -469,7 +469,8 @@ sanitize(Html, Options) when is_list(Html) ->
 sanitize_opts(Html, Context) when is_tuple(Context), element(1, Context) =:= context ->
     ExtraElts = m_config:get_value(site, html_elt_extra, <<>>, Context),
     ExtraAttrs = m_config:get_value(site, html_attr_extra, <<>>, Context),
-    sanitize1(Html, ExtraElts, ExtraAttrs, Context);
+    Options = [{element, fun(Element) -> z_notifier:foldl(sanitize_element, Element, Context) end}],
+    sanitize1(Html, ExtraElts, ExtraAttrs, Options);
 sanitize_opts(Html, Options) ->
     sanitize1(Html, proplists:get_value(elt_extra, Options, []), 
         proplists:get_value(attr_extra, Options, []), Options).
@@ -489,12 +490,12 @@ sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) ->
     sanitize(ParseTree, [], ExtraElts, ExtraAttrs, Options).
 
 sanitize(B, Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
-    case sanitize_callback({'TextNode', B}, Stack, Options) of
+    case sanitize_element({'TextNode', B}, Stack, Options) of
         {'TextNode', B1} -> escape(iolist_to_binary(B1));
         Other -> Other
     end; 
 sanitize({comment, _Text} = Comment, Stack, _ExtraElts, _ExtraAttrs, Options) ->
-    sanitize_callback(Comment, Stack, Options);
+    sanitize_element(Comment, Stack, Options);
 sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
@@ -507,7 +508,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
             Tag = { Elt, 
                     Attrs1,
                     [ sanitize(Encl, Stack1, ExtraElts, ExtraAttrs, Options) || Encl <- Enclosed ]},
-            sanitize_callback(Tag, Stack, Options);
+            sanitize_element(Tag, Stack, Options);
         false ->
             case skip_contents(Elt) of
                 false ->
@@ -517,16 +518,18 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
             end
     end.
 
-sanitize_callback(Element, _Stack, Context) when is_tuple(Context), element(1, Context) =:= context ->
-    z_notifier:foldl(sanitize_element, Element, Context);
-sanitize_callback(Element, Stack, Options) ->
-    case proplists:get_value(element, Options) of
-        undefined -> Element;
-        {M,F,A} -> erlang:apply(M, F, [Element,Stack|A]);
-        F when is_function(F,1) -> F(Element);
-        F when is_function(F,2) -> F(Element,Options);
-        F when is_function(F,3) -> F(Element,Stack,Options)
-    end.
+sanitize_element(Element, Stack, Options) ->
+    Callback = proplists:get_value(element, Options, fun(E) -> E end),
+    sanitize_element(Callback, Element, Stack, Options).
+
+sanitize_element(F, Element, _Stack, _Options) when is_function(F, 1) ->
+    F(Element);
+sanitize_element(F, Element, _Stack, Options) when is_function(F, 2) ->
+    F(Element, Options);
+sanitize_element(F, Element, Stack, Options) when is_function(F, 3) ->
+    F(Element, Stack, Options);
+sanitize_element({M, F, A}, Element, Stack, _Options) ->
+    erlang:apply(M, F, [Element, Stack|A]).
 
 
 %% @doc Flatten the sanitized html tree to a binary 
