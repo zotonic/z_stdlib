@@ -708,7 +708,7 @@ to_name(<<"å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"Å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"€"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
 to_name(<<"ÿ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i,$j>>, I+2);
-to_name(<<"@"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$t,$a,$_>>, I+4);
+to_name(<<"@"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$a,$t,$_>>, I+4);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
 to_name(<<"А"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"а"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
@@ -872,7 +872,7 @@ to_name(<<"å",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"Å",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"€",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
 to_name(<<"ÿ",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i,$j>>, I+2);
-to_name(<<"@",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$t,$a,$_>>, I+4);
+to_name(<<"@",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$a,$t,$_>>, I+4);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
 to_name(<<"А",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
 to_name(<<"а",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);

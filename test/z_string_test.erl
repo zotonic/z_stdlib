@@ -44,6 +44,11 @@ to_name_test() ->
     <<"ucgen">> = z_string:to_name(A),
     <<"hola">> = z_string:to_name(hola),
     <<"hola">> = z_string:to_name("hola"),
+
+    <<"at">> = z_string:to_name(<<"@">>),
+    <<"at">> = z_string:to_name("@"),
+    <<"foo_at_bar">> = z_string:to_name("foo@bar"),
+    
     ok.
 
 -else.
