@@ -7,3 +7,5 @@ priv
 ebin/z_stdlib.app
 rebar
 .rebar
+src/z_css_lexer.erl
+src/z_css_parser.erl
