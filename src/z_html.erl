@@ -24,11 +24,9 @@
 -export([
     escape_props/1,
     escape_props/2,
-    escape/2,
     escape/1,
     escape_props_check/1,
     escape_props_check/2,
-    escape_check/2,
     escape_check/1,
     unescape/1,
     strip/1,
@@ -39,7 +37,6 @@
     sanitize/4,
     noscript/1,
     sanitize_uri/1,
-    escape_link/2,
     escape_link/1,
     nl2br/1,
     br2nl/1,
@@ -49,18 +46,14 @@
 ]).
 
 
-%%% This is a Zotonic #context{}, which is still here for compatibility with Zotonic.
--opaque context() :: tuple().
-
-
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
 -spec escape_props(list()) -> list().
 escape_props(Props) ->
     escape_props(Props, []).
 
--spec escape_props(list(), Options::list()|context()) -> list().
-escape_props(Props, OptionsOrContext) ->
-    [ escape_props1(P, OptionsOrContext) || P <- Props ].
+-spec escape_props(list(), Options::list()) -> list().
+escape_props(Props, Options) ->
+    [ escape_props1(P, Options) || P <- Props ].
 
 escape_props1({_K,V} = Prop, _Options) when is_float(V); is_integer(V); is_atom(V) -> 
     Prop;
@@ -106,7 +99,7 @@ escape_value(V) ->
 escape_props_check(Props) ->
     escape_props_check(Props, undefined).
 
--spec escape_props_check(list(), Options::list()|context()) -> list().
+-spec escape_props_check(list(), Options::list()) -> list().
 escape_props_check(Props, Options) ->
     [ escape_props_check1(P, Options) || P <- Props ].
 
@@ -149,13 +142,6 @@ escape_value_check(V) ->
 
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
--spec escape(list()|binary()|{trans, list()}, Options::list()) -> binary() | undefined.
-escape(V, Options) when is_tuple(Options), element(1, Options) =:= context ->
-    escape(z_trans:lookup_fallback(V, Options));
-escape(V, _) ->
-    escape(V).
-
-%% @doc Escape a string so that it is valid within HTML/ XML.
 %% @spec escape(iolist()) -> binary()
 -spec escape(list()|binary()|{trans, list()}) -> binary() | undefined.
 escape({trans, Tr}) ->
@@ -188,13 +174,6 @@ escape1(<<$', T/binary>>, Acc) ->
 escape1(<<C, T/binary>>, Acc) ->
     escape1(T, <<Acc/binary, C>>).
 
-
-%% @doc Checks if a string is properly escaped.
--spec escape_check(list()|binary()|{trans, list()}, Options::list()|context()) -> binary() | undefined.
-escape_check(V, Options) when is_tuple(Options), element(1, Options) =:= context ->
-    escape_check(z_trans:lookup_fallback(V, Options));
-escape_check(V, _Options) ->
-    escape_check(V).
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
 -spec escape_check(list()|binary()|{trans, list()}) -> binary() | undefined.
@@ -287,13 +266,6 @@ unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
 unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
     unescape_in_charref(Rest, <<CharAcc/binary, Ch>>, ContAcc).
     
-
-%% @doc Escape a text. Expands any urls to links with a nofollow attribute.
--spec escape_link(list()|binary()|{trans, list()}, Options::list()|context()) -> binary() | undefined.
-escape_link(V, Options) when is_tuple(Options), element(1, Options) =:= context ->
-    escape_link(z_trans:lookup_fallback(V, Options));
-escape_link(V, _Options) ->
-    escape_link(V).
 
 %% @doc Escape a text. Expands any urls to links with a nofollow attribute.
 %% @spec escape_link(Text) -> binary()
@@ -466,11 +438,6 @@ sanitize(Html, Options) when is_binary(Html) ->
 sanitize(Html, Options) when is_list(Html) ->
     sanitize_opts(iolist_to_binary(["<sanitize>", Html, "</sanitize>"]), Options).
 
-sanitize_opts(Html, Context) when is_tuple(Context), element(1, Context) =:= context ->
-    ExtraElts = m_config:get_value(site, html_elt_extra, <<>>, Context),
-    ExtraAttrs = m_config:get_value(site, html_attr_extra, <<>>, Context),
-    Options = [{element, fun(Element) -> z_notifier:foldl(sanitize_element, Element, Context) end}],
-    sanitize1(Html, ExtraElts, ExtraAttrs, Options);
 sanitize_opts(Html, Options) ->
     sanitize1(Html, proplists:get_value(elt_extra, Options, []), 
         proplists:get_value(attr_extra, Options, []), Options).
@@ -729,45 +696,18 @@ skip_contents(<<"deleteme">>) -> true;
 skip_contents(<<"head">>) -> true;
 skip_contents(_) -> false.
 
-%% @doc Simple filter for css. Removes parts between () and quoted strings. 
-filter_css(undefined) ->
-    [];
-filter_css(<<>>) ->
-    <<>>;
-filter_css([]) ->
-    [];
-filter_css(Html) when is_binary(Html) ->
-    filter_css(Html, in_text, <<>>);
-filter_css(L) when is_list(L) ->
-    filter_css(list_to_binary(L)).
-
-filter_css(<<>>, _, Acc) -> Acc;
-filter_css(<<$(,T/binary>>, in_text, Acc) ->
-    filter_css(T, in_paren, <<Acc/binary,$(>>);
-filter_css(<<$),T/binary>>, in_paren, Acc) ->
-    filter_css(T, in_text, <<Acc/binary,$)>>);
-filter_css(<<$),T/binary>>, State, Acc) ->
-    filter_css(T, State, Acc);
-filter_css(<<_,T/binary>>, in_paren, Acc) ->
-    filter_css(T, in_paren, Acc);
-filter_css(<<$",T/binary>>, in_text, Acc) ->
-    filter_css(T, in_dstring, <<Acc/binary,$">>);
-filter_css(<<$",T/binary>>, in_dstring, Acc) ->
-    filter_css(T, in_text, <<Acc/binary,$">>);
-filter_css(<<$',T/binary>>, in_text, Acc) ->
-    filter_css(T, in_sstring, <<Acc/binary,$'>>);
-filter_css(<<$',T/binary>>, in_sstring, Acc) ->
-    filter_css(T, in_text, <<Acc/binary,$'>>);
-filter_css(<<$\\,_,T/binary>>, in_sstring, Acc) ->
-    filter_css(T, in_sstring, Acc);
-filter_css(<<$\\,_,T/binary>>, in_dstring, Acc) ->
-    filter_css(T, in_dstring, Acc);
-filter_css(<<$\\,H,T/binary>>, in_text, Acc) ->
-    filter_css(T, in_text, <<Acc/binary, $\\, H>>);
-filter_css(<<H,T/binary>>, in_text, Acc) ->
-    filter_css(T, in_text, <<Acc/binary, H>>);
-filter_css(<<_,T/binary>>, State, Acc) ->
-    filter_css(T, State, Acc).
+%% @doc Run the CSS sanitizer over 'style' attributes. This is a strict sanitizer, all
+%%      non-conforming css is rejected.
+filter_css(undefined) -> [];
+filter_css(<<>>) -> <<>>;
+filter_css([]) -> [];
+filter_css(Css) when is_binary(Css) -> 
+    case z_css:sanitize_style(Css) of
+        {ok, Css1} -> 
+            Css1;
+        {error, _Error} ->
+            <<>>
+    end.
 
 %% @doc Remove all do_xxxx classes to prevent widget manager invocations
 filter_widget_class(Class) ->
