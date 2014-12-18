@@ -196,8 +196,8 @@ to_localtime(D) ->
         LocalD -> LocalD
     end.
 
-%% @doc Convert an input to a (local) datetime, using to_date/1 and
-%% to_time/1.  When the input is a string, it is expected to be in iso
+%% @doc Convert an input to a (universal) datetime, using to_date/1 and
+%% to_time/1.  If the input is a string, it is expected to be in iso
 %% 8601 format, although it can also handle timestamps without time
 %% zones. The time component of the datatime is optional.
 to_datetime({{_,_,_},{_,_,_}} = DT) -> DT;
@@ -212,7 +212,7 @@ to_datetime(L) when is_list(L) ->
                                  TZTime = to_time(Tz),
                                  Add = calendar:datetime_to_gregorian_seconds({{0,1,1},TZTime}),
                                  Secs = calendar:datetime_to_gregorian_seconds({to_date(Date), to_time(Tm)}),
-                                 calendar:universal_time_to_local_time(calendar:gregorian_seconds_to_datetime(Secs+(Mul*Add)))
+                                 calendar:gregorian_seconds_to_datetime(Secs+(Mul*Add))
                          end,
                 case string:tokens(Time, "+") of
                     [Time1, TZ] ->
@@ -227,7 +227,7 @@ to_datetime(L) when is_list(L) ->
                                 case lists:reverse(Time) of
                                     [$Z|Rest] ->
                                         %% Timestamp ending on Z (= UTC)
-                                        calendar:universal_time_to_local_time({to_date(Date), to_time(lists:reverse(Rest))});
+                                        {to_date(Date), to_time(lists:reverse(Rest))};
                                     _ ->
                                         %% Timestamp without time zone
                                         {to_date(Date), to_time(Time)}
