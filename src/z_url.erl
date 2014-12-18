@@ -157,12 +157,21 @@ url_unreserved_char(_) ->
   false.
 
 
-%% @doc Find the definitive location of an url, removing url shorteners in the process
+%% @doc Find the definitive location of an url, removing url shorteners in the process.
+%%      Identify as Curl to prevent url shorteners returning HTML pages.
 location(Url) when is_binary(Url) ->
     location(z_convert:to_list(Url));
 location(Url) ->
-    case httpc:request(head, {Url, []}, [{autoredirect, false}], []) of
-        {ok, {{_HTTP,301,_Moved}, Hs, _}} ->
+    Headers = [
+        {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
+        {"Accept-Encoding", "identity"},
+        {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
+        {"Accept-Language", "en,*;q=0"},
+        {"User-Agent", "curl/7.21.4 (universal-apple-darwin11.0) libcurl/7.21.4 OpenSSL/0.9.8r zlib/1.2.5"},
+        {"Connection", "close"}
+    ],
+    case httpc:request(head, {Url, Headers}, [{autoredirect, false}], []) of
+        {ok, {{_HTTP, 301, _Moved}, Hs, _}} ->
             case proplists:get_value("location", Hs) of
                 undefined -> Url;
                 Url1 -> location(Url1)
@@ -218,7 +227,10 @@ split_base_host(Base) ->
 -spec abs_link(string()|binary(), string()|binary()) -> binary().
 abs_link(RelativeUrl, BaseUrl) ->
     {BaseHost, BaseHostDir} = z_url:split_base_host(BaseUrl),
-    iolist_to_binary(make_abs_link(z_convert:to_binary(RelativeUrl), BaseHost, BaseHostDir)).
+    ensure_protocol(iolist_to_binary(make_abs_link(z_convert:to_binary(RelativeUrl), BaseHost, BaseHostDir))).
+
+ensure_protocol(<<"://", Url/binary>>) -> <<"http://", Url/binary>>;
+ensure_protocol(Url) -> Url.
 
 make_abs_link(<<"http:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"https:", _/binary>> = Url, _Host, _HostDir) -> Url;
