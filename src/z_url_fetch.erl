@@ -22,7 +22,6 @@
 
 %% Maximum nmber of bytes fetched for metadata extraction
 -define(HTTPC_LENGTH, 32*1024).
--define(HTTPC_MAX_LENGTH, 1024*1024*1024*100).  % Max 100GB
 
 %% Number of redirects followed before giving up
 -define(HTTPC_REDIRECT_COUNT, 10).
