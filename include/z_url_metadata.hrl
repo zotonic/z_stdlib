@@ -22,6 +22,7 @@
     content_type_options :: list(),
     content_length :: integer(),
     metadata :: list(),
+    is_index_page = false :: boolean(),
     headers :: list(),
     partial_data :: binary()
 }).

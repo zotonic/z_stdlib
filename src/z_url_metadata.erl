@@ -51,7 +51,7 @@ p(url, MD) ->
         PrefUrl -> z_url:abs_link(PrefUrl, MD#url_metadata.final_url)
     end;
 p(title, MD) -> 
-    case p1([<<"og:title">>, <<"twitter:title">>, mtitle, title, h1], MD) of
+    case p1([<<"og:title">>, <<"twitter:title">>, mtitle, h1, title], MD) of
         undefined -> p(filename, MD);
         Title -> Title
     end;
@@ -62,9 +62,15 @@ p(image, MD) ->
         <<"image/", _/binary>> -> 
             MD#url_metadata.final_url;
         _ ->
-            case p1([<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>,
-                     image, icon_touch, icon_shortcut, icon_fav], MD) 
-            of
+            Ps = case MD#url_metadata.is_index_page of
+                    true ->
+                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
+                         image_nav, image, icon_touch, icon_shortcut, icon_fav];
+                    false ->
+                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
+                         image, icon_touch, image_nav, icon_shortcut, icon_fav]
+                 end,
+            case p1(Ps, MD) of
                 undefined -> undefined;
                 ImgSrc -> z_url:abs_link(ImgSrc, MD#url_metadata.final_url)
             end
@@ -121,10 +127,13 @@ basename(Url) ->
     {_Protocol, _Host, Path, _Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
     case Path of
         [] -> undefined;
+        "/" -> undefined;
         _ -> z_convert:to_binary(lists:last(string:tokens(Path, "/")))
     end.
 
 %% -------------------------------------- Analyze fetched data -----------------------------------------
+
+-record(ps, { in_nav = false }).
 
 partial_metadata(Url, Hs, Data) ->
     {CT, CTOpts} = content_type(Hs),
@@ -135,34 +144,55 @@ partial_metadata(Url, Hs, Data) ->
         content_type_options = CTOpts,
         content_length = content_length(Hs),
         metadata = html_meta(is_html(CT), Data1),
+        is_index_page = is_index_page(Url),
         headers = Hs,
         partial_data = Data
     }.
 
+is_index_page(undefined) ->
+    true;
+is_index_page(Url) ->
+    {_Protocol, _Host, Path, Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
+    case Qs of
+        [] ->
+            case Path of
+                [] -> true;
+                "/" -> true;
+                "index." ++ _ -> true;
+                "default.htm" -> true;
+                "Default.htm" -> true;
+                _ -> false
+            end;
+        _ ->
+            false
+    end.
+
 html_meta(true, PartialData) ->
     Parsed = mochiweb_html:parse(PartialData),
-    lists:reverse(html(Parsed, []));
+    lists:reverse(html(Parsed, [], #ps{}));
 html_meta(false, _PartialData) ->
     [].
 
-html([], MD) ->
+html([], MD, _P) ->
     MD;
-html([B|Es], MD) when is_binary(B) ->
-    html(Es, MD);
-html([{comment, _}|Es], MD) ->
-    html(Es, MD);
-html([Tag|Es], MD) ->
-    html(Es, tag(Tag, MD));
-html(Tag, MD) when is_tuple(Tag) ->
-    tag(Tag, MD).
+html([B|Es], MD, P) when is_binary(B) ->
+    html(Es, MD, P);
+html([{comment, _}|Es], MD, P) ->
+    html(Es, MD, P);
+html([Tag|Es], MD, P) ->
+    {MD1, P1} = tag(Tag, MD, P),
+    html(Es, MD1, P1);
+html(Tag, MD, P) when is_tuple(Tag) ->
+    {MD1, _} = tag(Tag, MD, P),
+    MD1.
 
-tag({<<"html">>, As, Es}, MD) ->
+tag({<<"html">>, As, Es}, MD, P) ->
     MD1 = case proplists:get_value(<<"lang">>, As) of
               undefined -> MD;
               Lang -> [{language, Lang} | MD]
           end,
-    html(Es, MD1);
-tag({<<"meta">>, As, _}, MD) ->
+    {html(Es, MD1, P), P};
+tag({<<"meta">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"name">>, As)),
     Property = proplists:get_value(<<"property">>, As),
     HttpEquiv = proplists:get_value(<<"http-equiv">>, As),
@@ -170,34 +200,56 @@ tag({<<"meta">>, As, _}, MD) ->
     case first([Name, Property, HttpEquiv]) of
         undefined ->
             case proplists:get_value(<<"charset">>, As) of
-                undefined -> MD;
-                Charset -> [{charset,Charset} | MD]
+                undefined -> {MD, P};
+                Charset -> {[{charset,Charset} | MD], P}
             end;
         Prop ->
-            meta_tag(Prop, Content, MD)
+            {meta_tag(Prop, Content, MD), P}
     end;
-tag({<<"link">>, As, _}, MD) ->
+tag({<<"title">>, _As, Es}, MD, P) ->
+    Text = z_string:trim(fetch_text(Es, <<>>)),
+    {[{title, Text} | MD], P};
+tag({<<"link">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"rel">>, As)),
     Content = proplists:get_value(<<"href">>, As),
-    meta_link(Name, Content, MD);
-tag({<<"img">>, As, _}, MD) ->
+    {meta_link(Name, Content, MD), P};
+tag({<<"img">>, As, _}, MD, P) ->
     case proplists:get_value(<<"src">>, As, <<>>) of
-        <<>> -> MD;
-        Src -> [{image, Src} | MD]
+        <<>> -> 
+            {MD, P};
+        Src ->
+            case P#ps.in_nav of
+                true -> {[{image_nav, Src} | MD], P};
+                false -> {[{image, Src} | MD], P}
+            end
     end;
-tag({<<"title">>, _As, Es}, MD) ->
-    Text = z_string:trim(fetch_text(Es, <<>>)),
-    [{title, Text} | MD];
-tag({<<"h1">>, _As, Es}, MD) ->
+tag({<<"h1">>, _As, Es}, MD, #ps{in_nav=false} = P) ->
     case proplists:is_defined(h1, MD) of
         false ->
             Text = z_string:trim(fetch_text(Es, <<>>)),
-            [{h1, Text} | MD];
+            {[{h1, Text} | MD], P};
         true ->
-            MD
+            {MD, P}
     end;
-tag({_Tag, _As, Es}, MD) ->
-    html(Es, MD).
+tag({<<"h1">>, _As, _Es}, MD, P) ->
+    {MD, P};
+tag({<<"nav">>, _As, Es}, MD, P) ->
+    {html(Es, MD, P#ps{in_nav=true}), P};
+tag({<<"header">>, _As, Es}, MD, P) ->
+    {html(Es, MD, P#ps{in_nav=true}), P};
+tag({<<"footer">>, _As, Es}, MD, P) ->
+    {html(Es, MD, P#ps{in_nav=true}), P};
+tag({<<"aside">>, _As, Es}, MD, P) ->
+    {html(Es, MD, P#ps{in_nav=true}), P};
+tag({_Tag, As, Es}, MD, P) ->
+    Cs = split_class(proplists:get_value(<<"class">>, As)),
+    Id = proplists:get_value(<<"id">>, As),
+    case is_ads(Id, Cs) of
+        true ->
+            {MD, P};
+        false ->
+            {html(Es, MD, P#ps{in_nav = P#ps.in_nav orelse has_nav_class(Cs) orelse is_topbar_id(Id)}), P}
+    end.
 
 meta_tag(<<"og:", _/binary>> = OG, Content, MD) -> [{OG, Content}|MD];
 meta_tag(<<"twitter:", _/binary>> = Tw, Content, MD) -> [{Tw, Content}|MD];
@@ -216,6 +268,29 @@ meta_link(<<"icon">>, Content, MD) -> [{icon_fav, Content}|MD];
 meta_link(<<"shortcut icon">>, Content, MD) -> [{icon_shortcut, Content}|MD];
 meta_link(<<"apple-touch-icon">>, Content, MD) -> [{icon_touch, Content}|MD];
 meta_link(_Name, _Content, MD) -> MD.
+
+split_class(undefined) -> [];
+split_class(Class) -> binary:split(Class, <<" ">>, [global]).
+
+has_nav_class(Cs) ->
+    lists:any(fun is_nav_class/1, Cs).
+
+is_nav_class(<<"nav", _/binary>>) -> true;
+is_nav_class(<<"menu", _/binary>>) -> true;
+is_nav_class(_) -> false.
+
+is_topbar_id(<<"top">>) -> true;
+is_topbar_id(<<"header", _/binary>>) -> true;
+is_topbar_id(_) -> false.
+
+is_ads(<<"ad">>, _Cs) -> true;
+is_ads(<<"ads">>, _Cs) -> true;
+is_ads(_, Cs) -> lists:any(fun is_ad_class/1, Cs).
+
+is_ad_class(<<"ads">>) -> true;
+is_ad_class(<<"ad">>) -> true;
+is_ad_class(<<"deckad">>) -> true;
+is_ad_class(_) -> false.
 
 fetch_text(B, Acc) when is_binary(B) ->
     <<Acc/binary, B/binary>>;
