@@ -33,10 +33,10 @@
 %% Connect timeout, server has to respond before this
 -define(HTTPC_TIMEOUT_CONNECT, 10000).
 
-%% Url shorteners return HTML+Javascript, except for simple text-only browsers
+%% Some url shorteners return HTML+Javascript, except for simple text-only browsers
 -define(CURL_UA, "curl/7.21.4 (universal-apple-darwin11.0) libcurl/7.21.4 OpenSSL/0.9.8r zlib/1.2.5").
 
-%% Some servers handle Twitterbot nicely and give it real metadata.
+%% Some servers handle Twitterbot extra nicely and give it better metadata.
 -define(HTTPC_UA, "Twitterbot").
 
 
@@ -201,6 +201,7 @@ append_data(Data, Part, OutDev) ->
         {error, _} = Error -> Error
     end.
 
+%% @doc Flush any late results from previous requests
 httpc_flush() ->
     receive
         {http, _} -> httpc_flush()
@@ -208,6 +209,7 @@ httpc_flush() ->
         ok
     end.
 
+%% @doc Some url shorteners return HTML+Javascript, except for simple text-only browsers
 httpc_ua(Url) ->
     case is_url_shortener(Url) of
         true -> ?CURL_UA;
@@ -228,4 +230,10 @@ is_url_shortener_1("ow.ly/" ++ _) -> true;
 is_url_shortener_1("goo.gl/" ++ _) -> true;
 is_url_shortener_1("lnkd.in/" ++ _) -> true;
 is_url_shortener_1("tinyurl.com/" ++ _) -> true;
+is_url_shortener_1("j.mp/" ++ _) -> true;
+is_url_shortener_1("fb.me/" ++ _) -> true;
+is_url_shortener_1("wp.me/" ++ _) -> true;
+is_url_shortener_1("gu.com/" ++ _) -> true;
+is_url_shortener_1("nyti.ms/" ++ _) -> true;
+is_url_shortener_1("s.vk.nl/" ++ _) -> true;
 is_url_shortener_1(_) -> false.
