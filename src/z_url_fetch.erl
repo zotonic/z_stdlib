@@ -190,8 +190,8 @@ maybe_redirect({Code, Hs, _Size, _Data}, _Url, RedirectCount, Max, OutDev, Opts)
         undefined -> {error, no_location_header};
         NewUrl -> fetch_partial(NewUrl, RedirectCount+1, Max, OutDev, Opts)
     end;
-maybe_redirect({Code, Hs, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
-    {error, {Code, Url, Hs, Data}}.
+maybe_redirect({Code, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
+    {error, {Code, Url, Hs, Size, Data}}.
 
 append_data(Data, Part, undefined) ->
     {ok, <<Data/binary, Part/binary>>};
