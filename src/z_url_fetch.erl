@@ -22,6 +22,7 @@
 
 %% Maximum nmber of bytes fetched for metadata extraction
 -define(HTTPC_LENGTH, 32*1024).
+-define(HTTPC_MAX_LENGTH, 1024*1024*100).  % Max 100MB
 
 %% Number of redirects followed before giving up
 -define(HTTPC_REDIRECT_COUNT, 10).
@@ -68,7 +69,7 @@ fetch_partial(<<"data:", _/binary>> = DataUrl, Options) ->
     fetch_data_url(DataUrl, Options);
 fetch_partial(Url, Options) ->
     OutDevice = proplists:get_value(device, Options),
-    Length = proplists:get_value(max_length, Options, ?HTTPC_LENGTH),
+    Length = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
     fetch_partial(z_convert:to_list(Url), 0, Length, OutDevice, Options).
 
 %% -------------------------------------- Fetch first part of a HTTP location -----------------------------------------
