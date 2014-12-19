@@ -208,9 +208,24 @@ httpc_flush() ->
         ok
     end.
 
-httpc_ua("http://bit.ly/" ++ _) -> ?CURL_UA;
-httpc_ua("https://bit.ly/" ++ _) -> ?CURL_UA;
-httpc_ua("http://t.co/" ++ _) -> ?CURL_UA;
-httpc_ua("https://t.co/" ++ _) -> ?CURL_UA;
-httpc_ua(_) -> ?HTTPC_UA.
+httpc_ua(Url) ->
+    case is_url_shortener(Url) of
+        true -> ?CURL_UA;
+        false -> ?HTTPC_UA
+    end.
 
+is_url_shortener(Url) ->
+    case string:tokens(Url, "://") of
+        [_Proto, DomainPath | _] ->
+            is_url_shortener_1(DomainPath);
+        _ -> 
+            false
+    end.
+
+is_url_shortener_1("t.co/" ++ _) -> true;
+is_url_shortener_1("bit.ly/" ++ _) -> true;
+is_url_shortener_1("ow.ly/" ++ _) -> true;
+is_url_shortener_1("goo.gl/" ++ _) -> true;
+is_url_shortener_1("lnkd.in/" ++ _) -> true;
+is_url_shortener_1("tinyurl.com/" ++ _) -> true;
+is_url_shortener_1(_) -> false.
