@@ -332,9 +332,13 @@ maybe_convert_utf8(true, IsHtml, Charset, Html) ->
             try
                 case iconv:open(CS1, "UTF-8") of
                     {ok, C} -> 
-                        Html1 = iconv:conv(C, Html),
-                        iconv:close(C),
-                        Html1;
+                        case iconv:conv(C, Html) of
+                            {ok, Html1} ->
+                                iconv:close(C),
+                                Html1;
+                            {error, _} ->
+                                Html
+                        end;
                     {error, _} ->
                         Html
                 end
