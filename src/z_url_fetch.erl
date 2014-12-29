@@ -96,8 +96,9 @@ fetch_data_url(DataUrl, Options) ->
 fetch_partial(Url0, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?HTTPC_REDIRECT_COUNT ->
     error_logger:warning_msg("Error fetching url, too many redirects ~p", [Url0]),
     {error, too_many_redirects};
-fetch_partial(Url, RedirectCount, Max, OutDev, Opts) ->
+fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
     httpc_flush(),
+    Url = normalize_url(Url0),
     Headers = [
         {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
         {"Accept-Encoding", "identity"},
@@ -114,6 +115,19 @@ fetch_partial(Url, RedirectCount, Max, OutDev, Opts) ->
             error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
             Error
     end.
+
+normalize_url(Url) ->
+    {Protocol, Host, Path, Qs, _Frag} = mochiweb_util:urlsplit(Url),
+    lists:flatten([
+            normalize_protocol(Protocol), "://", Host, Path,
+            case Qs of
+                [] -> [];
+                _ -> [ $?, Qs ]
+            end
+        ]).
+
+normalize_protocol("") -> "http";
+normalize_protocol(Protocol) -> Protocol.
 
 start_stream(Url, Headers, Opts) ->
     try
@@ -185,10 +199,13 @@ fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile) ->
 
 maybe_redirect({200, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
     {ok, {Url, Hs, Size, Data}};
-maybe_redirect({Code, Hs, _Size, _Data}, _Url, RedirectCount, Max, OutDev, Opts) when Code =:= 301; Code =:= 302; Code =:= 307 ->
+maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts) when Code =:= 301; Code =:= 302; Code =:= 307 ->
     case proplists:get_value("location", Hs) of
-        undefined -> {error, no_location_header};
-        NewUrl -> fetch_partial(NewUrl, RedirectCount+1, Max, OutDev, Opts)
+        undefined -> 
+            {error, no_location_header};
+        Location -> 
+            NewUrl = z_convert:to_list(z_url:abs_link(Location, BaseUrl)),
+            fetch_partial(NewUrl, RedirectCount+1, Max, OutDev, Opts)
     end;
 maybe_redirect({Code, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
     {error, {Code, Url, Hs, Size, Data}}.
