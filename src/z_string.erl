@@ -1128,7 +1128,7 @@ truncatewords(<<C/utf8,Rest/binary>>, in_space, Words, Append, Acc) ->
         true -> truncatewords(Rest, in_space, Words, Append, <<Acc/binary,C/utf8>>);
         false -> truncatewords(Rest, in_word, Words, Append, <<Acc/binary,C/utf8>>)
     end;
-truncatewords(<<C/utf8,Rest>>, in_word, Words, Append, Acc) ->
+truncatewords(<<C/utf8,Rest/binary>>, in_word, Words, Append, Acc) ->
     case iswordsep(C) of
         true -> truncatewords(Rest, in_space, Words-1, Append, <<Acc/binary,C/utf8>>);
         false -> truncatewords(Rest, in_word, Words, Append, <<Acc/binary,C/utf8>>)
