@@ -108,7 +108,9 @@ sanitize_expr({time, _, _} = E) -> E;
 sanitize_expr({freq, _, _} = E) -> E;
 sanitize_expr({dimension, _, _} = E) -> E;
 sanitize_expr({string, Line, S}) -> {string, Line, sanitize_string(S)};
-sanitize_expr({hash, _, _} = E) -> E.
+sanitize_expr({hash, _, _} = E) -> E;
+sanitize_expr({operator, Op, E1, E2}) -> {operator, Op, sanitize_expr(E1), sanitize_expr(E2)};
+sanitize_expr({operator, Op, E1}) -> {operator, Op, sanitize_expr(E1)}.
 
 sanitize_string([Quot|S]) when Quot =:= $"; Quot =:= $' ->
     S1 = lists:sublist(S, length(S)-1),
