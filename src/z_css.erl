@@ -230,5 +230,9 @@ serialize_expr({time, _, V}) -> V;
 serialize_expr({freq, _, V}) -> V;
 serialize_expr({dimension, _, V}) -> V;
 serialize_expr({string, _, V}) -> V;
-serialize_expr({hash, _, V}) -> V.
+serialize_expr({hash, _, V}) -> V;
+serialize_expr({operator, Op, E1, E2}) ->
+    [ serialize_expr(E1), z_convert:to_list(Op), serialize_expr(E2) ];
+serialize_expr({operator, Op, E1}) ->
+    [ z_convert:to_list(Op), serialize_expr(E1) ].
 
