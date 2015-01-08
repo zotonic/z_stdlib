@@ -107,6 +107,7 @@ sanitize_expr({angle, _, _} = E) -> E;
 sanitize_expr({time, _, _} = E) -> E;
 sanitize_expr({freq, _, _} = E) -> E;
 sanitize_expr({dimension, _, _} = E) -> E;
+sanitize_expr({percentage, _, _} = E) -> E;
 sanitize_expr({string, Line, S}) -> {string, Line, sanitize_string(S)};
 sanitize_expr({hash, _, _} = E) -> E;
 sanitize_expr({operator, Op, E1, E2}) -> {operator, Op, sanitize_expr(E1), sanitize_expr(E2)};
@@ -229,6 +230,7 @@ serialize_expr({angle, _, V}) -> V;
 serialize_expr({time, _, V}) -> V;
 serialize_expr({freq, _, V}) -> V;
 serialize_expr({dimension, _, V}) -> V;
+serialize_expr({percentage, _, V}) -> V;
 serialize_expr({string, _, V}) -> V;
 serialize_expr({hash, _, V}) -> V;
 serialize_expr({operator, Op, E1, E2}) ->

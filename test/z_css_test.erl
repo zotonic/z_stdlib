@@ -28,4 +28,8 @@ sanitize_content_test() ->
         {ok, <<":before {\ncontent:\"Hello &quot;\\&#39;world\";\n}\n">>},
         z_css:sanitize(<<":before { content: '<p>Hello \"\\'world' }">>)).
 
+sanitize_unit_test() ->
+    ?assertEqual(
+        {ok,<<"a {\nc:100%;\nd:1em;\ne:2px;\nf:a,b,c;\n}\n">>},
+        z_css:sanitize(<<"a {\nc:100%; d:1em; e:2px; f:a,b,c;\n}\n">>)).
 
