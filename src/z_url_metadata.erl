@@ -137,13 +137,15 @@ basename(Url) ->
 
 partial_metadata(Url, Hs, Data) ->
     {CT, CTOpts} = content_type(Hs),
-    Data1 = maybe_convert_utf8(is_text(CT), is_html(CT), proplists:get_value("charset", CTOpts), Data),
+    IsText = is_text(CT, Data),
+    IsHTML = IsText andalso is_html(CT),
+    Data1 = maybe_convert_utf8(IsText, IsHTML, proplists:get_value("charset", CTOpts), Data),
     #url_metadata{
         final_url = z_convert:to_binary(Url),
         content_type = CT,
         content_type_options = CTOpts,
         content_length = content_length(Hs),
-        metadata = html_meta(is_html(CT), Data1),
+        metadata = html_meta(IsHTML, Data1),
         is_index_page = is_index_page(Url),
         headers = Hs,
         partial_data = Data
@@ -313,6 +315,12 @@ is_html(<<"text/html">>) -> true;
 is_html(<<"application/xhtml">>) -> true;
 is_html(<<"application/xhtml+", _/binary>>) -> true;
 is_html(_) -> false.
+
+%% Some servers send us 'gzip', even when we ask for 'identity'
+is_text(_CT, <<31, 198, Method, _/binary>>) when Method =< 8 ->
+    false;
+is_text(CT, _Data) ->
+    is_text(CT).
 
 is_text(<<"text/", _/binary>>) -> true;
 is_text(<<"application/javascript">>) -> true;
