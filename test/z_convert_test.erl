@@ -33,12 +33,12 @@ convert_datetime_test() ->
 
     %% xsd:datetime
     ?assertDatetime({{2010,1,1},{18,29,39}}, "2010-01-01T18:29:39"),
-    ?assertDatetime(calendar:universal_time_to_local_time({{2010,1,1},{18,29,39}}), "2010-01-01T18:29:39+00:00"),
-    ?assertDatetime(calendar:universal_time_to_local_time({{2010,1,1},{18,29,39}}), "2010-01-01T18:29:39Z"),
-    ?assertDatetime(calendar:universal_time_to_local_time({{2010,1,1},{17,29,39}}), "2010-01-01T18:29:39+01:00"),
-    ?assertDatetime(calendar:universal_time_to_local_time({{2010,1,1},{20,29,39}}), "2010-01-01T18:29:39-02:00"),
+    ?assertDatetime({{2010,1,1},{18,29,39}}, "2010-01-01T18:29:39+00:00"),
+    ?assertDatetime({{2010,1,1},{18,29,39}}, "2010-01-01T18:29:39Z"),
+    ?assertDatetime({{2010,1,1},{17,29,39}}, "2010-01-01T18:29:39+01:00"),
+    ?assertDatetime({{2010,1,1},{20,29,39}}, "2010-01-01T18:29:39-02:00"),
 
-    ?assertDatetime(calendar:universal_time_to_local_time({{2011,10,6},{14,44,0}}), "2011-10-06T16:44:00+0200"),
+    ?assertDatetime({{2011,10,6},{14,44,0}}, "2011-10-06T16:44:00+0200"),
     ok.
 
 datetime_to_iso_test() ->
