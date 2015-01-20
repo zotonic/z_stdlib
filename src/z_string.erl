@@ -640,23 +640,32 @@ to_slug(Title) ->
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
 -spec to_name(string()|binary()|atom()) -> binary().
-to_name({trans, Tr}) ->
+to_name(V) ->
+    name_cleanup(to_name1(V)).
+
+name_cleanup(V) ->
+    case binary:replace(V, <<"__">>, <<"_">>, [global]) of
+        V -> V;
+        V1 -> name_cleanup(V1)
+    end.
+
+to_name1({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
         undefined -> 
             case Tr of
-                [{_,V}|_] -> to_name(V);
-                _ -> to_name(<<>>)
+                [{_,V}|_] -> to_name1(V);
+                _ -> <<>>
             end;
         V -> 
-        	to_name(V)
+            to_name1(V)
     end;
-to_name(undefined) ->
-	<<$_>>;
-to_name(Name) when is_atom(Name) ->
-    to_name(z_convert:to_binary(Name));
-to_name(Name) when is_list(Name) ->
-    to_name(iolist_to_binary(Name));
-to_name(Name) when is_binary(Name) ->
+to_name1(undefined) ->
+    <<$_>>;
+to_name1(Name) when is_atom(Name) ->
+    to_name1(z_convert:to_binary(Name));
+to_name1(Name) when is_list(Name) ->
+    to_name1(iolist_to_binary(Name));
+to_name1(Name) when is_binary(Name) ->
     to_name(Name, <<>>, 0).
 
 -ifdef(coding_utf8).
@@ -817,8 +826,6 @@ to_name(<<"&gt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 to_name(<<"&#39;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 to_name(<<"&quot;",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 % Other sequences of characters are mapped to $_
-to_name(<<_C/utf8,T/binary>>, <<$_,_/binary>> = Acc, I) ->
-    to_name(T, Acc, I+1);
 to_name(<<_C/utf8,T/binary>>, Acc, I) ->
     to_name(T, <<Acc/binary,$_>>, I+1).
 
@@ -981,8 +988,6 @@ to_name(<<"&gt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 to_name(<<"&#39;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 to_name(<<"&quot;",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
 % Other sequences of characters are mapped to $_
-to_name(<<_C/utf8,T/binary>>, <<$_,_/binary>> = Acc, I) ->
-    to_name(T, Acc, I+1);
 to_name(<<_C/utf8,T/binary>>, Acc, I) ->
     to_name(T, <<Acc/binary,$_>>, I+1).
 
