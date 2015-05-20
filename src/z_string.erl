@@ -518,14 +518,14 @@ to_upper(<<"ї"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,135>>);
 to_upper(<<"і"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,143>>);
 to_upper(<<"є"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,132>>);
 % Polish support
-to_upper(<<"ą"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,132>>);
-to_upper(<<"ę"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,152>>);
-to_upper(<<"ć"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,196,134>>);
-to_upper(<<"ł"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,129>>);
-to_upper(<<"ń"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,131>>);
-to_upper(<<"ś"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,154>>);
-to_upper(<<"ź"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,185>>);
-to_upper(<<"ż"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc,197,187>>);
+to_upper(<<"ą"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,132>>);
+to_upper(<<"ę"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,152>>);
+to_upper(<<"ć"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,134>>);
+to_upper(<<"ł"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,129>>);
+to_upper(<<"ń"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,131>>);
+to_upper(<<"ś"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,154>>);
+to_upper(<<"ź"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,185>>);
+to_upper(<<"ż"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,187>>);
 % Turkish support
 to_upper(<<"ş"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,158>>);
 to_upper(<<"ğ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,196,158>>);
