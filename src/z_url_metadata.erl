@@ -106,8 +106,26 @@ p1([], _MD) ->
 p1([P|Ps], MD) ->
     case z_string:trim(proplists:get_value(P, MD#url_metadata.metadata,<<>>)) of
         <<>> -> p1(Ps, MD);
-        Value -> Value
+        Value -> maybe_abs_link(is_link_property(P), Value, MD#url_metadata.final_url)
     end.
+
+maybe_abs_link(false, Value, _FinalUrl) ->
+    Value;
+maybe_abs_link(true, <<>>, _FinalUrl) ->
+    undefined;
+maybe_abs_link(true, undefined, _FinalUrl) ->
+    undefined;
+maybe_abs_link(true, Value, FinalUrl) ->
+    z_url:abs_link(Value, FinalUrl).
+
+is_link_property(canonical_url) -> true;
+is_link_property(short_url) -> true;
+is_link_property(image_nav) -> true;
+is_link_property(image) -> true;
+is_link_property(icon_nav) -> true;
+is_link_property(icon_shortcut) -> true;
+is_link_property(_) -> false.
+
 
 content_disp_filename(undefined) ->
     undefined;
@@ -214,7 +232,7 @@ tag({<<"title">>, _As, Es}, MD, P) ->
 tag({<<"link">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"rel">>, As)),
     Content = proplists:get_value(<<"href">>, As),
-    {meta_link(Name, Content, MD), P};
+    {meta_link(Name, Content, As, MD), P};
 tag({<<"img">>, As, _}, MD, P) ->
     case proplists:get_value(<<"src">>, As, <<>>) of
         <<>> -> 
@@ -263,13 +281,17 @@ meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
 
-meta_link(<<"canonical">>, Content, MD) -> [{canonical_url, Content}|MD];
-meta_link(<<"shortlink">>, Content, MD) -> [{short_url, Content}|MD];
-meta_link(<<"shorturl">>, Content, MD) -> [{short_url, Content}|MD];
-meta_link(<<"icon">>, Content, MD) -> [{icon_fav, Content}|MD];
-meta_link(<<"shortcut icon">>, Content, MD) -> [{icon_shortcut, Content}|MD];
-meta_link(<<"apple-touch-icon">>, Content, MD) -> [{icon_touch, Content}|MD];
-meta_link(_Name, _Content, MD) -> MD.
+meta_link(<<"canonical">>, Content, _As, MD) -> [{canonical_url, Content}|MD];
+meta_link(<<"shortlink">>, Content, _As, MD) -> [{short_url, Content}|MD];
+meta_link(<<"shorturl">>, Content, _As, MD) -> [{short_url, Content}|MD];
+meta_link(<<"icon">>, Content, As, MD) ->
+    case proplists:is_defined(<<"mask">>, As) of
+        true -> MD;
+        false -> [{icon_fav, Content}|MD]
+    end;
+meta_link(<<"shortcut icon">>, Content, _As, MD) -> [{icon_shortcut, Content}|MD];
+meta_link(<<"apple-touch-icon">>, Content, _As, MD) -> [{icon_touch, Content}|MD];
+meta_link(_Name, _Content, _As, MD) -> MD.
 
 split_class(undefined) -> [];
 split_class(Class) -> binary:split(Class, <<" ">>, [global]).
