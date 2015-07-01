@@ -67,8 +67,13 @@ tempfile() ->
 %% @doc return a unique temporary filename with a set extension.
 -spec tempfile(string()) -> filename().
 tempfile(Extension) ->
-    {A,B,C}=erlang:now(),
-    filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p.~p~p",[node(),A,B,C, Extension]))).
+	A = crypto:rand_uniform(1,100000000),
+	B = crypto:rand_uniform(1,100000000),
+    Filename = filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p~s",[node(),A,B,Extension]))),
+    case filelib:is_file(Filename) of
+    	true -> tempfile(Extension);
+    	false -> Filename
+    end.
 
 %% @doc Check if the file is a temporary filename.
 -spec is_tempfile(filename()) -> boolean().
