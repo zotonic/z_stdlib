@@ -70,13 +70,18 @@ escape_props1({website, V}, _Options) ->
     V1 = escape_value(sanitize_uri(V)),
     {website, V1};
 escape_props1({K, V}, Options) ->
-    EscapeFun = case lists:reverse(z_convert:to_list(K)) of
-                    "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
-                    "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_uri'
-                    "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_url'
-                    _ -> fun escape_value/1
-                end,
-    {K, EscapeFun(V)};
+    case z_convert:to_list(K) of
+        "is_" ++ _ ->
+            {K, z_convert:to_bool(V)};
+        KS ->
+            EscapeFun = case lists:reverse(KS) of
+                            "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
+                            "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_uri'
+                            "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_url'
+                            _ -> fun escape_value/1
+                        end,
+            {K, EscapeFun(V)}
+    end;
 escape_props1(P, _Options) ->
     P.
 
@@ -300,16 +305,43 @@ ensure_protocol([]) ->
     [];
 ensure_protocol("#" ++ _ = Link) ->
     Link;
-ensure_protocol("www" ++ Rest) ->
-    ["http://www", Rest];
+ensure_protocol("/" ++ _ = Link) ->
+    Link;
+ensure_protocol("://" ++ _ = Link) ->
+    ["http", Link];
+ensure_protocol("http://" ++ _ = Link) ->
+    Link;
+ensure_protocol("https://" ++ _ = Link) ->
+    Link;
+ensure_protocol("mailto:" ++ _ = Link) ->
+    Link;
+ensure_protocol("www." ++ Rest) ->
+    ["http://www.", Rest];
 ensure_protocol(Link) ->
-    Link.
-
+    B = iolist_to_binary(Link),
+    case binary:match(B, <<"://">>) of
+        nomatch ->
+            [First|_] = binary:split(B, <<"/">>),
+            case binary:match(First, <<".">>) of
+                nomatch -> [$/, Link];
+                _Match -> ["http://", Link]
+            end;
+        _ ->
+            B
+    end.
 
 %% @doc Ensure that an uri is (quite) harmless by removing any script reference
 sanitize_uri(Uri) ->
-    ensure_protocol(noscript(Uri)).
+    B = iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri)))),
+    cleanup_uri_chars(B, <<>>).
 
+cleanup_uri_chars(<<>>, Acc) -> 
+    Acc;
+cleanup_uri_chars(<<C, B/binary>>, Acc) when C =< 32; C >= 127; C =:= $"; C =:= $'; C =:= $\\ ->
+    C1 = iolist_to_binary(z_url:hex_encode([C])),
+    cleanup_uri_chars(B, <<Acc/binary, $%, C1/binary>>);
+cleanup_uri_chars(<<C, B/binary>>, Acc) ->
+    cleanup_uri_chars(B, <<Acc/binary, C>>).
 
 %% @doc Strip all html elements from the text. Simple parsing is applied to find the elements. Does not escape the end result.
 %% @spec strip(iolist()) -> iolist()
