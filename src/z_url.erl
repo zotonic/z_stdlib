@@ -26,6 +26,7 @@
     url_decode/1,
     url_path_encode/1,
     url_valid_char/1,
+    url_unreserved_char/1,
     percent_encode/1,
     percent_encode/2,
     hex_encode/1,
@@ -75,9 +76,11 @@ url_path_encode(L) ->
 
 url_path_encode([], Acc) ->
     lists:reverse(Acc);
+url_path_encode([$/|[$/|_]=R], Acc) ->
+    url_path_encode(R, Acc);
 url_path_encode([$/|R], Acc) ->
     url_path_encode(R, [$/|Acc]);
-url_path_encode([C|R], Acc) when (C==$: orelse C==$@ orelse C==$& orelse C==$= orelse C==$+ orelse C==$$ orelse C==$, orelse C==$;) ->
+url_path_encode([C|R], Acc) when C=:=$&; C=:=$=; C=:=$+; C=:=$$; C=:=$,; C=:=$; ->
     url_path_encode(R, [C|Acc]);
 url_path_encode([C|R], Acc)->
     case url_unreserved_char(C) of
