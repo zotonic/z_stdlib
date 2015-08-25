@@ -611,6 +611,7 @@ allow_once(<<"bdo">>) -> true;
 allow_once(<<"big">>) -> true;
 allow_once(<<"br">>) -> true;
 allow_once(<<"cite">>) -> true;
+allow_once(<<"code">>) -> true;
 allow_once(<<"del">>) -> true;
 allow_once(<<"dfn">>) -> true;
 allow_once(<<"em">>) -> true;
