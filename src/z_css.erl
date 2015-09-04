@@ -43,12 +43,12 @@ sanitize(Css) when is_binary(Css) ->
     {ok, Ts} = scan(Css),
     case z_css_parser:parse(Ts) of
         {error, {Line, z_css_parser, Error}} ->
-            {error, {Line, iolist_to_binary(Error)}};
+            {error, {Line, unicode:characters_to_binary(Error)}};
         {ok, {stylesheet, Charset, Import, Rules}} ->
             Charset1 = sanitize_charset(Charset),
             Import1 = sanitize_import(Import),
             Rules1 = [ sanitize_rule(R) || R <- Rules ],
-            {ok, iolist_to_binary([
+            {ok, unicode:characters_to_binary([
                 serialize_charset(Charset1),
                 serialize_import(Import1),
                 [ serialize_rule(R) || R <- Rules1 ]
@@ -62,10 +62,10 @@ sanitize_style(Css) when is_binary(Css) ->
     case z_css_parser:parse(Ts) of
         {ok, {stylesheet, no_charset, no_import, [{rule, _Sel, Declarations}]}} ->
             SanitizedDs = [ sanitize_declaration(D) || D <- Declarations ],
-            Ts1 = iolist_to_binary([ serialize_declaration(D) || D <- SanitizedDs ]),
+            Ts1 = unicode:characters_to_binary([ serialize_declaration(D) || D <- SanitizedDs ]),
             {ok, binary:replace(Ts1, <<"\n">>, <<" ">>, [global])};
         {error, {Line, z_css_parser, Error}} ->
-            {error, {Line, iolist_to_binary(Error)}}
+            {error, {Line, unicode:characters_to_binary(Error)}}
     end.
 
 
@@ -115,7 +115,7 @@ sanitize_expr({operator, Op, E1}) -> {operator, Op, sanitize_expr(E1)}.
 
 sanitize_string([Quot|S]) when Quot =:= $"; Quot =:= $' ->
     S1 = lists:sublist(S, length(S)-1),
-    [ $", z_html:escape_check(z_html:strip(S1)), $"].
+    [ $", z_html:escape_check(z_html:strip(unicode:characters_to_binary(S1))), $"].
 
 
 %%% -------------------------------------------------------- 
