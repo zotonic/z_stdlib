@@ -16,6 +16,10 @@ convert_float_test() ->
 convert_date_test() ->
     ?assertEqual({2010,12,12}, z_convert:to_date("2010-12-12")),
     ?assertEqual({2010,12,12}, z_convert:to_date("2010/12/12")),
+
+    %% wrong input format; should not crash
+    ?assertEqual(undefined, z_convert:to_date("Mon Sep 07 2015 12:08:04 GMT+0200 (West-Europa (zomertijd))")),
+    
     ok.
 
 convert_time_test() ->

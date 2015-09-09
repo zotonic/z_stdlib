@@ -254,7 +254,9 @@ to_date(L) when is_list(L) ->
         [D,M,Y] when length(Y) =:= 4 ->
             {to_integer(Y),to_integer(M),to_integer(D)};
         [Y,M,D] ->
-            {to_integer(Y),to_integer(M),to_integer(D)}
+            {to_integer(Y),to_integer(M),to_integer(D)};
+        _ ->
+            undefined
     end.
 
 %% @doc Convert an input to a time. INput is expected to be HH:MM:SS
