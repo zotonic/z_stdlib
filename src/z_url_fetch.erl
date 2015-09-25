@@ -21,7 +21,7 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 %% Maximum nmber of bytes fetched for metadata extraction
--define(HTTPC_LENGTH, 128000).
+-define(HTTPC_LENGTH, 32*1024).
 -define(HTTPC_MAX_LENGTH, 1024*1024*100).  % Max 100MB
 
 %% Number of redirects followed before giving up
