@@ -21,7 +21,7 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 %% Maximum nmber of bytes fetched for metadata extraction
--define(HTTPC_LENGTH, 32*1024).
+-define(HTTPC_LENGTH, 128000).
 -define(HTTPC_MAX_LENGTH, 1024*1024*100).  % Max 100MB
 
 %% Number of redirects followed before giving up
@@ -104,10 +104,12 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
         {"Accept-Encoding", "identity"},
         {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
         {"Accept-Language", "en,*;q=0"},
-        {"Range", "bytes=0-"++integer_to_list(Max-1)},
         {"User-Agent", httpc_ua(Url)},
         {"Connection", "close"}
-    ],
+    ] ++ case Max of
+            undefined -> [];
+            _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
+         end,
     case fetch_stream(start_stream(Url, Headers, Opts), Max, OutDev) of
         {ok, Result} ->
             maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
@@ -199,6 +201,8 @@ fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile) ->
 
 maybe_redirect({200, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
     {ok, {Url, Hs, Size, Data}};
+maybe_redirect({416, _Hs, _Size, _Data}, Url, RedirectCount, _Max, OutDev, Opts) ->
+    fetch_partial(Url, RedirectCount+1, undefined, OutDev, Opts);
 maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts) when Code =:= 301; Code =:= 302; Code =:= 307 ->
     case proplists:get_value("location", Hs) of
         undefined -> 
