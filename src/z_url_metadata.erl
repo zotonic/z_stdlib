@@ -22,6 +22,7 @@
 
 -export([
     fetch/1,
+    html_meta/1,
     p/2,
     filename/2
     ]).
@@ -186,12 +187,24 @@ is_index_page(Url) ->
         _ ->
             false
     end.
+    
+html_meta(Data) ->
+    html_meta(true, Data).
 
 html_meta(true, PartialData) ->
-    Parsed = mochiweb_html:parse(PartialData),
+    Parsed = parse(PartialData),
     lists:reverse(html(Parsed, [], #ps{}));
 html_meta(false, _PartialData) ->
     [].
+    
+parse(PartialData) when is_binary(PartialData) ->
+    parse_html(<<"<partial>", PartialData/binary, "</partial>">>);   
+parse(PartialData) when is_list(PartialData) ->
+    parse_html(iolist_to_binary([<<"<partial>">>, PartialData, <<"</partial>">>])).
+    
+parse_html(Html) ->
+    mochiweb_html:parse(Html).
+    
 
 html([], MD, _P) ->
     MD;
@@ -420,3 +433,49 @@ content_length(Hs) ->
     catch 
         _:_ -> undefined
     end.
+
+%%
+%% Tests
+%%
+
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+simple_partial_metadata_test() ->
+    Url = "http://example.org",
+    Headers = [{"content-type", "text/html"}],
+    Data = <<"<html><head><title>Example</title><body></body></html>">>,
+
+    MD = partial_metadata(Url, Headers, Data),
+    
+    ?assertEqual(<<"http://example.org">>, MD#url_metadata.final_url),
+    ?assertEqual(<<"text/html">>, MD#url_metadata.content_type),
+    ?assertEqual([{title, <<"Example">>}], MD#url_metadata.metadata),
+    
+    ok.
+    
+simple_html_meta_test() ->
+    Data = <<"<html><head><title>Example</title><body></body></html>">>,
+    ?assertEqual([{title, <<"Example">>}], html_meta(Data)),
+    ok.
+    
+partial_unbalanced_tags_html_meta_test() ->
+    Data = <<"<head><meta name=\"description\" content=\"Example Content\"><title>Example</title>">>,
+    ?assertEqual([{description, <<"Example Content">>},
+        {title, <<"Example">>}], html_meta(Data)),
+    ok.
+
+partial_no_surrounding_tags_html_meta_test() ->
+    Data = <<"<meta name=\"description\" content=\"Example Content\"><title>Example</title>">>,
+    ?assertEqual([{description, <<"Example Content">>},
+        {title, <<"Example">>}], html_meta(Data)),
+    ok.
+    
+partial_ampersant_in_html_meta_test() ->
+    Data = <<"<meta name=\"description\" content=\"Example & Stuff\"><title>Foo &amp; Co</title>">>,
+    ?assertEqual([{description, <<"Example & Stuff">>},
+        {title, <<"Foo & Co">>}], html_meta(Data)),
+    ok.
+
+-endif.
