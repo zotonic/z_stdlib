@@ -168,6 +168,11 @@ to_bool_strict({rsc_list, []}) -> false;
 to_bool_strict({trans, []}) -> false;
 to_bool_strict("0") -> false;
 to_bool_strict(<<"0">>) -> false;
+to_bool_strict({{9999,M,D},{H,I,S}}) % ?ST_JUTTEMIS
+    when is_integer(M), is_integer(D),
+         is_integer(H), is_integer(I), is_integer(S),
+         M >= 1, M =< 12, D >= 1, D =< 31, H >= 0, H =< 23,
+         I >= 0, I =< 59, S >= 0, S =< 60 -> false;
 to_bool_strict(_) -> true.
 
 
