@@ -8,8 +8,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--ifdef(coding_utf8).
-
 to_upper_test() ->
     A = <<"üçgen"/utf8>>,
     <<"ÜÇGEN"/utf8>> = z_string:to_upper(A),
@@ -44,52 +42,10 @@ to_name_test() ->
     <<"ucgen">> = z_string:to_name(A),
     <<"hola">> = z_string:to_name(hola),
     <<"hola">> = z_string:to_name("hola"),
-
     <<"at">> = z_string:to_name(<<"@">>),
     <<"at">> = z_string:to_name("@"),
     <<"foo_at_bar">> = z_string:to_name("foo@bar"),
-    
     ok.
-
--else.
-
-to_upper_test() ->
-    A = <<"üçgen">>,
-    <<"ÜÇGEN">> = z_string:to_upper(A),
-    <<"HOLA">> = z_string:to_upper("hola"),
-    ok.
-
-to_lower_to_upper_test() ->
-    A = <<"üçgen">>,
-    A = z_string:to_lower(z_string:to_upper(A)),
-    ok.
-
-first_char_test() ->
-    ?assertEqual($a, z_string:first_char("aap")),
-    ?assertEqual($a, z_string:first_char(<<"aap">>)),
-    ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
-    ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx">>)),
-    ?assertEqual(263, z_string:first_char("ćaap")),
-    ?assertEqual(263, z_string:first_char(<<"ćaap">>)),
-    ok.
-
-last_char_test() ->
-    ?assertEqual($p, z_string:last_char("aap")),
-    ?assertEqual($p, z_string:last_char(<<"aap">>)),
-    ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
-    ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ">>)),
-    ?assertEqual(263, z_string:last_char("aapć")),
-    ?assertEqual(263, z_string:last_char(<<"aapć">>)),
-    ok.
-
-to_name_test() ->
-    A = <<"üçgen">>,
-    <<"ucgen">> = z_string:to_name(A),
-    <<"hola">> = z_string:to_name(hola),
-    <<"hola">> = z_string:to_name("hola"),
-    ok.
-
--endif.
 
 concat_test() ->
     <<"abcdef">> = z_string:concat(<<"abc">>, <<"def">>),
