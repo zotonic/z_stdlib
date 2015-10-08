@@ -818,6 +818,84 @@ to_name(<<"Ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
 to_name(<<"ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
 to_name(<<"İ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
 to_name(<<"ı"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+
+% Hebrew support (simplified) https://en.wikipedia.org/wiki/Romanization_of_Hebrew
+% TODO: check this, as it seems quite broken/incomplete
+to_name(<<"א"/utf8,T/binary>>, Acc, I) -> to_name(T, Acc, I);
+to_name(<<"ב"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
+to_name(<<"בּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
+to_name(<<"ג"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"גּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+to_name(<<"ג׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
+to_name(<<"ד"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
+to_name(<<"דּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
+to_name(<<"ד׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d,$h>>, I+2);
+to_name(<<"ה"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
+to_name(<<"הּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
+to_name(<<"ו"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
+to_name(<<"וּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
+to_name(<<"ז"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"זּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"ז׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z,$h>>, I+2);
+to_name(<<"ח"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c,$h>>, I+1);
+to_name(<<"ט"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"טּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"י"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
+to_name(<<"יּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
+to_name(<<"ךכ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c,$h>>, I+2);
+to_name(<<"ךּ כּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
+to_name(<<"ל"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"לּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
+to_name(<<"םמ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
+to_name(<<"מּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
+to_name(<<"ןנ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"נּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"ס"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"סּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"ע"/utf8,T/binary>>, Acc, I) -> to_name(T, Acc, I);
+to_name(<<"ףפ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
+to_name(<<"ףּ פּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
+to_name(<<"ץצ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$z>>, I+2);
+to_name(<<"צּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$z>>, I+2);
+to_name(<<"ץ׳צ׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$s,$h>>, I+3);
+to_name(<<"ק"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
+to_name(<<"קּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
+to_name(<<"ר"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
+to_name(<<"רּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
+to_name(<<"ש"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
+to_name(<<"שׁ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
+to_name(<<"שּׁ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
+to_name(<<"שׂ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"שּׂ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
+to_name(<<"ת"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"תּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
+to_name(<<"ת׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$h>>, I+2);
+% Hebrew forms used in translitearion from Arabic
+to_name(<<"ח׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
+to_name(<<"ט׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+to_name(<<"ע׳ר׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+% Hebrew vowels
+to_name(<<"צ"/utf8, T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$a>>, I+2);
+to_name(<<"טְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"חֱ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"חֲ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"חֳ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"טִ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+to_name(<<"טֵ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"טֶ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
+to_name(<<"טַ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
+to_name(<<"טָ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"טֹ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
+to_name(<<"טֻ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"טוּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
+to_name(<<"טֵי"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$i>>, I+2);
+to_name(<<"טֶי"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$i>>, I+2);
+to_name(<<"טַיטַיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$i>>, I+2);
+to_name(<<"טָיטָיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$i>>, I+2);
+to_name(<<"טֹיטֹיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$i>>, I+2);
+to_name(<<"טֻיטֻיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$i>>, I+2);
+to_name(<<"טוּיטוּיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$i>>, I+2);
+
 % Some entities - we might want to add generic code here, depends
 % on where to_name/1 is used (can we assume that the input is always html?)
 to_name(<<"&amp;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
