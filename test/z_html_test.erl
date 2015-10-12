@@ -32,6 +32,7 @@ strip_test() ->
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234</p>\n<p>5678</p>">>)),
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234\n<span>5678</span></p>">>)),
     ?assertEqual(<<"This is a list item.">>, z_html:strip(<<"<ul><li>This is a list item.</li></ul>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234</p><p>5678</p>">>)),
     ok.
 
 abs_links_test() ->

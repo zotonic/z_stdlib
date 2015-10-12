@@ -360,15 +360,23 @@ strip(L) when is_list(L) ->
 strip(N) when is_integer(N) ->
     strip(integer_to_list(N)).
 
-strip(<<>>, _, Acc) -> Acc;
+strip(<<>>, _, Acc) -> 
+    Acc;
 strip(<<$<,T/binary>>, in_text, Acc) ->
     strip(T, in_tag, Acc);
 strip(<<$>,T/binary>>, in_tag, <<>>) ->
     strip(T, in_text, <<>>);
 strip(<<$>>>, in_tag, Acc) -> 
     Acc;
-strip(<<$>,T/binary>>, in_tag, Acc) ->
-    strip(T, in_text, Acc);
+strip(<<$>, WS, T/binary>>, in_tag, Acc) when WS =< 32 ->
+    strip(T, in_text, <<Acc/binary, WS>>);
+strip(<<$>, T/binary>>, in_tag, Acc) ->
+    case T of
+        <<$<, $/, _/binary>> ->
+            strip(T, in_text, Acc);
+        _ ->
+            strip(T, in_text, maybe_add_space(Acc))
+    end;
 strip(<<$>,T/binary>>, State, Acc) ->
     strip(T, State, Acc);
 strip(<<$<,T/binary>>, State, Acc) ->
@@ -390,6 +398,13 @@ strip(<<H,T/binary>>, in_text, Acc) ->
 strip(<<_,T/binary>>, State, Acc) ->
     strip(T, State, Acc).
 
+maybe_add_space(Bin) ->
+    case binary:last(Bin) of
+        C when C =< 32 ->
+            Bin;
+        _ ->
+            <<Bin/binary, 32>>
+    end.
 
 %% @doc Truncate a previously sanitized HTML string.
 truncate(Html,Length) ->
