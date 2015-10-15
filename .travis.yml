@@ -4,6 +4,7 @@ otp_release:
   - 17.0
   - R16B
 script: make clean test
+sudo: false
 branches:
   only:
     - master
