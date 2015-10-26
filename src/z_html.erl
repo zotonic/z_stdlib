@@ -331,6 +331,12 @@ ensure_protocol(Link) ->
     end.
 
 %% @doc Ensure that an uri is (quite) harmless by removing any script reference
+sanitize_uri(undefined) ->
+    undefined;
+sanitize_uri(<<>>) ->
+    <<>>;
+sanitize_uri([]) ->
+    <<>>;
 sanitize_uri(Uri) ->
     B = iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri)))),
     cleanup_uri_chars(B, <<>>).
