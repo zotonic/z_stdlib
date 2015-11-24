@@ -343,11 +343,18 @@ sanitize_uri(Uri) ->
 
 cleanup_uri_chars(<<>>, Acc) -> 
     Acc;
-cleanup_uri_chars(<<C, B/binary>>, Acc) when C =< 32; C >= 127; C =:= $"; C =:= $'; C =:= $\\ ->
-    C1 = iolist_to_binary(z_url:hex_encode([C])),
-    cleanup_uri_chars(B, <<Acc/binary, $%, C1/binary>>);
+cleanup_uri_chars(<<C, B/binary>>, Acc)
+    when C =:= $.; C =:= $&; C =:= $:; C =:= $/; 
+         C =:= $=; C =:= $?; C =:= $# ->
+    cleanup_uri_chars(B, <<Acc/binary, C>>);
 cleanup_uri_chars(<<C, B/binary>>, Acc) ->
-    cleanup_uri_chars(B, <<Acc/binary, C>>).
+    case z_url:url_unreserved_char(C) of
+        false ->
+            C1 = iolist_to_binary(z_url:hex_encode([C])),
+            cleanup_uri_chars(B, <<Acc/binary, $%, C1/binary>>);
+        true ->
+            cleanup_uri_chars(B, <<Acc/binary, C>>)
+    end.
 
 %% @doc Strip all html elements from the text. Simple parsing is applied to find the elements. Does not escape the end result.
 %% @spec strip(iolist()) -> iolist()
