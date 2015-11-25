@@ -349,7 +349,7 @@ cleanup_uri_chars(<<$%, A, B, C/binary>>, Acc)
     cleanup_uri_chars(C, <<Acc/binary, $%, A, B>>);
 cleanup_uri_chars(<<C, B/binary>>, Acc)
     when C =:= $.; C =:= $&; C =:= $:; C =:= $/; 
-         C =:= $=; C =:= $?; C =:= $# ->
+         C =:= $=; C =:= $?; C =:= $#; C =:= $+ ->
     cleanup_uri_chars(B, <<Acc/binary, C>>);
 cleanup_uri_chars(<<C, B/binary>>, Acc) ->
     case z_url:url_unreserved_char(C) of
