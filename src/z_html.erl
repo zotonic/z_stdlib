@@ -301,22 +301,22 @@ make_links1(Offset, [{MatchOffs,_}|_] = Matches, Text, Acc) ->
     {Text1,Text2} = lists:split(MatchOffs-Offset, Text),
     make_links1(MatchOffs, Matches, Text2, [escape(Text1)|Acc]).
 
-ensure_protocol([]) ->
-    [];
-ensure_protocol("#" ++ _ = Link) ->
-    Link;
-ensure_protocol("/" ++ _ = Link) ->
-    Link;
-ensure_protocol("://" ++ _ = Link) ->
-    ["http", Link];
-ensure_protocol("http://" ++ _ = Link) ->
-    Link;
-ensure_protocol("https://" ++ _ = Link) ->
-    Link;
-ensure_protocol("mailto:" ++ _ = Link) ->
-    Link;
-ensure_protocol("www." ++ Rest) ->
-    ["http://www.", Rest];
+ensure_protocol([]) -> [];
+ensure_protocol("#" ++ _ = Link) -> Link;
+ensure_protocol("/" ++ _ = Link) -> Link;
+ensure_protocol("://" ++ _ = Link) -> ["http", Link];
+ensure_protocol("http://" ++ _ = Link) -> Link;
+ensure_protocol("https://" ++ _ = Link) -> Link;
+ensure_protocol("mailto:" ++ _ = Link) -> Link;
+ensure_protocol("www." ++ Rest) -> ["http://www.", Rest];
+ensure_protocol(<<>>) -> <<>>;
+ensure_protocol(<<"#", _/binary>> = Link) -> Link;
+ensure_protocol(<<"/", _/binary>> = Link) -> Link;
+ensure_protocol(<<"://", _/binary>> = Link) -> ["http", Link];
+ensure_protocol(<<"http://", _/binary>> = Link) -> Link;
+ensure_protocol(<<"https://", _/binary>> = Link) -> Link;
+ensure_protocol(<<"mailto:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"www.", _/binary>> = Link) -> <<"http://", Link/binary>>;
 ensure_protocol(Link) ->
     B = iolist_to_binary(Link),
     case binary:match(B, <<"://">>) of
@@ -343,6 +343,10 @@ sanitize_uri(Uri) ->
 
 cleanup_uri_chars(<<>>, Acc) -> 
     Acc;
+cleanup_uri_chars(<<$%, A, B, C/binary>>, Acc)
+    when      ((A >= $0 andalso A =< $9) orelse (A >= $A andalso A =< $Z))
+      andalso ((B >= $0 andalso B =< $9) orelse (B >= $A andalso B =< $Z)) ->
+    cleanup_uri_chars(C, <<Acc/binary, $%, A, B>>);
 cleanup_uri_chars(<<C, B/binary>>, Acc)
     when C =:= $.; C =:= $&; C =:= $:; C =:= $/; 
          C =:= $=; C =:= $?; C =:= $# ->
