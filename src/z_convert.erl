@@ -276,13 +276,12 @@ to_time(L) when is_list(L) ->
     [H,I,S|_] = lists:flatten([[to_integer(X) ||X <-  string:tokens(L, ":.")], 0, 0]),
     {H,I,S}.
 
-%% @doc Convert a datetime (in local time) to an ISO time string (in
-%% universal time).
+%% @doc Convert a datetime (in universal time) to an ISO time string.
 -spec to_isotime(calendar:datetime()) -> string().
 to_isotime(DateTime={D,_}) when D < {1970, 1, 1}->
     to_list(z_dateformat:format(DateTime, "Y-m-d\\TH:i:s\\Z", en));
 to_isotime(DateTime) ->
-    to_list(z_dateformat:format(hd(calendar:local_time_to_universal_time_dst(DateTime)), "Y-m-d\\TH:i:s\\Z", en)).
+    to_list(z_dateformat:format(DateTime, "Y-m-d\\TH:i:s\\Z", en)).
 
 
 %%

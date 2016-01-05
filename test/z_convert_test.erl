@@ -46,6 +46,6 @@ convert_datetime_test() ->
     ok.
 
 datetime_to_iso_test() ->
-    ?assertEqual("2010-09-02T10:11:56Z", z_convert:to_isotime(calendar:universal_time_to_local_time({{2010,9,2},{10,11,56}}))),
-    ?assertEqual("2010-09-02T01:01:01Z", z_convert:to_isotime(calendar:universal_time_to_local_time({{2010,9,2},{1,1,1}}))),
+    ?assertEqual("2010-09-02T10:11:56Z", z_convert:to_isotime({{2010,9,2},{10,11,56}})),
+    ?assertEqual("2010-09-02T01:01:01Z", z_convert:to_isotime({{2010,9,2},{1,1,1}})),
     ok.

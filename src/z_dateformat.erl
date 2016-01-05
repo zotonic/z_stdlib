@@ -164,7 +164,7 @@ tag_to_value($s, _, {_,_,S}, _Options) ->
 
 % Month, textual, 3 letters, lowercase; e.g. 'jan'
 tag_to_value($b, {_,M,_}, _, Options) ->
-   z_string:truncate(tr(monthname, M, Options), 3, <<>>);
+   z_string:to_lower(z_string:truncate(tr(monthname, M, Options), 3, <<>>));
 
 % ISO 8601 date format - 2004-02-12T15:19:21+00:00
 tag_to_value($c, Date, Time, Options) ->
