@@ -321,7 +321,7 @@ to_json([{X, Y}]) when is_atom(X) ->
 to_json([{X, Y} | Z]) when is_atom(X) ->
     {struct, to_json_struct([{X, Y} | Z])};
 to_json(X) when is_list(X) ->
-    case z_string:is_string(X) of
+    case z_string:is_string(X) or is_binary(X) of
         true ->
             X;
         false ->
