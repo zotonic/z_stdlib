@@ -45,6 +45,14 @@
     abs_links/2
 ]).
 
+% Used by z_svg.erl
+% @todo: move this to separate erlang module
+-export([
+    flatten_attr/1,
+    escape_html_text/2,
+    escape_html_comment/2
+    ]).
+
 
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
 -spec escape_props(list()) -> list().
@@ -531,6 +539,13 @@ sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
 sanitize({pi, _Tag, _Attrs}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->
     <<>>;
+sanitize({<<"svg">>, _Attrs, _Enclosed} = Element, _Stack, ExtraElts, _ExtraAttrs, _Options) ->
+    case allow_elt(<<"svg">>, ExtraElts) of
+        true ->
+            z_svg:sanitize_element(Element);
+        false ->
+            {nop, []}
+    end;
 sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
     case allow_elt(Elt, ExtraElts) orelse (not lists:member(Elt, Stack) andalso allow_once(Elt)) of
         true ->
@@ -588,10 +603,7 @@ prefix(Sep, List) -> prefix(Sep,List,[]).
 prefix(_Sep, [], Acc) -> lists:reverse(Acc);
 prefix(Sep, [H|T], Acc) -> prefix(Sep, T, [H,Sep|Acc]).
 
-%% @doc Flatten an attribute to a binary
-%% @todo Filter javascript from the value (when there is a ':' then only allow http/https)
-%% @todo Strip scripting and text css attributes
-%% css: anything within () should be removed
+%% @doc Flatten an attribute to a binary, filter urls and css.
 flatten_attr({<<"style">>,Value}) ->
     Value1 = escape(filter_css(Value)),
     <<"style=\"", Value1/binary, $">>;
