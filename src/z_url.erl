@@ -20,12 +20,12 @@
 
 -author("Marc Worrell <marc@worrell.nl>").
 
--export (
-   [
+-export([
     url_encode/1,
     url_decode/1,
     url_path_encode/1,
     url_valid_char/1,
+    url_reserved_char/1,
     url_unreserved_char/1,
     percent_encode/1,
     percent_encode/2,
@@ -48,14 +48,14 @@
 
 %%% URL ENCODE %%%
 
-url_encode(S) -> 
+url_encode(S) ->
     %% @todo possible speedups for binaries
     mochiweb_util:quote_plus(S).
 
 url_decode(S) ->
     lists:reverse(url_decode(S, [])).
 
-    url_decode([], Acc) -> 
+    url_decode([], Acc) ->
       Acc;
     url_decode([$%, A, B|Rest], Acc) ->
       Ch = erlang:list_to_integer([A, B], 16),
@@ -110,7 +110,7 @@ percent_encode([], Encoded) ->
 percent_encode([C|Etc], Encoded) when ?is_unreserved(C) ->
   percent_encode(Etc, [C|Encoded]);
 percent_encode([C|Etc], Encoded) ->
-  Value = [io_lib:format("%~s", [encode([Char], 16)]) 
+  Value = [io_lib:format("%~s", [encode([Char], 16)])
             || Char <- binary_to_list(unicode:characters_to_binary([C]))],
   percent_encode(Etc, [lists:flatten(Value)|Encoded]).
 
@@ -156,7 +156,7 @@ url_reserved_char(_) -> false.
 
 url_unreserved_char(Ch) when ?is_unreserved(Ch) ->
   true;
-url_unreserved_char(_) -> 
+url_unreserved_char(_) ->
   false.
 
 
@@ -261,7 +261,7 @@ make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
 -spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
 decode_data_url(<<"data:", Data/binary>>) ->
     Parts = binary:split(Data, <<";">>, [global]),
-    [Encoded|Args] = lists:reverse(Parts), 
+    [Encoded|Args] = lists:reverse(Parts),
     case decode_url_data(Encoded) of
         {ok, Decoded} ->
             {Mime, Charset} = decode_data_url_args(Args),
