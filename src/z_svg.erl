@@ -105,7 +105,7 @@ flatten_attr({Attr, Value}) ->
                     z_html:flatten_attr({Attr, Value})
             end;
         false ->
-            <<Attr/binary, $=, $", $">>
+            <<Attr/binary, "=\"\"">>
     end.
 
 %% @doc Don't accept SVG attributes referring to an external resource. 
@@ -120,9 +120,9 @@ is_acceptable_svg(<<"url(#", Rest/binary>>) ->
         _ -> false
     end;
 is_acceptable_svg(AttrVal) ->
-    case binary:split(AttrVal, <<"://">>) of
-        [_Protocol, _] -> false;
-        [_] -> true
+    case binary:match(AttrVal, <<"://">>) of
+        {_,_} -> false;
+        nomatch -> true
     end.
 
 is_selfclosing(_) -> false.
