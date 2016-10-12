@@ -10,9 +10,9 @@
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%% 
+%%
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%% 
+%%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,9 +30,9 @@
           clean_lower/1,
           to_list/1,
           to_flatlist/1,
-          to_atom/1, 
-          to_binary/1, 
-          to_binary/2, 
+          to_atom/1,
+          to_binary/1,
+          to_binary/2,
           to_integer/1,
           to_float/1,
           to_bool_strict/1,
@@ -45,7 +45,7 @@
           to_isotime/1,
           to_json/1,
           unicode_to_utf8/1,
-          
+
           convert_json/1,
           ip_to_list/1,
           ip_to_long/1,
@@ -85,7 +85,7 @@ to_flatlist(L) ->
 
 
 %% @doc Convert (almost) any value to an atom.
--spec to_atom(term()) -> atom().
+-spec to_atom(term()) -> atom() | undefined.
 to_atom(<<>>) -> undefined;
 to_atom([]) -> undefined;
 to_atom(A) when is_atom(A) -> A;
@@ -109,7 +109,7 @@ to_binary(A, _Context) -> to_binary(A).
 
 
 %% @doc Convert (almost) any value to an integer.
--spec to_integer(term()) -> integer().
+-spec to_integer(term()) -> integer() | undefined.
 to_integer(undefined) -> undefined;
 to_integer([]) -> undefined;
 to_integer(A) when is_atom(A) -> to_integer(atom_to_list(A));
@@ -120,14 +120,14 @@ to_integer([C]) when is_integer(C) andalso (C > $9 orelse C < $0) -> C;
 to_integer(L) when is_list(L) -> list_to_integer(L).
 
 %% @doc Convert (almost) any value to a float.
--spec to_float(term()) -> float().
+-spec to_float(term()) -> float() | undefined.
 to_float(undefined) -> undefined;
 to_float([]) -> undefined;
 to_float(A) when is_atom(A) -> to_float(atom_to_list(A));
 to_float(B) when is_binary(B) -> to_float(binary_to_list(B));
 to_float(I) when is_integer(I) -> I + 0.0;
 to_float(F) when is_float(F) -> F;
-to_float(L) when is_list(L) -> 
+to_float(L) when is_list(L) ->
     case lists:member($., L) of
         true -> list_to_float(L);
         false -> list_to_float(L++".0")  %% list_to_float("1") gives a badarg
@@ -344,7 +344,7 @@ to_json_struct_key(X) when is_list(X) ->
     end;
 to_json_struct_key(_) ->
     invalid_key.
-    
+
 
 
 ip_to_list({IP,Port}) when is_tuple(IP), is_integer(Port) ->
