@@ -128,8 +128,22 @@ get_stuff(<<$',T/binary>>, $', L, Stack, Dict, MaxSize)  ->
     decode1(T, push(Atom,Stack), Dict, MaxSize - erts_debug:flat_size(Atom));
 get_stuff(<<$",T/binary>>, $", L, Stack, Dict, MaxSize)  -> 
     decode1(T, push(L,Stack), Dict, MaxSize - erts_debug:flat_size(L));
-get_stuff(<<$`,T/binary>>, $`, L, [Top|Stack], Dict, MaxSize)  -> 
-    decode1(T, push({'$TYPE', L, Top},Stack), Dict, MaxSize - erts_debug:flat_size(L));
+get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
+    case L of
+        <<"plist">> ->
+            decode1(T, TS, Dict, MaxSize);
+        <<"map">> ->
+            % @todo: add conditional compilation for list to map
+            decode1(T, TS, Dict, MaxSize);
+        <<"f">> ->
+            F = erlang:binary_to_float(H),
+            decode1(T, [[F|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(F));
+        <<"dt">> ->
+            DT = timestamp_to_datetime(H),
+            decode1(T, [[DT|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(DT));
+        _ ->
+            decode1(T, TS, Dict, MaxSize)
+    end;
 get_stuff(<<$%,T/binary>>, $%, _L, Stack, Dict, MaxSize)  -> 
     decode1(T, Stack, Dict, MaxSize);
 get_stuff(<<H,T/binary>>, Stop, L, Stack, Dict, MaxSize) -> 
@@ -172,10 +186,11 @@ special($$)  -> true;
 special($")  -> true;
 special($')  -> true;
 special($~)  -> true;
+special($`)  -> true;
 special(_)   -> false.
 
 special_chars() ->    
-    " 0123456789{},~%#>\n\r\s\t\"'-&$".
+    " 0123456789{},~%#>\n\r\s\t\"'-&$`".
 
 collect_int(<<H,T/binary>>, N, Sign, Stack, Dict, MaxSize) when  $0 =< H, H =< $9 ->
     collect_int(T, N*10 + H - $0, Sign, Stack, Dict, MaxSize);
@@ -273,20 +288,48 @@ do_encode(X, Dict) when is_atom(X); is_integer(X); is_binary(X) ->
 do_encode({'#S', Str}, _Dict) ->
     %% This *is* a string
     encode_string(Str);
-do_encode([H|T], Dict) ->
-    S1  = do_encode(T, Dict),
-    S2  = do_encode(H, Dict),
-    [S1,S2,$&];
+do_encode({{Y,M,D},{H,I,S}} = DT, Dict)
+    when is_integer(Y), is_integer(M), is_integer(D),
+         is_integer(H), is_integer(I), is_integer(S) ->
+    case datetime_to_timestamp(DT) of
+        undefined -> do_encode(undefined, Dict);
+        Timestamp -> [integer_to_binary(Timestamp),"`dt`"]
+    end;
+do_encode([_|_] = List, Dict) ->
+    Enc = encode_list(List, Dict, []),
+    case list_type(List) of
+        plist -> [$#,Enc,"`plist`"];
+        list -> [$#,Enc]
+    end;
 do_encode(T, Dict) when is_tuple(T) ->
     S1 = encode_tuple(1, T, Dict),
     [${,S1,$}];
+do_encode(F, _Dict) when is_float(F) ->
+    [$",io_lib:format("~p", [F]),$","`f`"];
 do_encode([], _Dict) ->
     $#.
 
+list_type([]) ->
+    list;
+list_type(L) ->
+    case lists:all(fun is_proplist_elt/1, L)
+        and not lists:all(fun is_atom/1, L)
+    of
+        true -> plist;
+        false -> list
+    end.
+
+is_proplist_elt({K,_}) when is_binary(K); is_atom(K) ->
+    true;
+is_proplist_elt(A) when is_atom(A) ->
+    true;
+is_proplist_elt(_) ->
+    false.
+
 encode_list([H|T], Dict, L) ->
-    encode_list(T, Dict, [$&,do_encode(H, Dict)|L]);
+    encode_list(T, Dict, [do_encode(H, Dict),$&|L]);
 encode_list([], _Dict, L) ->
-    reverse(L).
+    L.
 
 encode_tuple(N, T, _Dict) when N > size(T) ->
     "";
@@ -311,3 +354,15 @@ deabstract(T) when is_tuple(T) ->
     list_to_tuple(map(fun deabstract/1, tuple_to_list(T)));
 deabstract([H|T]) -> [deabstract(H)|deabstract(T)];
 deabstract(T) -> T.
+
+
+-define(SECS_1970, 62167219200).
+
+timestamp_to_datetime(Seconds) when is_integer(Seconds) ->
+   calendar:gregorian_seconds_to_datetime(?SECS_1970 + Seconds).
+
+datetime_to_timestamp({{9999,_,_},{_,_,_}}) ->
+    undefined;
+datetime_to_timestamp({{_,_,_},{_,_,_}} = DT) ->
+    calendar:datetime_to_gregorian_seconds(DT) - ?SECS_1970.
+
