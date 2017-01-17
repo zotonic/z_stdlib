@@ -124,6 +124,9 @@ sanitize_test() ->
                 {attr_extra, [<<"trap_exit">>, <<"scary">>]}
             ])),
 
+    % Data urls
+    ?assertEqual(<<"<a href=\"#script-removed\">Click me</a>">>,
+        z_html:sanitize(<<"<a href=\"data:text/html;charset=utf8,randomhtmlstuff\">Click me</a>">>)),
     ok.
 
 

@@ -301,7 +301,7 @@ make_links1(_Offset, [], Text, Acc) ->
     lists:reverse([escape(Text) | Acc]);
 make_links1(Offset, [{Offset, Len}|Rest], Text, Acc) ->
     {Link, Text1} = lists:split(Len, Text),
-    NoScript = noscript(Link),
+    NoScript = noscript(Link, true),
     Link1 = escape(NoScript),
     Link2 = escape(ensure_protocol(NoScript)),
     make_links1(Offset+Len, Rest, Text1, [["<a href=\"",Link2,"\" rel=\"nofollow\">",Link1,"</a>"] | Acc]);
@@ -346,7 +346,7 @@ sanitize_uri(<<>>) ->
 sanitize_uri([]) ->
     <<>>;
 sanitize_uri(Uri) ->
-    B = iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri)))),
+    B = iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri), true))),
     cleanup_uri_chars(B, <<>>).
 
 cleanup_uri_chars(<<>>, Acc) -> 
@@ -613,7 +613,7 @@ flatten_attr({<<"class">>,Value}) ->
     <<"class=\"", Value1/binary, $">>;
 flatten_attr({Attr,Value}) ->
     Value1 = case is_url_attr(Attr) of
-                true -> noscript(Value);
+                true -> noscript(Value, Attr =:= <<"href">>);
                 false -> Value
             end,
     Value2 = escape(Value1),
@@ -790,11 +790,17 @@ filter_css(Css) when is_binary(Css) ->
 filter_widget_class(Class) ->
     z_convert:to_binary(re:replace(Class, <<"do_[0-9a-zA-Z_]+">>, <<>>, [global])).
 
-%% @doc Filter a url, remove any javascript.
-noscript(Url) -> 
+%% @doc Filter a url, remove any "javascript:" and "data:" (as data can be text/html).
+noscript(Url) ->
+    noscript(Url, true).
+
+%% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
+noscript(Url, IsStrict) -> 
     case nows(z_convert:to_list(Url), []) of
         "script:" ++ _ -> <<"#script-removed">>;
+        "vbscript:" ++ _ -> <<"#script-removed">>;
         "javascript:" ++ _ -> <<"#script-removed">>;
+        "data:" ++ _ when IsStrict -> <<"#script-removed">>;
         _ -> Url
     end.
 
