@@ -34,39 +34,40 @@
 %% interface functions
 -export([
     x/0,
-         trim/1,
-         trim_left/1,
-         trim_right/1,
-         trim/2,
-         trim_left/2,
-         trim_right/2,
-         trim_left_func/2,
-         is_string/1,
-         first_char/1,
-         last_char/1,
-         unquote/1,
-         unquote/2,
-         nospaces/1,
-         line/1,
-         to_rootname/1,
-         to_name/1,
-         to_slug/1,
-         to_lower/1,
-         to_upper/1,
-         replace/3,
-         sanitize_utf8/1,
-         truncate/2,
-         truncate/3,
-         truncatewords/2,
-         truncatewords/3,
-         split_lines/1,
-         escape_ical/1,
-         starts_with/2,
-         ends_with/2,
-         contains/2,
-         split/2,
-         concat/2
-        ]).
+    trim/1,
+    trim_left/1,
+    trim_right/1,
+    trim/2,
+    trim_left/2,
+    trim_right/2,
+    trim_left_func/2,
+    is_string/1,
+    first_char/1,
+    last_char/1,
+    unquote/1,
+    unquote/2,
+    nospaces/1,
+    line/1,
+    len/1,
+    to_rootname/1,
+    to_name/1,
+    to_slug/1,
+    to_lower/1,
+    to_upper/1,
+    replace/3,
+    sanitize_utf8/1,
+    truncate/2,
+    truncate/3,
+    truncatewords/2,
+    truncatewords/3,
+    split_lines/1,
+    escape_ical/1,
+    starts_with/2,
+    ends_with/2,
+    contains/2,
+    split/2,
+    concat/2
+]).
 
 
 x() ->
@@ -75,16 +76,16 @@ x() ->
 %% @doc Remove whitespace at the start and end of the string
 -spec trim(binary()|list()) -> binary()|list().
 trim(B) when is_binary(B) ->
-	trim_right(trim_left(B));
+    trim_right(trim_left(B));
 trim(L) when is_list(L) ->
-	binary_to_list(trim(iolist_to_binary(L))).
+    binary_to_list(trim(iolist_to_binary(L))).
 
 %% @doc Remove all occurences of a character at the start and end of a string.
 -spec trim(binary()|list(), integer()) -> binary()|list().
 trim(B, Char) when is_binary(B) ->
-	trim_right(trim_left(B, Char), Char);
+    trim_right(trim_left(B, Char), Char);
 trim(L, Char) when is_list(L) ->
-	binary_to_list(trim(iolist_to_binary(L), Char)).
+    binary_to_list(trim(iolist_to_binary(L), Char)).
 
 
 %% @doc Remove whitespace at the start the string
@@ -98,7 +99,7 @@ trim_left(S, Char) ->
     trim_left_func(S, fun(C) -> C == Char end).
 
 
-trim_left_func(<<Char, Rest/binary>> = Bin, F) ->
+trim_left_func(<<Char/utf8, Rest/binary>> = Bin, F) ->
     case F(Char) of
         true -> trim_left_func(Rest, F);
         false -> Bin
@@ -118,45 +119,45 @@ trim_left_func(Other, _F) ->
     Other.
 
     
-	
+    
 %% @doc Remove whitespace at the end of the string
 -spec trim_right(binary()|list()) -> binary()|list().
 trim_right(B) when is_binary(B) ->
-	trim_right(B, <<>>, <<>>);
+    trim_right(B, <<>>, <<>>);
 trim_right(L) ->
-	binary_to_list(trim_right(iolist_to_binary(L))).
+    binary_to_list(trim_right(iolist_to_binary(L))).
 
-	trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
-		case C of
-			W when W =< 32 -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
-			_ -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
-		end;
-	trim_right(<<>>, _WS, Acc) ->
-		Acc.
+    trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
+        if
+            C =< 32 -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
+            true -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
+        end;
+    trim_right(<<>>, _WS, Acc) ->
+        Acc.
 
 %% @doc Remove all occurences of a char at the end of the string
 -spec trim_right(binary()|list(), integer()) -> binary()|list().
 trim_right(B, Char) when is_binary(B) ->
-	trim_right(B, Char, <<>>, <<>>);
+    trim_right(B, Char, <<>>, <<>>);
 trim_right(L, Char) ->
-	binary_to_list(trim_right(iolist_to_binary(L), Char)).
+    binary_to_list(trim_right(iolist_to_binary(L), Char)).
 
-	trim_right(<<C/utf8, Rest/binary>>, Char, WS, Acc) ->
-		case C of
-			Char -> trim_right(Rest, Char, <<WS/binary, C/utf8>>, Acc);
-			_ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
-		end;
-	trim_right(<<>>, _Char, _WS, Acc) ->
-		Acc.
+    trim_right(<<C/utf8, Rest/binary>>, Char, WS, Acc) ->
+        case C of
+            Char -> trim_right(Rest, Char, <<WS/binary, C/utf8>>, Acc);
+            _ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
+        end;
+    trim_right(<<>>, _Char, _WS, Acc) ->
+        Acc.
 
 %% @doc Check if the variable is a one dimensional list, probably a string
 -spec is_string(list()) -> boolean().
 is_string([]) ->
     true;
 is_string([C|Rest]) when 
-		is_integer(C)
-		andalso C =< 255
-		andalso (C >= 32 orelse C == 9 orelse C == 10 orelse C == 12 orelse C == 13) ->
+        is_integer(C)
+        andalso C =< 255
+        andalso (C >= 32 orelse C == 9 orelse C == 10 orelse C == 12 orelse C == 13) ->
     is_string(Rest);
 is_string(_) -> 
     false.
@@ -220,25 +221,27 @@ nospaces_list([C|Rest], Acc) ->
     nospaces_list(Rest, [C|Acc]).
 
 nospaces_bin(<<>>, Acc) ->
-	Acc;
+    Acc;
 nospaces_bin(<<C,Rest/binary>>, Acc) when C =< 32 ->
-	nospaces_bin(Rest, Acc);
+    nospaces_bin(Rest, Acc);
 nospaces_bin(<<C,Rest/binary>>, Acc) ->
-	nospaces_bin(Rest, <<Acc/binary,C>>).
+    nospaces_bin(Rest, <<Acc/binary,C>>).
 
 
 %% @doc Make sure that the string is on one line only, replace control characters with spaces
 line(B) when is_binary(B) ->
-    line(binary_to_list(B));
-line(L) ->
-    line1(L, []).
-    
-    line1([], Acc) ->
-        lists:reverse(Acc);
-    line1([H|T], Acc) when H < 32 ->
-        line1(T, [32|Acc]);
-    line1([H|T], Acc) ->
-        line1(T, [H|Acc]).
+    << <<(if C < 32 -> 32; true -> C end)>> || <<C>> <= B >>;
+line(L) when is_list(L) ->
+    [ if C < 32 -> 32; true -> C end || C <- L ].
+
+-spec len(binary()|string()|undefined) -> integer().
+len(undefined) -> 0;
+len(L) when is_list(L) -> erlang:length(L);
+len(B) when is_binary(B) -> len(B, 0).
+
+len(<<>>, N) -> N;
+len(<<_C/utf8, B/binary>>, N) -> len(B, N+1);
+len(<<_C, B/binary>>, N) -> len(B, N+1).
 
 
 %% @doc Return a lowercase string for the input
@@ -246,19 +249,19 @@ line(L) ->
 to_lower(B) when is_binary(B) ->
     to_lower(B,<<>>);
 to_lower(undefined) ->
-	<<>>;
+    <<>>;
 to_lower(A) when is_atom(A) ->
     to_lower(z_convert:to_binary(A));
 to_lower(L) when is_list(L) ->
     to_lower(iolist_to_binary(L)).
 
 to_lower(<<>>, Acc) ->
-	Acc;
+    Acc;
 to_lower(<<H,T/binary>>, Acc) when H >= $A andalso H =< $Z ->
-	H1 = H + 32,
-	to_lower(T,<<Acc/binary,H1>>); 
+    H1 = H + 32,
+    to_lower(T,<<Acc/binary,H1>>); 
 to_lower(<<H,T/binary>>, Acc) when H < 128 ->
-	to_lower(T,<<Acc/binary,H>>); 
+    to_lower(T,<<Acc/binary,H>>); 
 to_lower(<<"Å"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,165>>);
 to_lower(<<"Ä"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,164>>);
 to_lower(<<"Á"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,161>>);
@@ -342,21 +345,21 @@ to_lower(<<H/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,H/utf8>>).
 %% @doc Return a uppercase string for the input
 -spec to_upper(string()|binary()|atom()) -> binary().
 to_upper(B) when is_binary(B) ->
-	to_upper(B,<<>>);
+    to_upper(B,<<>>);
 to_upper(undefined) ->
-	<<>>;
+    <<>>;
 to_upper(A) when is_atom(A) ->
     to_upper(z_convert:to_binary(A));
 to_upper(L) when is_list(L) ->
     to_upper(iolist_to_binary(L), <<>>).
 
 to_upper(<<>>, Acc) -> 
-	Acc;
+    Acc;
 to_upper(<<H,T/binary>>, Acc) when H >= $a andalso H =< $z ->
-	H1 = H - 32,
-	to_upper(T,<<Acc/binary,H1>>); 
+    H1 = H - 32,
+    to_upper(T,<<Acc/binary,H1>>); 
 to_upper(<<H,T/binary>>, Acc) when H < 128 ->
-	to_upper(T,<<Acc/binary,H>>); 
+    to_upper(T,<<Acc/binary,H>>); 
 to_upper(<<"å"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,133>>);
 to_upper(<<"ä"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,132>>);
 to_upper(<<"á"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,129>>);
@@ -447,7 +450,7 @@ to_rootname(Filename) ->
 %% @doc Map a string to a slug that can be used in the uri of a page. Same as a name, but then with dashes instead of underscores.
 -spec to_slug(string()|binary()|atom()) -> binary().
 to_slug(Title) ->
-	binary:replace(to_name(Title), <<$_>>, <<$->>, [global]). 
+    binary:replace(to_name(Title), <<$_>>, <<$->>, [global]). 
 
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
@@ -488,7 +491,7 @@ to_name(<<>>, Acc, _I) ->
 to_name(_, Acc, N) when N >= 80 ->
     to_name(<<>>, Acc, 80);
 to_name(<<C, T/binary>>, Acc, I) when C >= $A andalso C =< $Z ->
-	C1 = C+32,
+    C1 = C+32,
     to_name(T, <<Acc/binary,C1>>, I+1);
 to_name(<<C,T/binary>>, Acc, I) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
     to_name(T, <<Acc/binary,C>>, I+1);
@@ -723,13 +726,13 @@ to_name(<<_C/utf8,T/binary>>, Acc, I) ->
 %% Copyright 2008 Rusty Klophaus  (Nitrogen, MIT License)
 replace([], _, _) -> [];
 replace(String, S1, S2) when is_list(String), is_list(S1), is_list(S2) ->
-	Length = length(S1),
-	case string:substr(String, 1, Length) of 
-		S1 -> 
-			S2 ++ replace(string:substr(String, Length + 1), S1, S2);
-		_ -> 
-			[hd(String)|replace(tl(String), S1, S2)]
-	end.
+    Length = length(S1),
+    case string:substr(String, 1, Length) of 
+        S1 -> 
+            S2 ++ replace(string:substr(String, Length + 1), S1, S2);
+        _ -> 
+            [hd(String)|replace(tl(String), S1, S2)]
+    end.
 
 %% @doc Sanitize an utf-8 string, remove all non-utf-8 characters.
 sanitize_utf8(L) when is_list(L) -> sanitize_utf8(iolist_to_binary(L));
@@ -771,76 +774,76 @@ s_utf8(<<_, Rest/binary>>, Acc) ->
 %% @doc Truncate a string.  Append the '...' character at the place of break off.
 %% @spec truncate(String, int()) -> String
 truncate(undefined, _) ->
-	undefined;
+    undefined;
 truncate(L, N) ->
-	truncate(L, N, ?DOTS_UTF8).
+    truncate(L, N, ?DOTS_UTF8).
 
 truncate(_L, N, _Append) when N =< 0 ->
-	<<>>;
+    <<>>;
 truncate(B, N, Append) when is_binary(B), is_binary(Append) ->
-	truncate(B, N, Append, in_word, <<>>, in_word, <<>>);
+    truncate(B, N, Append, in_word, <<>>, in_word, <<>>);
 truncate(L, N, Append) ->
-	truncate(z_convert:to_binary(L), N, z_convert:to_binary(Append)).
-	
+    truncate(z_convert:to_binary(L), N, z_convert:to_binary(Append)).
+    
 
 truncate(<<>>, _, _Append, _LastState, _Last, _AccState, Acc) ->
-	Acc;
+    Acc;
 truncate(_, 0, _Append, sentence, Last, _AccState, _Acc) ->
-	Last;
+    Last;
 truncate(_, 0, Append, _, <<>>, _AccState, Acc) ->
-	<<Acc/binary, Append/binary>>;
+    <<Acc/binary, Append/binary>>;
 truncate(_, 0, Append, _LastState, Last, _AccState, _Acc) ->
-	<<Last/binary, Append/binary>>;
+    <<Last/binary, Append/binary>>;
 
 %% HTML element (we only allow self closing elements like <br/> and <hr/>)
 truncate(<<$>,Rest/binary>>, N, Append, _LastState, Last, in_element, Acc) ->
-	truncate(Rest, N, Append, sentence, Last, in_word, <<Acc/binary,$>>>);
+    truncate(Rest, N, Append, sentence, Last, in_word, <<Acc/binary,$>>>);
 
 truncate(<<C/utf8,Rest>>, N, Append, LastState, Last, in_element, Acc) ->
-	truncate(Rest, N, Append, LastState, Last, in_element, <<Acc/binary,C/utf8>>);
+    truncate(Rest, N, Append, LastState, Last, in_element, <<Acc/binary,C/utf8>>);
 
 truncate(<<$<,Rest/binary>>, N, Append, LastState, _Last, _AccState, Acc) ->
-	truncate(Rest, N, Append, LastState, Acc, in_element, <<Acc/binary,$<>>);
+    truncate(Rest, N, Append, LastState, Acc, in_element, <<Acc/binary,$<>>);
 
 truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
-	when C =:= $.; C =:= $!; C =:= $? ->
-		case AccState of
-			in_word -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
-			word    -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
-			_ 		-> truncate(Rest, N-1, Append, LastState, Last,   sentence, <<Acc/binary,C>>)
-		end;
+    when C =:= $.; C =:= $!; C =:= $? ->
+        case AccState of
+            in_word -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
+            word    -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
+            _       -> truncate(Rest, N-1, Append, LastState, Last,   sentence, <<Acc/binary,C>>)
+        end;
 truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
-	when C =:= $;; C =:= $-; C =:= $, ->
-		case AccState of
-			in_word -> truncate(Rest, N-1, Append, sentence,  Acc,  word, <<Acc/binary,C>>);
-			_ 		-> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
-		end;
+    when C =:= $;; C =:= $-; C =:= $, ->
+        case AccState of
+            in_word -> truncate(Rest, N-1, Append, sentence,  Acc,  word, <<Acc/binary,C>>);
+            _       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
+        end;
 truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
-	when C =:= 32; C =:= 9; C =:= 10; C =:= 13; C =:= $/; C =:= $|; C =:= $(; C =:= $); C =:= $" ->
-		case AccState of
-			in_word -> truncate(Rest, N-1, Append, word, Acc, word, <<Acc/binary,C>>);
-			_       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
-		end;
+    when C =:= 32; C =:= 9; C =:= 10; C =:= 13; C =:= $/; C =:= $|; C =:= $(; C =:= $); C =:= $" ->
+        case AccState of
+            in_word -> truncate(Rest, N-1, Append, word, Acc, word, <<Acc/binary,C>>);
+            _       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
+        end;
 truncate(<<$&,_binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
-	{Rest1,Acc1} = get_entity(Input,Acc),
-	case AccState of
-		in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
-		_ 		-> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
-	end;
+    {Rest1,Acc1} = get_entity(Input,Acc),
+    case AccState of
+        in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
+        _       -> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
+    end;
 truncate(<<C/utf8,Rest/binary>>, N, Append, LastState, Last, _AccState, Acc) ->
-	truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>).
+    truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>).
 
 
 get_entity(<<>>, Acc) ->
-	{<<>>, Acc};
+    {<<>>, Acc};
 get_entity(<<$;,Rest/binary>>, Acc) ->
-	{Rest,<<Acc/binary,$;>>};
+    {Rest,<<Acc/binary,$;>>};
 get_entity(<<C,Rest/binary>>, Acc) ->
-	get_entity(Rest, <<Acc/binary,C>>).
+    get_entity(Rest, <<Acc/binary,C>>).
 
 
 truncatewords(undefined, _) ->
-	undefined;
+    undefined;
 truncatewords(S, Words) ->
     truncatewords(S, Words, ?DOTS_UTF8).
 truncatewords(S, Words, Append) when is_binary(S) ->
@@ -852,7 +855,7 @@ truncatewords(_S, _State, 0, Append, Acc) ->
     Append1 = z_convert:to_binary(Append), 
     trim_left_func(<<Acc/binary,Append1/binary>>, fun iswordsep/1);
 truncatewords(<<>>, _State, _Words, _Append, Acc) ->
-	Acc;
+    Acc;
 truncatewords(<<C/utf8,Rest/binary>>, in_space, Words, Append, Acc) ->
     case iswordsep(C) of
         true -> truncatewords(Rest, in_space, Words, Append, <<Acc/binary,C/utf8>>);
@@ -876,39 +879,39 @@ iswordsep(_) -> false.
 
 %% @doc Split the binary into lines. Line separators can be \r, \n or \r\n.
 split_lines(B) when is_binary(B) ->
-	split_lines(B, <<>>, []).
-	
-	split_lines(<<>>, Line, Acc) ->
-		lists:reverse([Line|Acc]);
- 	split_lines(<<13,10,Rest/binary>>, Line, Acc) ->
-		split_lines(Rest, <<>>, [Line|Acc]);
- 	split_lines(<<13,Rest/binary>>, Line, Acc) ->
-		split_lines(Rest, <<>>, [Line|Acc]);
- 	split_lines(<<10,Rest/binary>>, Line, Acc) ->
-		split_lines(Rest, <<>>, [Line|Acc]);
-	split_lines(<<C, Rest/binary>>, Line, Acc) ->
-		split_lines(Rest, <<Line/binary, C>>, Acc).
+    split_lines(B, <<>>, []).
+    
+    split_lines(<<>>, Line, Acc) ->
+        lists:reverse([Line|Acc]);
+    split_lines(<<13,10,Rest/binary>>, Line, Acc) ->
+        split_lines(Rest, <<>>, [Line|Acc]);
+    split_lines(<<13,Rest/binary>>, Line, Acc) ->
+        split_lines(Rest, <<>>, [Line|Acc]);
+    split_lines(<<10,Rest/binary>>, Line, Acc) ->
+        split_lines(Rest, <<>>, [Line|Acc]);
+    split_lines(<<C, Rest/binary>>, Line, Acc) ->
+        split_lines(Rest, <<Line/binary, C>>, Acc).
 
 
 %% @doc Escape special characters for ical RFC2445 elements
 escape_ical(L) when is_list(L) ->
-	escape_ical(iolist_to_binary(L));
+    escape_ical(iolist_to_binary(L));
 escape_ical(B) when is_binary(B) ->
-	escape_ical(B, <<>>, 0);
+    escape_ical(B, <<>>, 0);
 escape_ical(A) when is_atom(A) ->
-	escape_ical(atom_to_list(A)).
+    escape_ical(atom_to_list(A)).
 
-	escape_ical(<<>>, Acc, _N) -> Acc;
-	escape_ical(B, Acc, N) when N >= 70 -> escape_ical(B, <<Acc/binary, 13, 10, 32>>, 0);
-	escape_ical(<<13, 10, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $n>>, N+2);
-	escape_ical(<<10, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $n>>, N+2);
-	escape_ical(<<9, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, 32>>, N+1);
-	escape_ical(<<$", Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $">>, N+2);
-	escape_ical(<<$,, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $,>>, N+2);
-	escape_ical(<<$:, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $", $:, $">>, N+3);
-	escape_ical(<<$;, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $;>>, N+2);
-	escape_ical(<<$\\, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $\\>>, N+2);
-	escape_ical(<<C, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, C>>, N+1).
+    escape_ical(<<>>, Acc, _N) -> Acc;
+    escape_ical(B, Acc, N) when N >= 70 -> escape_ical(B, <<Acc/binary, 13, 10, 32>>, 0);
+    escape_ical(<<13, 10, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $n>>, N+2);
+    escape_ical(<<10, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $n>>, N+2);
+    escape_ical(<<9, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, 32>>, N+1);
+    escape_ical(<<$", Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $">>, N+2);
+    escape_ical(<<$,, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $,>>, N+2);
+    escape_ical(<<$:, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $", $:, $">>, N+3);
+    escape_ical(<<$;, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $;>>, N+2);
+    escape_ical(<<$\\, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, $\\, $\\>>, N+2);
+    escape_ical(<<C, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, C>>, N+1).
 
 %% @doc Return true if Start is a prefix of Word
 %% @spec starts_with(String, String) -> bool()
