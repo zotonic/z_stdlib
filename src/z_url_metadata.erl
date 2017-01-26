@@ -105,9 +105,13 @@ filename(Url, Hs) ->
 p1([], _MD) ->
     undefined;
 p1([P|Ps], MD) ->
-    case z_string:trim(proplists:get_value(P, MD#url_metadata.metadata,<<>>)) of
-        <<>> -> p1(Ps, MD);
-        Value -> maybe_abs_link(is_link_property(P), Value, MD#url_metadata.final_url)
+    case proplists:get_value(P, MD#url_metadata.metadata) of
+        undefined -> p1(Ps, MD);
+        Value ->
+            case z_string:trim(Value) of
+                <<>> -> p1(Ps, MD);
+                Trimmed -> maybe_abs_link(is_link_property(P), Trimmed, MD#url_metadata.final_url)
+            end
     end.
 
 maybe_abs_link(false, Value, _FinalUrl) ->
@@ -229,7 +233,8 @@ tag({<<"meta">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"name">>, As)),
     Property = proplists:get_value(<<"property">>, As),
     HttpEquiv = proplists:get_value(<<"http-equiv">>, As),
-    Content = proplists:get_value(<<"content">>, As),
+    Value = proplists:get_value(<<"value">>, As),
+    Content = proplists:get_value(<<"content">>, As, Value),
     case first([Name, Property, HttpEquiv]) of
         undefined ->
             case proplists:get_value(<<"charset">>, As) of
