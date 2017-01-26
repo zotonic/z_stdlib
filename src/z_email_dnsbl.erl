@@ -23,8 +23,11 @@
 -export([
     is_blocked/1,
     is_blocked/2,
+    is_blocked/3,
     status/1,
     status/2,
+    status/3,
+    dnswl_list/0,
     dnsbl_list/0,
 
     test/0
@@ -34,23 +37,38 @@
 
 -spec is_blocked(inet:ip_address()) -> boolean().
 is_blocked(IP) ->
-    is_blocked(IP, dnsbl_list()).
+    is_blocked(IP, dnsbl_list(), dnswl_list()).
 
 -spec is_blocked(inet:ip_address(), list(string())) -> boolean().
 is_blocked(IP, RTBLs) ->
-    case status(IP, RTBLs) of
+    is_blocked(IP, RTBLs, dnswl_list()).
+
+-spec is_blocked(inet:ip_address(), list(string()), list(string())) -> boolean().
+is_blocked(IP, RTBLs, WLs) ->
+    case status(IP, RTBLs, WLs) of
         {ok, {blocked, _DNSBL}} -> true;
         _ -> false
     end.
 
--spec status(inet:ip_address()) -> {ok, {blocked, list()}} | {ok, notlisted} | {error, term()}.
+-spec status(inet:ip_address()) -> {ok, {ok, notlisted|whitelisted|{blocked, list(string())}}} | {error, term()}.
 status(IP) ->
-    status(IP, dnsbl_list()).
+    status(IP, dnsbl_list(), dnswl_list()).
 
--spec status(inet:ip_address(), list()) -> {ok, {blocked, list()}} | {ok, notlisted} | {error, term()}.
+-spec status(inet:ip_address(), list()) -> {ok, notlisted|whitelisted|{blocked, list(string())}} | {error, term()}.
 status(IP, DNSBLs) ->
+    status(IP, DNSBLs, []).
+
+-spec status(inet:ip_address(), list(), list()) ->
+          {ok, {blocked, list()}} 
+        | {ok, notlisted}
+        | {ok, whitelisted}
+        | {error, term()}.
+status(IP, DNSBLs, DNSWLs) ->
     Dotted = reverse(IP),
-    status_1(Dotted, DNSBLs).
+    case status_1(Dotted, DNSWLs) of
+        {ok, {blocked, _}} -> {ok, whitelisted};
+        _ -> status_1(Dotted, DNSBLs)
+    end.
 
 status_1(_Dotted, []) ->
     {ok, notlisted};
@@ -78,7 +96,7 @@ check_addr_list(_DNSBL, []) ->
     {ok, notlisted};
 check_addr_list(DNSBL, List) ->
     List1 = lists:filter(fun
-                            ({127,0,0,_}) -> true;
+                            ({127,0,_,_}) -> true;
                             (_) -> false
                          end,
                          List),
@@ -86,6 +104,13 @@ check_addr_list(DNSBL, List) ->
         [] -> {ok, notlisted};
         _ -> {ok, {blocked, DNSBL}}
     end.
+
+%% @doc Default list of DNSWL services
+dnswl_list() ->
+    [
+        "list.dnswl.org",       % https://www.dnswl.org/?page_id=15
+        "swl.spamhaus.org"      % http://www.spamhauswhitelist.com/en/usage.html
+    ].
 
 %% @doc Default list of DNSBL services
 dnsbl_list() ->
