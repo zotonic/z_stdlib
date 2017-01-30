@@ -33,6 +33,9 @@
     test/0
 ]).
 
+% Not all ISPs have a subscription to the dnswl.org whitelist, Google has.
+-define(WHITELIST_NAMESERVERS, [{{8,8,8,8},53}, {{8,8,4,4},53}]).
+
 -include_lib("kernel/include/inet.hrl").
 
 -spec is_blocked(inet:ip_address()) -> boolean().
@@ -65,26 +68,63 @@ status(IP, DNSBLs) ->
         | {error, term()}.
 status(IP, DNSBLs, DNSWLs) ->
     Dotted = reverse(IP),
-    case status_1(Dotted, DNSWLs) of
+    case status_1(Dotted, IP, DNSWLs, true) of
         {ok, {blocked, _}} -> {ok, whitelisted};
-        _ -> status_1(Dotted, DNSBLs)
+        _ ->
+            case is_whitelisted(IP) of
+                true -> {ok, whitelisted};
+                false -> status_1(Dotted, IP, DNSBLs, false)
+            end
     end.
 
-status_1(_Dotted, []) ->
+status_1(_Dotted, _IP, [], _IsWhiteList) ->
     {ok, notlisted};
-status_1(Dotted, [DNSBL|Rest]) ->
-    case inet:gethostbyname(Dotted++DNSBL) of
+status_1(Dotted, IP, [DNSBL|Rest], IsWhiteList) ->
+    case gethostbyname(Dotted++DNSBL, IsWhiteList) of
         {ok, #hostent{h_addr_list=AddrList}} ->
             case check_addr_list(DNSBL, AddrList) of
                 {ok, notlisted} ->
-                    status_1(Dotted, Rest);
+                    status_1(Dotted, IP, Rest, IsWhiteList);
                 Other ->
                     Other
             end;
         {error, nxdomain} ->
-            status_1(Dotted, Rest);
+            status_1(Dotted, IP, Rest, IsWhiteList);
         {error, _} ->
-            status_1(Dotted, Rest)
+            status_1(Dotted, IP, Rest, IsWhiteList)
+    end.
+
+gethostbyname(Name, false) ->
+    inet:gethostbyname(Name);
+gethostbyname(Name, true) ->
+    ResolverOptions = [
+        {nameservers, ?WHITELIST_NAMESERVERS}
+    ],
+    case inet_res:lookup(Name, in, a, ResolverOptions) of
+        [] -> {error, enoent};
+        IPs when is_list(IPs) ->
+            #hostent{h_addr_list=IPs}
+    end.
+
+
+%% @todo Use the SPF records of well-known email hosters for whitelist checks
+is_whitelisted(IP) ->
+    case inet_res:gethostbyaddr(IP) of
+        {ok, #hostent{h_name=Hostname}} ->
+            case is_whitelisted_hostname(Hostname) of
+                true -> true;
+                false -> false
+            end;
+        {error, nxdomain} ->
+            false
+    end.
+
+is_whitelisted_hostname(Hostname) ->
+    Reversed = lists:reverse(string:tokens(Hostname, ".")),
+    case Reversed of
+        ["com","google","mail-"++_] -> true;
+        ["net","msn","ntwk"|_] -> true;   % "ten2-1-111.sn1-6nx-mms-1a.ntwk.msn.net"
+        _ -> false
     end.
 
 %% @doc Check the returned address against RFC5782 return values
@@ -96,6 +136,7 @@ check_addr_list(_DNSBL, []) ->
     {ok, notlisted};
 check_addr_list(DNSBL, List) ->
     List1 = lists:filter(fun
+                            ({127,0,_,255}) -> false;
                             ({127,0,_,_}) -> true;
                             (_) -> false
                          end,
