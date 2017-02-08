@@ -29,10 +29,12 @@
 
 -include("../include/z_url_metadata.hrl").
 
+-define(FETCH_LENGTH, 128*1024).
+
 %% @doc Fetch metadata information for the URL
 -spec fetch(binary()|string()) -> {ok, #url_metadata{}} | {error, term()}.
 fetch(Url) ->
-    case z_url_fetch:fetch_partial(Url) of
+    case z_url_fetch:fetch_partial(Url, [{max_length, ?FETCH_LENGTH}]) of
         {ok, {FinalUrl, Headers, _Size, Data}} ->
             {ok, partial_metadata(FinalUrl, Headers, Data)};
         {error, _} = Error ->
