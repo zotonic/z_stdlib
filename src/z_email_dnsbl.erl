@@ -103,7 +103,7 @@ gethostbyname(Name, true) ->
     case inet_res:lookup(Name, in, a, ResolverOptions) of
         [] -> {error, enoent};
         IPs when is_list(IPs) ->
-            #hostent{h_addr_list=IPs}
+            {ok, #hostent{h_addr_list=IPs}}
     end.
 
 
