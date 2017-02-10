@@ -203,7 +203,8 @@ maybe_redirect({200, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts)
     {ok, {Url, Hs, Size, Data}};
 maybe_redirect({416, _Hs, _Size, _Data}, Url, RedirectCount, _Max, OutDev, Opts) ->
     fetch_partial(Url, RedirectCount+1, undefined, OutDev, Opts);
-maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts) when Code =:= 301; Code =:= 302; Code =:= 307 ->
+maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts) 
+    when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307 ->
     case proplists:get_value("location", Hs) of
         undefined -> 
             {error, no_location_header};
