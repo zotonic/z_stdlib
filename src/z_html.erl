@@ -584,7 +584,7 @@ flatten(B) when is_binary(B) ->
 flatten({nop, Enclosed}) ->
     flatten(Enclosed);
 flatten({comment, Text}) ->
-    Comment = escape_html_comment(Text, <<>>),
+    Comment = binary:replace(Text, <<"-->">>, <<"-- >">>, [global]),
     <<"<!--", Comment/binary, "-->">>;
 flatten({sanitized_html, Html}) ->
     Html;
@@ -895,6 +895,11 @@ ensure_escaped_amp(B) ->
 
 ensure_escaped_amp(<<>>, Acc) ->
     Acc;
+ensure_escaped_amp(<<"<!--", Rest/binary>>, Acc) ->
+    case try_comment(Rest, <<Acc/binary, "<!--">>) of
+        false -> Acc;
+        {Rest1, Acc1} -> ensure_escaped_amp(Rest1, Acc1)
+    end;
 ensure_escaped_amp(<<$&, Rest/binary>>, Acc) ->
     case try_amp(Rest, in_amp, <<>>) of
         {Amp,Rest1} -> ensure_escaped_amp(Rest1, <<Acc/binary, $&, Amp/binary>>);
@@ -928,6 +933,12 @@ try_amp(<<C,Rest/binary>>, in_ent_name, Acc) ->
 try_amp(_B, _, _Acc) -> 
     false.
 
+try_comment(<<"-->", Rest/binary>>, Acc) ->
+    {Rest, <<Acc/binary, "-->">>};
+try_comment(<<C/utf8, Rest/binary>>, Acc) ->
+    try_comment(Rest, <<Acc/binary, C/utf8>>);
+try_comment(_B, _Acc) ->
+    false.
 
 is_valid_ent_char(C) ->
     (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z).
