@@ -152,13 +152,14 @@ allow_elt(<<"desc">>) -> true;
 allow_elt(<<"ellipse">>) -> true;
 
 allow_elt(<<"feBlend">>) -> true;
-allow_elt(<<"fecolormatrix">>) -> true;
+allow_elt(<<"feColorMatrix">>) -> true;
 allow_elt(<<"feComponentTransfer">>) -> true;
 allow_elt(<<"feComposite">>) -> true;
 allow_elt(<<"feConvolveMatrix">>) -> true;
 allow_elt(<<"feDiffuseLighting">>) -> true;
 allow_elt(<<"feDisplacementMap">>) -> true;
-allow_elt(<<"feDistantLighting">>) -> true;
+allow_elt(<<"feDistantLight">>) -> true;
+allow_elt(<<"feDropShadow">>) -> true;
 allow_elt(<<"feFlood">>) -> true;
 allow_elt(<<"feFuncA">>) -> true;
 allow_elt(<<"feFuncB">>) -> true;
