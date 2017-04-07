@@ -125,8 +125,12 @@ sanitize_test() ->
             ])),
 
     % Data urls
-    ?assertEqual(<<"<a href=\"#script-removed\">Click me</a>">>,
+    ?assertEqual(<<"<a href=\"\">Click me</a>">>,
         z_html:sanitize(<<"<a href=\"data:text/html;charset=utf8,randomhtmlstuff\">Click me</a>">>)),
+
+    % Spaces after mailto:
+    ?assertEqual(<<"<a href=\"mailto:jan@example.com\">a</a>">>, 
+        z_html:sanitize(<<"<a href=\"mailto: jan@example.com\">a</a>">>)),
     ok.
 
 

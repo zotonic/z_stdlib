@@ -315,7 +315,7 @@ ensure_protocol("/" ++ _ = Link) -> Link;
 ensure_protocol("://" ++ _ = Link) -> ["http", Link];
 ensure_protocol("http://" ++ _ = Link) -> Link;
 ensure_protocol("https://" ++ _ = Link) -> Link;
-ensure_protocol("mailto:" ++ _ = Link) -> Link;
+ensure_protocol("mailto:" ++ Rest) -> "mailto:"++z_string:trim(Rest);
 ensure_protocol("www." ++ Rest) -> ["http://www.", Rest];
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
@@ -323,7 +323,8 @@ ensure_protocol(<<"/", _/binary>> = Link) -> Link;
 ensure_protocol(<<"://", _/binary>> = Link) -> ["http", Link];
 ensure_protocol(<<"http://", _/binary>> = Link) -> Link;
 ensure_protocol(<<"https://", _/binary>> = Link) -> Link;
-ensure_protocol(<<"mailto:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"mailto:", Rest/binary>>) ->
+    <<"mailto:", (z_string:trim(Rest))/binary>>;
 ensure_protocol(<<"www.", _/binary>> = Link) -> <<"http://", Link/binary>>;
 ensure_protocol(Link) ->
     B = iolist_to_binary(Link),
@@ -796,21 +797,37 @@ noscript(Url) ->
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
 noscript(Url, IsStrict) -> 
-    case nows(z_convert:to_list(Url), []) of
-        "script:" ++ _ -> <<"#script-removed">>;
-        "vbscript:" ++ _ -> <<"#script-removed">>;
-        "javascript:" ++ _ -> <<"#script-removed">>;
-        "data:" ++ _ when IsStrict -> <<"#script-removed">>;
+    case nows(z_convert:to_binary(Url), <<>>) of
+        <<"script:", _/binary>> -> <<"#script-removed">>;
+        <<"vbscript:", _/binary>> -> <<"#script-removed">>;
+        <<"javascript:", _/binary>> -> <<"#script-removed">>;
+        <<"data:", _/binary>> when IsStrict -> <<>>;
+        <<"data:", Data/binary>> ->
+            case noscript_data(Data) of
+                <<>> -> <<>>;
+                Data1 -> <<"data:", Data1/binary>>
+            end;
+        <<"mailto:", Rest/binary>> -> <<"mailto:", (z_string:trim(Rest))/binary>>;
         _ -> Url
     end.
 
 %% @doc Remove whitespace and make lowercase till we find a colon or slash.
-nows([], Acc) -> lists:reverse(Acc);
-nows([C|_] = L, Acc) when C =:= $:; C =:= $/ -> lists:reverse(Acc, L);
-nows([C|T], Acc) when C =< 32 -> nows(T,Acc);
-nows([C|T], Acc) when C >= $A, C =< $Z -> nows(T, [C+32|Acc]);
-nows([$\\|T], Acc) -> nows(T, Acc);
-nows([C|T], Acc) -> nows(T, [C|Acc]).
+nows(<<>>, Acc) -> Acc;
+nows(<<$:, Rest/binary>>, Acc) -> <<Acc/binary, $:, Rest/binary>>;
+nows(<<$/, Rest/binary>>, Acc) -> <<Acc/binary, $/, Rest/binary>>;
+nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
+nows(<<C, Rest/binary>>, Acc) when C =< 32 -> nows(Rest, Acc);
+nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z -> nows(Rest, <<Acc/binary, (C+32)>>);
+nows(<<C/utf8, Rest/binary>>, Acc) -> nows(Rest, <<Acc/binary, C/utf8>>).
+
+%% @doc Sanitize the data link, drop anything suspected to be a script, or that could contain a script.
+%% @todo Parse SVG with the svg sanitizer
+noscript_data(<<"image/svg", _/binary>>) -> <<>>;
+noscript_data(<<"image/", _/binary>> = Data) -> Data;
+noscript_data(<<"audio/", _/binary>> = Data) -> Data;
+noscript_data(<<"video/", _/binary>> = Data) -> Data;
+noscript_data(<<"text/plain;", _/binary>> = Data) -> Data;
+noscript_data(_) -> <<>>.
 
 
 %% @doc Translate any html br entities to newlines.
