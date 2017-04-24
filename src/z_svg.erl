@@ -425,7 +425,7 @@ allow_attr(<<"primitiveUnits">>) -> true;
 
 allow_attr(<<"r">>) -> true;
 allow_attr(<<"radius">>) -> true;
-allow_attr(<<"hefX">>) -> true;
+allow_attr(<<"refX">>) -> true;
 allow_attr(<<"refY">>) -> true;
 allow_attr(<<"rendering-intent">>) -> true;
 allow_attr(<<"repeatCount">>) -> true;
