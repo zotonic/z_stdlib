@@ -82,8 +82,9 @@ ensure_profiles() ->
     case inets:start(httpc, [{profile, z_url_fetch}]) of
         {ok, _} ->
             ok = httpc:set_options([
-                {max_keep_alive_length, 10},
                 {max_sessions, 10},
+                {max_keep_alive_length, 10},
+                {keep_alive_timeout, 20000},
                 {cookies, enabled}
             ], z_url_fetch),
             periodic_cleanup(),
