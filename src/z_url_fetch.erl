@@ -43,7 +43,11 @@
 -export([
     fetch/2,
     fetch_partial/1,
-    fetch_partial/2
+    fetch_partial/2,
+
+    profile/1,
+    ensure_profiles/0,
+    periodic_cleanup/0
     ]).
 
 -type options() :: list(option()).
@@ -71,6 +75,32 @@ fetch_partial(Url, Options) ->
     OutDevice = proplists:get_value(device, Options),
     Length = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
     fetch_partial(z_convert:to_list(Url), 0, Length, OutDevice, Options).
+
+
+-spec ensure_profiles() -> ok.
+ensure_profiles() ->
+    case inets:start(httpc, [{profile, z_url_fetch}]) of
+        {ok, _} ->
+            ok = httpc:set_options([
+                {max_keep_alive_length, 10},
+                {max_sessions, 10},
+                {cookies, enabled}
+            ], z_url_fetch),
+            periodic_cleanup(),
+            ok;
+        {error, {already_started, _}} -> ok
+    end.
+
+-spec periodic_cleanup() -> ok.
+periodic_cleanup() ->
+    httpc:reset_cookies(z_url_fetch),
+    {ok, _} = timer:apply_after(3600*1000, ?MODULE, periodic_cleanup, []),
+    ok.
+
+-spec profile(string()|binary()) -> atom().
+profile(_Url) ->
+    ensure_profiles(),
+    z_url_fetch.
 
 %% -------------------------------------- Fetch first part of a HTTP location -----------------------------------------
 
@@ -134,10 +164,11 @@ normalize_protocol(Protocol) -> Protocol.
 start_stream(Url, Headers, Opts) ->
     try
         Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
-        httpc:request(get, 
+        httpc:request(get,
                       {Url, Headers},
                       [ {autoredirect, false}, {relaxed, true}, {timeout, Timeout}, {connect_timeout, ?HTTPC_TIMEOUT_CONNECT} ],
-                      [ {sync, false}, {body_format, binary}, {stream, {self, once}} ])
+                      [ {sync, false}, {body_format, binary}, {stream, {self, once}} ],
+                      profile(Url))
     catch
         error:E -> {error, E};
         throw:E -> {error, E}
