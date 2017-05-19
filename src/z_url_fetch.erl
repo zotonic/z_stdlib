@@ -214,10 +214,16 @@ fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev) when N =< Max ->
                     httpc:cancel_request(ReqId),
                     Error
             end;
+        {http, {ReqId, {error, socket_closed_remotely}}} ->
+            % Remote closed the connection, this can happen at the moment
+            % we received all data, then this error is received instead of
+            % the expected data.
+            % Return the data we received till now and pretend nothing is wrong.
+            {ok, {200, Hs, N, Data}};
         {http, {ReqId, {error, _} = Error}} ->
             Error
     after ?HTTPC_TIMEOUT ->
-        httpc:cancel_request(ReqId), 
+        httpc:cancel_request(ReqId),
         {error, timeout}
     end;
 fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile) ->
