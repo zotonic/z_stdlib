@@ -4,6 +4,10 @@ otp_release:
   - 17.0
   - R16B
 script: make clean test
+after_script:
+    - ls
+    - ./hex.sh
+    - sh hex.sh
 sudo: false
 notifications:
   email:
@@ -14,7 +18,7 @@ notifications:
 
 deploy:
   provider: script
-  script: hex.sh
+  script: ./hex.sh
   skip_cleanup: true
   on:
     tags: true
