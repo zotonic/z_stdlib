@@ -20,3 +20,4 @@ deploy:
   script: hex.sh
   on:
     tags: true
+    all_branches: true
