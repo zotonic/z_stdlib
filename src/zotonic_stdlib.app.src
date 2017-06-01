@@ -1,0 +1,11 @@
+{application, zotonic_stdlib, [
+    {description, "Zotonic standard library"},
+    {vsn, "git"},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {env, []},
+    {modules, []},
+    {maintainers, ["Zotonic Team"]},
+    {licenses, ["Apache 2.0"]},
+    {links, [{"GitHub", "https://github.com/zotonic/z_stdlib"}]}
+]}.
