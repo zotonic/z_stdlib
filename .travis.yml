@@ -5,9 +5,6 @@ otp_release:
   - R16B
 script: make clean test
 sudo: false
-branches:
-  only:
-    - master
 notifications:
   email:
     recipients:
