@@ -14,3 +14,9 @@ notifications:
       - zotonic-commits@googlegroups.com
     on_success: change #[always|never|change] # default: change
     on_failure: always #[always|never|change] # default: always
+
+deploy:
+  provider: script
+  script: hex.sh
+  on:
+    tags: true
