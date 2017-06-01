@@ -15,6 +15,7 @@ notifications:
 deploy:
   provider: script
   script: hex.sh
+  skip_cleanup: true
   on:
     tags: true
     all_branches: true
