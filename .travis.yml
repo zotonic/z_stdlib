@@ -3,11 +3,12 @@ otp_release:
   - 18.0
   - 17.0
   - R16B
+install:
+  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 script: make clean test
-after_script:
+before_script:
     - ls
     - ./hex.sh
-    - sh hex.sh
 sudo: false
 notifications:
   email:
