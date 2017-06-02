@@ -135,8 +135,7 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
         {"Accept-Encoding", "identity"},
         {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
         {"Accept-Language", "en,*;q=0"},
-        {"User-Agent", httpc_ua(Url)},
-        {"Connection", "close"}
+        {"User-Agent", httpc_ua(Url)}
     ] ++ case Max of
             undefined -> [];
             _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
@@ -188,7 +187,7 @@ fetch_stream({ok, ReqId}, Max, OutDev) ->
         {http, {_ReqId, {{_V, Code, _Msg}, Hs, Data}}} ->
             {ok, {Code, Hs, 0, Data}}
     after ?HTTPC_TIMEOUT ->
-        httpc:cancel_request(ReqId), 
+        httpc:cancel_request(ReqId),
         {error, timeout}
     end;
 fetch_stream({error, _} = Error, _Max, _OutDev) ->
@@ -231,6 +230,7 @@ fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile) ->
         {http, {ReqId, stream_end, EndHs}} ->
             {ok, {200, EndHs++Hs, N, Data}};
         {http, _} ->
+            httpc:cancel_request(ReqId),
             {ok, {200, Hs, N, Data}}
     after 100 ->
         httpc:cancel_request(ReqId),
@@ -241,12 +241,12 @@ maybe_redirect({200, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts)
     {ok, {Url, Hs, Size, Data}};
 maybe_redirect({416, _Hs, _Size, _Data}, Url, RedirectCount, _Max, OutDev, Opts) ->
     fetch_partial(Url, RedirectCount+1, undefined, OutDev, Opts);
-maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts) 
+maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts)
     when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307 ->
     case proplists:get_value("location", Hs) of
-        undefined -> 
+        undefined ->
             {error, no_location_header};
-        Location -> 
+        Location ->
             NewUrl = z_convert:to_list(z_url:abs_link(Location, BaseUrl)),
             fetch_partial(NewUrl, RedirectCount+1, Max, OutDev, Opts)
     end;
@@ -280,7 +280,7 @@ is_url_shortener(Url) ->
     case string:tokens(Url, "://") of
         [_Proto, DomainPath | _] ->
             is_url_shortener_1(DomainPath);
-        _ -> 
+        _ ->
             false
     end.
 
