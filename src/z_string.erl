@@ -17,9 +17,9 @@
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%% 
+%%
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%% 
+%%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -42,6 +42,7 @@
     trim_right/2,
     trim_left_func/2,
     is_string/1,
+    is_whitespace/1,
     first_char/1,
     last_char/1,
     unquote/1,
@@ -69,7 +70,6 @@
     concat/2
 ]).
 
-
 x() ->
     list_to_tuple(binary_to_list(<<"üçgen"/utf8>>)).
 
@@ -91,7 +91,7 @@ trim(L, Char) when is_list(L) ->
 %% @doc Remove whitespace at the start the string
 -spec trim_left(binary()|list()) -> binary()|list().
 trim_left(S) ->
-    trim_left_func(S, fun(C) -> C =< 32 end).
+    trim_left_func(S, fun is_whitespace/1).
 
 %% @doc Remove all occurences of a char at the start of a string
 -spec trim_left(binary()|list(), integer()) -> binary()|list().
@@ -128,9 +128,9 @@ trim_right(L) ->
     binary_to_list(trim_right(iolist_to_binary(L))).
 
     trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
-        if
-            C =< 32 -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
-            true -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
+        case is_whitespace(C) of
+            true -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
+            false -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
         end;
     trim_right(<<>>, _WS, Acc) ->
         Acc.
@@ -154,13 +154,30 @@ trim_right(L, Char) ->
 -spec is_string(list()) -> boolean().
 is_string([]) ->
     true;
-is_string([C|Rest]) when 
+is_string([C|Rest]) when
         is_integer(C)
         andalso C =< 255
         andalso (C >= 32 orelse C == 9 orelse C == 10 orelse C == 12 orelse C == 13) ->
     is_string(Rest);
-is_string(_) -> 
+is_string(_) ->
     false.
+
+%% @doc Is the character an ASCII or Unicode whitespace character?
+%%      See @link https://en.wikipedia.org/wiki/Whitespace_character
+-spec is_whitespace(char()) -> boolean().
+is_whitespace(C) when C =< 32 -> true;
+is_whitespace(133) -> true;
+is_whitespace(160) -> true;
+is_whitespace(8203) -> true;
+is_whitespace(C) when C >= 8192 andalso C =< 8205 -> true;
+is_whitespace(8232) -> true;
+is_whitespace(8233) -> true;
+is_whitespace(8239) -> true;
+is_whitespace(8287) -> true;
+is_whitespace(12288) -> true;
+is_whitespace(65279) -> true;
+is_whitespace(_) -> false.
+
 %% @doc Return the first character of a string.
 -spec first_char(binary()|list()) -> pos_integer().
 first_char(<<>>) -> undefined;
@@ -259,9 +276,9 @@ to_lower(<<>>, Acc) ->
     Acc;
 to_lower(<<H,T/binary>>, Acc) when H >= $A andalso H =< $Z ->
     H1 = H + 32,
-    to_lower(T,<<Acc/binary,H1>>); 
+    to_lower(T,<<Acc/binary,H1>>);
 to_lower(<<H,T/binary>>, Acc) when H < 128 ->
-    to_lower(T,<<Acc/binary,H>>); 
+    to_lower(T,<<Acc/binary,H>>);
 to_lower(<<"Å"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,165>>);
 to_lower(<<"Ä"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,164>>);
 to_lower(<<"Á"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,161>>);
@@ -353,13 +370,13 @@ to_upper(A) when is_atom(A) ->
 to_upper(L) when is_list(L) ->
     to_upper(iolist_to_binary(L), <<>>).
 
-to_upper(<<>>, Acc) -> 
+to_upper(<<>>, Acc) ->
     Acc;
 to_upper(<<H,T/binary>>, Acc) when H >= $a andalso H =< $z ->
     H1 = H - 32,
-    to_upper(T,<<Acc/binary,H1>>); 
+    to_upper(T,<<Acc/binary,H1>>);
 to_upper(<<H,T/binary>>, Acc) when H < 128 ->
-    to_upper(T,<<Acc/binary,H>>); 
+    to_upper(T,<<Acc/binary,H>>);
 to_upper(<<"å"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,133>>);
 to_upper(<<"ä"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,132>>);
 to_upper(<<"á"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,129>>);
@@ -450,7 +467,7 @@ to_rootname(Filename) ->
 %% @doc Map a string to a slug that can be used in the uri of a page. Same as a name, but then with dashes instead of underscores.
 -spec to_slug(string()|binary()|atom()) -> binary().
 to_slug(Title) ->
-    binary:replace(to_name(Title), <<$_>>, <<$->>, [global]). 
+    binary:replace(to_name(Title), <<$_>>, <<$->>, [global]).
 
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
@@ -466,12 +483,12 @@ name_cleanup(V) ->
 
 to_name1({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
-        undefined -> 
+        undefined ->
             case Tr of
                 [{_,V}|_] -> to_name1(V);
                 _ -> <<>>
             end;
-        V -> 
+        V ->
             to_name1(V)
     end;
 to_name1(undefined) ->
@@ -727,17 +744,17 @@ to_name(<<_C/utf8,T/binary>>, Acc, I) ->
 replace([], _, _) -> [];
 replace(String, S1, S2) when is_list(String), is_list(S1), is_list(S2) ->
     Length = length(S1),
-    case string:substr(String, 1, Length) of 
-        S1 -> 
+    case string:substr(String, 1, Length) of
+        S1 ->
             S2 ++ replace(string:substr(String, Length + 1), S1, S2);
-        _ -> 
+        _ ->
             [hd(String)|replace(tl(String), S1, S2)]
     end.
 
 %% @doc Sanitize an utf-8 string, remove all non-utf-8 characters.
 sanitize_utf8(L) when is_list(L) -> sanitize_utf8(iolist_to_binary(L));
 sanitize_utf8(B) when is_binary(B) -> s_utf8(B, <<>>).
-    
+
 s_utf8(<<>>, Acc) ->
     Acc;
 
@@ -805,20 +822,20 @@ truncate(<<C/utf8,Rest>>, N, Append, LastState, Last, in_element, Acc) ->
 truncate(<<$<,Rest/binary>>, N, Append, LastState, _Last, _AccState, Acc) ->
     truncate(Rest, N, Append, LastState, Acc, in_element, <<Acc/binary,$<>>);
 
-truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc)
     when C =:= $.; C =:= $!; C =:= $? ->
         case AccState of
             in_word -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
             word    -> truncate(Rest, N-1, Append, sentence, <<Acc/binary,C>>, sentence, <<Acc/binary,C>>);
             _       -> truncate(Rest, N-1, Append, LastState, Last,   sentence, <<Acc/binary,C>>)
         end;
-truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc)
     when C =:= $;; C =:= $-; C =:= $, ->
         case AccState of
             in_word -> truncate(Rest, N-1, Append, sentence,  Acc,  word, <<Acc/binary,C>>);
             _       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
         end;
-truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) 
+truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc)
     when C =:= 32; C =:= 9; C =:= 10; C =:= 13; C =:= $/; C =:= $|; C =:= $(; C =:= $); C =:= $" ->
         case AccState of
             in_word -> truncate(Rest, N-1, Append, word, Acc, word, <<Acc/binary,C>>);
@@ -852,7 +869,7 @@ truncatewords(S, Words, Append) when is_list(S) ->
     truncatewords(iolist_to_binary(S), in_space, Words, Append, <<>>).
 
 truncatewords(_S, _State, 0, Append, Acc) ->
-    Append1 = z_convert:to_binary(Append), 
+    Append1 = z_convert:to_binary(Append),
     trim_left_func(<<Acc/binary,Append1/binary>>, fun iswordsep/1);
 truncatewords(<<>>, _State, _Words, _Append, Acc) ->
     Acc;
@@ -1010,4 +1027,3 @@ concat(A, B) when is_binary(A) ->
     <<A/binary, B1/binary>>;
 concat(A, B) when is_list(A) ->
     A ++ z_convert:to_flatlist(B).
-
