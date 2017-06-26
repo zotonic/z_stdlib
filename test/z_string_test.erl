@@ -95,6 +95,7 @@ trim_left_test() ->
     ?assertEqual("foo", z_string:trim_left("     foo")),
     ?assertEqual("foo", z_string:trim_left(".foo", $.)),
     ?assertEqual("foo", z_string:trim_left("......foo", $.)),
+    ?assertEqual(<<"foo"/utf8>>, z_string:trim_left(<<"​foo"/utf8>>)), %% zero width space (8203)
     ok.
     
 
@@ -103,5 +104,6 @@ trim_right_test() ->
     ?assertEqual("foo", z_string:trim_right("foo         ")),
     ?assertEqual("foo", z_string:trim_right("foo.", $.)),
     ?assertEqual("foo", z_string:trim_right("foo........", $.)),
+    ?assertEqual(<<"foo"/utf8>>, z_string:trim_right(<<"foo​"/utf8>>)), %% zero width space (8203)
     ok.
     
