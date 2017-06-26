@@ -3,7 +3,7 @@
 %%% Adapted for binary strings and data by Marc Worrell
 
 %%% Copyright 2002-2003 Joe Armstrong.
-%%% Copyright 2013 Marc Worrell. 
+%%% Copyright 2013 Marc Worrell.
 %%%
 %%% All rights reserved.
 %%%
@@ -28,8 +28,6 @@
 
 -module(z_ubf).
 
--compile(export_all).
-
 -export([decode_init/0, decode_init/1, decode/1, decode/2, encode/1, encode/2]).
 -export([encode_print/1, deabstract/1]).
 
@@ -38,10 +36,6 @@
 %% Maximum flat-size of the decoded terms.
 %% Prevents attacks where a decode can consume all available memory.
 -define(MAX_DECODE_SIZE, 10*1024*1024).
-
-bug() ->
-    C = decode("{'abc"),
-    decode("d'}$", C).
 
 %% Decoding rules
 %% {'#S', String} -> String
@@ -58,7 +52,7 @@ bug() ->
 decode(S) ->
     decode(S, ?MAX_DECODE_SIZE).
 
-decode(S, {more, Fun}) -> 
+decode(S, {more, Fun}) ->
     Fun(S);
 decode(Str, MaxSize) when is_binary(Str), is_integer(MaxSize) ->
     case catch decode(Str, decode_init(MaxSize)) of
@@ -120,13 +114,13 @@ decode(<<>>, Stack, Dict, MaxSize) ->
     {more, fun(I) -> decode1(I, Stack, Dict, MaxSize) end};
 decode(X, _Stack, _Dict, _MaxSize) ->
     {error, {eof, X}}.
-           
-get_stuff(<<$\\,H,T/binary>>, Stop, L, Stack, Dict, MaxSize) -> 
+
+get_stuff(<<$\\,H,T/binary>>, Stop, L, Stack, Dict, MaxSize) ->
     get_stuff(T, Stop, <<L/binary,H>>, Stack, Dict, MaxSize);
-get_stuff(<<$',T/binary>>, $', L, Stack, Dict, MaxSize)  -> 
+get_stuff(<<$',T/binary>>, $', L, Stack, Dict, MaxSize)  ->
     Atom = list_to_existing_atom(z_convert:to_list(L)),
     decode1(T, push(Atom,Stack), Dict, MaxSize - erts_debug:flat_size(Atom));
-get_stuff(<<$",T/binary>>, $", L, Stack, Dict, MaxSize)  -> 
+get_stuff(<<$",T/binary>>, $", L, Stack, Dict, MaxSize)  ->
     decode1(T, push(L,Stack), Dict, MaxSize - erts_debug:flat_size(L));
 get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
     case L of
@@ -144,12 +138,12 @@ get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
         _ ->
             decode1(T, TS, Dict, MaxSize)
     end;
-get_stuff(<<$%,T/binary>>, $%, _L, Stack, Dict, MaxSize)  -> 
+get_stuff(<<$%,T/binary>>, $%, _L, Stack, Dict, MaxSize)  ->
     decode1(T, Stack, Dict, MaxSize);
-get_stuff(<<H,T/binary>>, Stop, L, Stack, Dict, MaxSize) -> 
+get_stuff(<<H,T/binary>>, Stop, L, Stack, Dict, MaxSize) ->
     get_stuff(T, Stop, <<L/binary, H>>, Stack, Dict, MaxSize);
 get_stuff(<<>>, Stop, L, Stack, Dict, MaxSize) ->
-    {more, fun(I) ->           
+    {more, fun(I) ->
            get_stuff(I, Stop, L, Stack, Dict, MaxSize) end}.
 
 collect_binary(0, T, L, Stack, Dict, MaxSize) ->
@@ -166,7 +160,7 @@ expect_tilde(<<>>, Stack, Dict, MaxSize) ->
 expect_tilde(<<H,_/binary>>, _Stack, _Dict, _MaxSize) ->
     exit({expect_tilde, H}).
 
-push(X, [Top|Rest]) -> 
+push(X, [Top|Rest]) ->
     [[X|Top]|Rest];
 push(X, Y) ->
     exit({bad_push, X, Y}).
@@ -189,7 +183,7 @@ special($~)  -> true;
 special($`)  -> true;
 special(_)   -> false.
 
-special_chars() ->    
+special_chars() ->
     " 0123456789{},~%#>\n\r\s\t\"'-&$`".
 
 collect_int(<<H,T/binary>>, N, Sign, Stack, Dict, MaxSize) when  $0 =< H, H =< $9 ->
@@ -203,7 +197,7 @@ collect_int(T, N, '-', Stack, Dict, MaxSize) ->
 
 %%---------------------------------------------------------------------
 
- 
+
 encode_print(X) ->
     io:format("~s~n",[encode(X)]).
 
@@ -229,7 +223,7 @@ initial_dict(X, Dict0) ->
     load_dict(Most, Free, Dict0, []).
 
 load_dict([{N,X}|T], [Key|T1], Dict0, L) when N > 0->
-    load_dict(T, T1, dict:store(X, Key, Dict0), 
+    load_dict(T, T1, dict:store(X, Key, Dict0),
           [encode_obj(X),">",Key|L]);
 load_dict(_, _, Dict, L) ->
     {Dict, L}.
@@ -240,7 +234,7 @@ analyse(T) ->
     %% If the size is greater than 0
     KV1 = map(fun rank/1, KV),
     reverse(sort(KV1)).
-             
+
 rank({X, K}) when is_atom(X) ->
     case length(atom_to_list(X)) of
     N when N > 1, K > 1 ->
@@ -261,7 +255,7 @@ rank({X, _}) ->
 analyse({'#S', Str}, Dict) ->
     analyse(Str, Dict);
 analyse(T, Dict) when is_tuple(T) ->
-    foldl(fun analyse/2, Dict, tuple_to_list(T)); 
+    foldl(fun analyse/2, Dict, tuple_to_list(T));
 analyse(X, Dict) ->
     case dict:find(X, Dict) of
     {ok, Val} ->
@@ -277,7 +271,7 @@ encode_obj(X) when is_binary(X) -> encode_binary(X).
 encode_string(S) -> [$",add_string(S, $"), $"].
 encode_atom(X)   -> [$',add_string(atom_to_list(X), $'), $'].
 encode_binary(X) -> [integer_to_list(size(X)), $~,X,$~].
-    
+
 do_encode(X, Dict) when is_atom(X); is_integer(X); is_binary(X) ->
     case dict:find(X, Dict) of
     {ok, Y} ->
@@ -348,7 +342,7 @@ add_string([Quote|T], Quote) -> [$\\,Quote|add_string(T, Quote)];
 add_string([H|T], Quote) when H >= 0,  H=< 255 -> [H|add_string(T, Quote)];
 add_string([H|_], _Quote) -> exit({string_character,H});
 add_string([], _)            -> [].
-    
+
 deabstract({'#S',S}) -> S;
 deabstract(T) when is_tuple(T) ->
     list_to_tuple(map(fun deabstract/1, tuple_to_list(T)));
