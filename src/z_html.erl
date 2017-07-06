@@ -516,7 +516,7 @@ sanitize_opts(Html, Options) ->
         proplists:get_value(attr_extra, Options, []), Options).
 
 sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
-    Parsed = mochiweb_html:parse(ensure_escaped_amp(Html)),
+    Parsed = z_html_parse:parse(ensure_escaped_amp(Html)),
     Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
     flatten(Sanitized).
 
@@ -888,7 +888,7 @@ nl2br_bin(<<$\n, Post/binary>>, Acc) ->
     nl2br_bin(Post, <<Acc/binary, "<br />">>);
 nl2br_bin(<<C, Post/binary>>, Acc) ->
     nl2br_bin(Post, <<Acc/binary, C>>).
-        
+
 
 %% @doc Given a HTML list, scrape all `<link>' elements and return their attributes. Attribute names are lowercased.
 %% @spec scrape_link_elements(string()) -> [LinkAttributes]
@@ -897,7 +897,7 @@ scrape_link_elements(Html) ->
         {match, Elements} ->
             F = fun(El) ->
                         H = iolist_to_binary(["<p>", El, "</p>"]),
-                        {<<"p">>, [], [{_, Attrs, []}]} = mochiweb_html:parse(H),
+                        {<<"p">>, [], [{_, Attrs, []}]} = z_html_parse:parse(H),
                         [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)]
                 end,
             [F(El) || [El] <- Elements];
