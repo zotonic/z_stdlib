@@ -209,7 +209,7 @@ parse(PartialData) when is_list(PartialData) ->
     parse_html(iolist_to_binary([<<"<partial>">>, PartialData, <<"</partial>">>])).
     
 parse_html(Html) ->
-    mochiweb_html:parse(Html).
+    z_html_parse:parse(Html).
     
 
 html([], MD, _P) ->
