@@ -1,12 +1,14 @@
 .eunit
 deps
 priv
+_build/
 *.o
 *.beam
 *.plt
 ebin/zotonic_stdlib.app
 rebar
 .rebar
+rebar3
 .rebar3
 src/z_css_lexer.erl
 src/z_css_parser.erl

@@ -3,7 +3,6 @@ otp_release:
   - 19.3
   - 18.0
   - 17.0
-  - R16B
 jobs:
   include:
     - stage: deploy
