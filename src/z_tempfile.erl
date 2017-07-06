@@ -67,8 +67,8 @@ tempfile() ->
 %% @doc return a unique temporary filename with a set extension.
 -spec tempfile(string()) -> filename().
 tempfile(Extension) ->
-	A = crypto:rand_uniform(1,100000000),
-	B = crypto:rand_uniform(1,100000000),
+	A = rand:uniform(100000000),
+	B = rand:uniform(100000000),
     Filename = filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p~s",[node(),A,B,Extension]))),
     case filelib:is_file(Filename) of
     	true -> tempfile(Extension);
