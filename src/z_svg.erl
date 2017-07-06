@@ -43,7 +43,7 @@ sanitize(Svg) when is_binary(Svg) ->
     sanitize_1(Svg).
 
 sanitize_1(Svg) ->
-    Parsed = mochiweb_html:parse(Svg),
+    Parsed = z_html_parse:parse(Svg),
     Sanitized = sanitize_element(Parsed),
     flatten(Sanitized).
 
