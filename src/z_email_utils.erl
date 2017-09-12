@@ -38,13 +38,13 @@ is_email(Email) ->
 %% @doc Extract e-mail addresses from a text. All e-mail addresses are lower cased, doubles are removed.
 -spec extract_emails(iodata()) -> [ binary() ].
 extract_emails(Text) ->
-	Text1 = iolist_to_binary([32, Text, 32]), 
+	Text1 = iolist_to_binary([32, Text, 32]),
 	Re = "[^a-zA-Z0-9\\.@\\-\\+]("++re()++")",
     case re:run(Text1, Re, [extended, global, {capture, all, binary}]) of
-        nomatch -> 
+        nomatch ->
         	[];
-        {match, Match} -> 
-        	lists:usort([ z_convert:to_binary(z_string:to_lower(iolist_to_binary(hd(tl(M))))) || M <- Match ])
+        {match, Match} ->
+            lists:usort([ z_string:to_lower(E) || [_,E|_] <- Match ])
     end.
 
 
