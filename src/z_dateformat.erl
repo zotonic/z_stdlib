@@ -383,6 +383,8 @@ tzoffset(LTime, Options) ->
             tzoffset_1(LTime, UTime)
     end.
 
+tzoffset_1(LTime, LTime) ->
+    0;
 tzoffset_1(LTime, UTime) ->
     DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) - 
        calendar:datetime_to_gregorian_seconds(UTime),
