@@ -41,6 +41,7 @@
     C =:= $U orelse
     C =:= $w orelse
     C =:= $W orelse
+    C =:= $x orelse
     C =:= $y orelse
     C =:= $Y orelse
     C =:= $z orelse
@@ -172,10 +173,10 @@ tag_to_value($c, Date, Time, Options) ->
     {Mins, Sign} = case DiffMins < 0 of
         true -> {0-DiffMins, $-};
         false -> {DiffMins, $+}
-    end,    
+    end,
     Hours   = Mins div 60,
     Minutes = Mins rem 60,
-    replace_tags(Date, Time, "Y-m-d", Options) 
+    replace_tags(Date, Time, "Y-m-d", Options)
         ++ [$T | replace_tags(Date, Time, "H:i:s", Options)]
         ++ [Sign|integer_to_list_zerofill(Hours)]
         ++ [$:|integer_to_list_zerofill(Minutes)];
@@ -289,7 +290,7 @@ tag_to_value($T, Date, Time, Options) ->
 
 % Seconds since the Unix epoch (January 1 1970 00:00:00 GMT)
 tag_to_value($U, Date, Time, Options) ->
-    UtcTime = to_utc({Date, Time}, Options), 
+    UtcTime = to_utc({Date, Time}, Options),
     EpochSecs = calendar:datetime_to_gregorian_seconds(UtcTime)
                 - 62167219200, % calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
     integer_to_list(EpochSecs);
@@ -304,6 +305,12 @@ tag_to_value($w, Date, _, _Options) ->
 tag_to_value($W, {Y,M,D}, _, _Options) ->
    integer_to_list(year_weeknum(Y,M,D));
 
+% Year with 4 digits, padded with zeroes (e.g. '0003')
+tag_to_value($x, {Y, _, _}, _, _Options) when Y < 0 ->
+    lists:flatten(io_lib:format("-~4..0B", [abs(Y)]));
+tag_to_value($x, {Y, _, _}, _, _Options) ->
+    lists:flatten(io_lib:format("~4..0B", [Y]));
+
 % Year, 2 digits; e.g. '99'
 tag_to_value($y, {Y, _, _}, _, _Options) ->
    Y1 = Y rem 100,
@@ -311,7 +318,7 @@ tag_to_value($y, {Y, _, _}, _, _Options) ->
 
 % Year, 4 digits; e.g. '1999'
 tag_to_value($Y, {Y, _, _}, _, _Options) ->
-   integer_to_list(Y);
+    integer_to_list(Y);
 
 % Day of the year; i.e. '0' to '365'
 tag_to_value($z, {Y,M,D}, _, _Options) ->
@@ -343,7 +350,7 @@ hour_24to12(H) when H < 13 -> H;
 hour_24to12(H) when H < 24 -> H - 12;
 hour_24to12(H) -> H.
 
-year_weeknum(Y,M,D) -> 
+year_weeknum(Y,M,D) ->
     First = (calendar:day_of_the_week(Y, 1, 1) rem 7) - 1,
     Wk = ((((calendar:date_to_gregorian_days(Y, M, D) -
             calendar:date_to_gregorian_days(Y, 1, 1)) + First) div 7)
@@ -386,7 +393,7 @@ tzoffset(LTime, Options) ->
 tzoffset_1(LTime, LTime) ->
     0;
 tzoffset_1(LTime, UTime) ->
-    DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) - 
+    DiffSecs = calendar:datetime_to_gregorian_seconds(LTime) -
        calendar:datetime_to_gregorian_seconds(UTime),
     DiffSecs div 60.
 
@@ -394,7 +401,7 @@ tz_name(Date, Disambiguate, ToTZ) ->
     case localtime:tz_name(Date, ToTZ) of
         {ShortName, _} when is_list(ShortName) ->
             ShortName;
-        {{ShortStandard,_},{ShortDST,_}} -> 
+        {{ShortStandard,_},{ShortDST,_}} ->
             case Disambiguate of
                 prefer_standard -> ShortStandard;
                 prefer_daylight -> ShortDST;
