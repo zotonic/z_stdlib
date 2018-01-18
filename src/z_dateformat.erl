@@ -16,6 +16,8 @@
     C =:= $c orelse
     C =:= $d orelse
     C =:= $D orelse
+    C =:= $e orelse
+    C =:= $E orelse
     C =:= $f orelse
     C =:= $F orelse
     C =:= $g orelse
@@ -107,6 +109,18 @@ tag_to_value($A, _, _, _Options) -> "AM";
 % Swatch Internet time
 tag_to_value($B, _, _, _Options) ->
    ""; % NotImplementedError
+
+%% Only show era (BCE/CE) when date is BCE
+tag_to_value($e, {Y, _, _} = Date, Time, Options) when Y < 0 ->
+   tag_to_value($E, Date, Time, Options);
+tag_to_value($e, _, _, _Options) ->
+   "";
+
+%% Always show era (BCE/CE)
+tag_to_value($E, {Y, _, _}, _, Options) when Y < 0 ->
+    tr(label, bce, Options);
+tag_to_value($E, _, _, Options) ->
+    tr(label, ce, Options);
 
 %
 % Time, in 12-hour hours and minutes, with minutes
@@ -424,6 +438,9 @@ tr(What, Label, Options) ->
 %% @doc Provide some english date strings
 tr(label, midnight) -> "midnight";
 tr(label, noon) -> "noon";
+%% The space is included on purpose so that it is not shown in format "e" ($e)
+tr(label, bce) -> " BCE";
+tr(label, ce) -> " CE";
 
 %% @doc Provide english versions of the day of the week.
 tr(dayname, 1) -> "Monday";
