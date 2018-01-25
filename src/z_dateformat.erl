@@ -305,22 +305,26 @@ tag_to_value($w, Date, _, _Options) ->
 tag_to_value($W, {Y,M,D}, _, _Options) ->
    integer_to_list(year_weeknum(Y,M,D));
 
-% Year with at least 4 digits, padded with zeroes (e.g. '0003')
+% Absolute year with at least 4 digits, padded with zeroes (e.g. '0003')
 tag_to_value($x, {Y, _, _}, _, _Options) when Y >= 1000; Y =< -1000 ->
-    integer_to_list(Y);
+    integer_to_list(erlang:abs(Y));
 tag_to_value($x, {Y, _, _}, _, _Options) when Y < 0 ->
-    lists:flatten(io_lib:format("~4..0B", [abs(Y)]));
+    io_lib:format("~4..0B", [0 - Y]);
 tag_to_value($x, {Y, _, _}, _, _Options) ->
-    lists:flatten(io_lib:format("~4..0B", [Y]));
+    io_lib:format("~4..0B", [Y]);
 
 % Year, 2 digits; e.g. '99'
 tag_to_value($y, {Y, _, _}, _, _Options) ->
    Y1 = Y rem 100,
    [ Y1 div 10 + $0, Y1 rem 10 + $0];
 
-% Year, 4 digits; e.g. '1999'
-tag_to_value($Y, {Y, _, _}, _, _Options) ->
+% Year, (at least) 4 digits; e.g. '1999' or '-4150'
+tag_to_value($Y, {Y, _, _}, _, _Options) when Y >= 1000; Y =< -1000 ->
     integer_to_list(Y);
+tag_to_value($Y, {Y, _, _}, _, _Options) when Y < 0 ->
+    [$-, io_lib:format("~4..0B", [0 - Y]) ];
+tag_to_value($Y, {Y, _, _}, _, _Options) ->
+    io_lib:format("~4..0B", [Y]);
 
 % Day of the year; i.e. '0' to '365'
 tag_to_value($z, {Y,M,D}, _, _Options) ->
@@ -364,7 +368,7 @@ year_weeknum(Y,M,D) ->
               _ -> Wk
             end
     end.
-   
+
 weeks_in_year(Y) ->
     D1 = calendar:day_of_the_week(Y, 1, 1),
     D2 = calendar:day_of_the_week(Y, 12, 31),
