@@ -305,11 +305,12 @@ tag_to_value($w, Date, _, _Options) ->
 tag_to_value($W, {Y,M,D}, _, _Options) ->
    integer_to_list(year_weeknum(Y,M,D));
 
-% Year with 4 digits, padded with zeroes (e.g. '0003')
-tag_to_value($x, {Y, _, _}, _, _Options) when Y < 0 ->
-    lists:flatten(io_lib:format("-~4..0B", [abs(Y)]));
+% Year with at least 4 digits, padded with zeroes (e.g. '0003')
+tag_to_value($x, {Y, M, D}, T, Options) when Y < 0 ->
+    "-" ++ tag_to_value($x, {abs(Y), M, D}, T, Options);
 tag_to_value($x, {Y, _, _}, _, _Options) ->
-    lists:flatten(io_lib:format("~4..0B", [Y]));
+    Length = integer_to_list(max(4, length(integer_to_list(Y)))),
+    lists:flatten(io_lib:format("~" ++ Length ++ "..0B", [Y]));
 
 % Year, 2 digits; e.g. '99'
 tag_to_value($y, {Y, _, _}, _, _Options) ->
