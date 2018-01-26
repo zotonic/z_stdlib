@@ -15,9 +15,8 @@ dateformat_year_y_test() ->
     ok.
 
 dateformat_year_x_test() ->
-    ?assertEqual(<<"0100">>,  z_dateformat:format({{  -100,1,1},{0,0,0}}, "x", [])),
-    ?assertEqual(<<"0100">>,  z_dateformat:format({{   100,1,1},{0,0,0}}, "x", [])),
-    ?assertEqual(<<"10000">>, z_dateformat:format({{-10000,1,1},{0,0,0}}, "x", [])),
-    ?assertEqual(<<"10000">>, z_dateformat:format({{ 10000,1,1},{0,0,0}}, "x", [])),
+    ?assertEqual(<<"-0100">>,  z_dateformat:format({{  -100,1,1},{0,0,0}}, "x", [])),
+    ?assertEqual(<<"0100">>,   z_dateformat:format({{   100,1,1},{0,0,0}}, "x", [])),
+    ?assertEqual(<<"-10000">>, z_dateformat:format({{-10000,1,1},{0,0,0}}, "x", [])),
+    ?assertEqual(<<"10000">>,  z_dateformat:format({{ 10000,1,1},{0,0,0}}, "x", [])),
     ok.
-

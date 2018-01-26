@@ -307,9 +307,9 @@ tag_to_value($W, {Y,M,D}, _, _Options) ->
 
 % Absolute year with at least 4 digits, padded with zeroes (e.g. '0003')
 tag_to_value($x, {Y, _, _}, _, _Options) when Y >= 1000; Y =< -1000 ->
-    integer_to_list(erlang:abs(Y));
+    integer_to_list(Y);
 tag_to_value($x, {Y, _, _}, _, _Options) when Y < 0 ->
-    io_lib:format("~4..0B", [0 - Y]);
+    io_lib:format("-~4..0B", [abs(Y)]);
 tag_to_value($x, {Y, _, _}, _, _Options) ->
     io_lib:format("~4..0B", [Y]);
 
