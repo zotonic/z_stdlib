@@ -6,8 +6,8 @@
 
 
 dateformat_year_y_test() ->
-    ?assertEqual(<<"-0999">>,  z_dateformat:format({{  -999,1,1},{0,0,0}}, "Y", [])),
-    ?assertEqual(<<"0999">>,   z_dateformat:format({{   999,1,1},{0,0,0}}, "Y", [])),
+    ?assertEqual(<<"-999">>,   z_dateformat:format({{  -999,1,1},{0,0,0}}, "Y", [])),
+    ?assertEqual(<<"999">>,    z_dateformat:format({{   999,1,1},{0,0,0}}, "Y", [])),
     ?assertEqual(<<"-1000">>,  z_dateformat:format({{ -1000,1,1},{0,0,0}}, "Y", [])),
     ?assertEqual(<<"1000">>,   z_dateformat:format({{  1000,1,1},{0,0,0}}, "Y", [])),
     ?assertEqual(<<"-10000">>, z_dateformat:format({{-10000,1,1},{0,0,0}}, "Y", [])),

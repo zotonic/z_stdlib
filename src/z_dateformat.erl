@@ -318,13 +318,9 @@ tag_to_value($y, {Y, _, _}, _, _Options) ->
    Y1 = Y rem 100,
    [ Y1 div 10 + $0, Y1 rem 10 + $0];
 
-% Year, (at least) 4 digits; e.g. '1999' or '-4150'
-tag_to_value($Y, {Y, _, _}, _, _Options) when Y >= 1000; Y =< -1000 ->
-    integer_to_list(Y);
-tag_to_value($Y, {Y, _, _}, _, _Options) when Y < 0 ->
-    [$-, io_lib:format("~4..0B", [0 - Y]) ];
+% Complete year: e.g. '2018', '-15038', or '333'
 tag_to_value($Y, {Y, _, _}, _, _Options) ->
-    io_lib:format("~4..0B", [Y]);
+    integer_to_list(Y);
 
 % Day of the year; i.e. '0' to '365'
 tag_to_value($z, {Y,M,D}, _, _Options) ->
