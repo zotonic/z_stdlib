@@ -332,9 +332,11 @@ tag_to_value($y, {Y, _, _}, _, _Options) ->
    Y1 = Y rem 100,
    [ Y1 div 10 + $0, Y1 rem 10 + $0];
 
-% Complete year: e.g. '2018', '-15038', or '333'
+%% Complete year: e.g. '2018', '15038', or '333'.
+%% BCE years are displayed as a positive number. Use $e to add the era to the
+%% output.
 tag_to_value($Y, {Y, _, _}, _, _Options) ->
-    integer_to_list(Y);
+    integer_to_list(abs(Y));
 
 % Day of the year; i.e. '0' to '365'
 tag_to_value($z, {Y,M,D}, _, _Options) ->
