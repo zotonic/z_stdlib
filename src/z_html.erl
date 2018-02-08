@@ -529,11 +529,16 @@ sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) when is_binary(ExtraAttrs) -
 sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) ->
     sanitize(ParseTree, [], ExtraElts, ExtraAttrs, Options).
 
+sanitize({<<"li">>, _, _} = Elt, [], ExtraElts, ExtraAttrs, Options) ->
+    sanitize({<<"ul">>, [], [ Elt ]}, [], ExtraElts, ExtraAttrs, Options);
+sanitize({<<"li">>, _, _} = Elt, [ParentElt | _ ] = Stack, ExtraElts, ExtraAttrs, Options)
+    when ParentElt =/= <<"ul">>, ParentElt =/= <<"ol">> ->
+    sanitize({<<"ul">>, [], [ Elt ]}, Stack, ExtraElts, ExtraAttrs, Options);
 sanitize(B, Stack, _ExtraElts, _ExtraAttrs, Options) when is_binary(B) ->
     case sanitize_element({'TextNode', B}, Stack, Options) of
         {'TextNode', B1} -> escape(iolist_to_binary(B1));
         Other -> Other
-    end; 
+    end;
 sanitize({comment, _Text} = Comment, Stack, _ExtraElts, _ExtraAttrs, Options) ->
     sanitize_element(Comment, Stack, Options);
 sanitize({pi, _Raw}, _Stack, _ExtraElts, _ExtraAttrs, _Options) ->

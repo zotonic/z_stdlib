@@ -131,6 +131,20 @@ sanitize_test() ->
     % Spaces after mailto:
     ?assertEqual(<<"<a href=\"mailto:jan@example.com\">a</a>">>, 
         z_html:sanitize(<<"<a href=\"mailto: jan@example.com\">a</a>">>)),
+
+    % li without surround ul/ol
+    ?assertEqual(<<"<ul><li>a</li></ul>">>,
+        z_html:sanitize(<<"<li>a</li>">>)),
+
+    ?assertEqual(<<"<div><ul><li>a</li></ul></div>">>,
+        z_html:sanitize(<<"<div><li>a</li></div>">>)),
+
+    ?assertEqual(<<"<ul><li>a</li></ul>">>,
+        z_html:sanitize(<<"<ul><li>a</li></ul>">>)),
+
+    ?assertEqual(<<"<ol><li>a</li></ol>">>,
+        z_html:sanitize(<<"<ol><li>a</li></ol>">>)),
+
     ok.
 
 
