@@ -29,10 +29,7 @@
     (C >= $a andalso C =< $z) orelse
     (C >= $A andalso C =< $A) orelse
     (C >= $0 andalso C =< $9) orelse
-    C =:= $_ orelse
-    C =:= $\\ orelse
-    C =:= $$ orelse
-    C > 126)).
+    C =:= $_ orelse C =:= $\\ orelse C =:= $$ orelse C > 126)).
 
 -define(is_pre_regexp(C), (
     C =:= $( orelse C =:= $, orelse C =:= $= orelse C =:= $: orelse
@@ -128,17 +125,6 @@ next(<<$\r, A/binary>>) -> <<$\n, A/binary>>;
 next(<<$\n, _/binary>> = A) -> A;
 next(<<C, _/binary>> = A) when C >= 32 -> A;
 next(<<_, A/binary>>) -> <<" ", A/binary>>.
-
-
-% -spec is_alnum( ch() ) -> boolean.
-% is_alnum(C) when C >= $a, C =< $z -> true;
-% is_alnum(C) when C >= $A, C =< $Z -> true;
-% is_alnum(C) when C >= $0, C =< $9 -> true;
-% is_alnum($_) -> true;
-% is_alnum($$) -> true;
-% is_alnum($\\) -> true;
-% is_alnum(eof) -> false;
-% is_alnum(C) -> C > 126.
 
 
 -spec skip_to_eol(binary()) -> binary().
