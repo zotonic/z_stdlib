@@ -25,8 +25,6 @@
     minify/1
     ]).
 
--include("zotonic.hrl").
-
 -define(is_alnum(C), (
     (C >= $a andalso C =< $z) orelse
     (C >= $A andalso C =< $A) orelse
