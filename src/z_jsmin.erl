@@ -58,17 +58,17 @@ minify(<<32, JS/binary>>, [ C | _ ] = Acc) when ?isspace(C) ->
     minify(next(JS), Acc);
 minify(<<32, B, JS/binary>>, [ A | _ ] = Acc)
     when ?is_alnum(B) andalso ?is_alnum(A) ->
-    minify(<<B, JS/binary>>, [ 32 | Acc ]);
+    minify(next(<<B, JS/binary>>), [ 32 | Acc ]);
 minify(<<32, $-, JS/binary>>, [ $- | _ ] = Acc) ->
-    minify(<<$-, JS/binary>>, [ 32 | Acc ]);
+    minify(next(<<$-, JS/binary>>), [ 32 | Acc ]);
 minify(<<32, $+, JS/binary>>, [ $+ | _ ] = Acc) ->
-    minify(<<$+, JS/binary>>, [ 32 | Acc ]);
+    minify(next(<<$+, JS/binary>>), [ 32 | Acc ]);
 minify(<<32, JS/binary>>, Acc) ->
     minify(next(JS), Acc);
 minify(<<$\n, B, JS/binary>>, [ A | Acc ])
     when (?is_alnum(B) orelse B =:= ${ orelse B =:= $[ orelse B =:= $( orelse B =:= $+ orelse B =:= $-) andalso
          (?is_alnum(A) orelse A =:= $} orelse A =:= $] orelse A =:= $) orelse B =:= $+ orelse B =:= $- orelse B =:= $" orelse B =:= $' orelse B =:= $`) ->
-    minify(<<B, JS/binary>>, [ $\n, A | Acc ]);
+    minify(next(<<B, JS/binary>>), [ $\n, A | Acc ]);
 minify(<<$\n, JS/binary>>, Acc) ->
     minify(next(JS), Acc);
 minify(<<Q, JS/binary>>, Acc) when Q =:= $'; Q =:= $"; Q =:= $` ->
