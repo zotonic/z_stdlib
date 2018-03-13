@@ -58,7 +58,7 @@ minify(<<32, JS/binary>>, [ C | _ ] = Acc) when ?isspace(C) ->
     minify(next(JS), Acc);
 minify(<<32, B, JS/binary>>, [ A | _ ] = Acc)
     when ?is_alnum(B) andalso ?is_alnum(A) ->
-    minify(<<B, JS/binary>>, [ 32, A | Acc ]);
+    minify(<<B, JS/binary>>, [ 32 | Acc ]);
 minify(<<32, $-, JS/binary>>, [ $- | _ ] = Acc) ->
     minify(<<$-, JS/binary>>, [ 32 | Acc ]);
 minify(<<32, $+, JS/binary>>, [ $+ | _ ] = Acc) ->
