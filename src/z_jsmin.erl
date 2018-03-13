@@ -72,7 +72,7 @@ minify(<<$\n, B, JS/binary>>, [ A | Acc ])
 minify(<<$\n, JS/binary>>, Acc) ->
     minify(next(JS), Acc);
 minify(<<Q, JS/binary>>, Acc) when Q =:= $'; Q =:= $"; Q =:= $` ->
-    {JS1, Acc1} = string(Q, JS, Acc),
+    {JS1, Acc1} = string(Q, JS, [ Q | Acc]),
     minify(next(JS1), Acc1);
 minify(<<$/, JS/binary>>, [ C | _] = Acc) when ?is_pre_regexp(C) ->
     Acc1 = case C of
