@@ -69,8 +69,8 @@ multi_comments_test() ->
     ?assertEqual(<<"var a=\"hello\"\na+=\" world\"">>, minify_multi_line(Lines)).
 
 re_nl_if_test() ->
-    Lines = [""
-             "var re = /\\d{4}/"
+    Lines = ["",
+             "var re = /\\d{4}/",
              "if (1) { console.log(2); }"],
     ?assertEqual(<<"var re=/\\d{4}/\nif(1){console.log(2);}">>, minify_multi_line(Lines)). 
     
