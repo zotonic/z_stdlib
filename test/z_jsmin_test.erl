@@ -80,6 +80,8 @@ re_nl_if_test() ->
              "if (1) { console.log(2); }"],
     ?assertEqual(<<"var re=/\\d{4}/\nif(1){console.log(2);}">>, minify_multi_line(Lines)). 
 
+backslash_in_re_test() ->
+    ?assertEqual(<<"foobar=/a[\\b]c/">>, minify(<<"foobar = /a[\\b]c/">>)).
 
 copyright_comment_test() ->
     ?assertEqual(<<"/*! hello */\na;b">>, minify(<<"/*! hello */\na;\nb">>)).
