@@ -117,7 +117,7 @@ regexp(<<C, JS/binary>>, Acc) ->
 regexp_set(<<$], JS/binary>>, Acc) ->
     {JS, [ $] | Acc ]};
 regexp_set(<<$\\, C, JS/binary>>, Acc) ->
-    regexp_set(JS, [ C, $\\, Acc ]);
+    regexp_set(JS, [ C, $\\ | Acc ]);
 regexp_set(<<C, JS/binary>>, Acc) ->
     regexp_set(JS, [ C | Acc ]);
 regexp_set(<<>>, _Acc) ->
