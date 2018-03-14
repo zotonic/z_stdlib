@@ -17,7 +17,9 @@ It should be checked out as `zotonic_stdlib`:
 
     git clone https://github.com/zotonic/z_stdlib.git zotonic_stdlib
 
-Or, in your rebar.config file, use hex.pm (for rebar3):
+The library is also on Hex https://hex.pm/packages/zotonic_stdlib
+
+In your rebar.config file, use Hex (for rebar3):
 
     {deps, [
         zotonic_stdlib
@@ -26,7 +28,7 @@ Or, in your rebar.config file, use hex.pm (for rebar3):
 Or, directly git (rebar2):
 
     {deps, [
-        {zotonic_stdlib, ".*", {git, "https://github.com/zotonic/z_stdlib.git zotonic_stdlib", "master"}}
+        {zotonic_stdlib, ".*", {git, "https://github.com/zotonic/z_stdlib.git", "master"}}
     ]}.
 
 
@@ -124,4 +126,12 @@ Fetch the first N bytes of an URL. Protection against too large return body.
 Fetch an URL, extract metadata like mime type, title, description, images etc.
 
 
+Tests
+-----
+
+To run the test set:
+
+    make test
+
+All tests should pass.
 
