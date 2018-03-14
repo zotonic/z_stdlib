@@ -1,10 +1,13 @@
 [![Build Status](https://travis-ci.org/zotonic/z_stdlib.svg?branch=master)](https://travis-ci.org/zotonic/z_stdlib)
 
 
-z_stdlib
-========
+zotonic_stdlib
+==============
 
 Zotonic standard library - a library with hopefully useful functions
+
+Extracted from Zotonic, the Erlang CMS http://zotonic.com/
+
 
 Installation
 ------------
@@ -33,8 +36,7 @@ Modules
 The following modules are provided:
 
 
-z_convert
-.........
+### z_convert
 
 Conversion routines for:
 
@@ -44,14 +46,12 @@ Conversion routines for:
  * IP address conversions
 
 
-z_css
-.....
+### z_css
 
 Strict CSS parser and sanitizer.
 
 
-z_dateformat
-............
+### z_dateformat
 
 Routines for formatting dates.
 Example:
@@ -59,80 +59,67 @@ Example:
     z_dateformat:format({{2008,12,10},{15,30,0}}, "Y-m-d H:i:s", [ {tz, "GMT"} ]).
 
 
-z_email_dnsbl
-.............
+### z_email_dnsbl
 
 Check IP addresses for their presence on DNS black- or whitelists.
 
 
-z_email_utils
-.............
+### z_email_utils
 
 Test if an email address is syntactically valid. Extract email addresss from a text.
 
 
-z_filelib
-.........
+### z_filelib
 
 Convenience function to make nested directories.
 
 
-z_html
-......
+### z_html
 
 HTML routines like escape, unescape, sanitize, etc.
 
 
-z_ip_address
-............
+### z_ip_address
 
 Match an IP address against lists, check if an IP address is a non routable LAN address.
 
 
-z_jsmin
-.......
+### z_jsmin
 
 JavaScriot minimizer, removes spaces, comments and newlines.
 
 
-z_string
-........
+### z_string
 
 String routines. To uppercase, lowercase, truncate, trim, utf8 checks, and more.
 
 
-z_svg
-.....
+### z_svg
 
 SVG sanitizer.
 
 
-z_tempfile
-..........
+### z_tempfile
 
 Temporary file routines. Make tempfiles, including watch dog process to clean up the file.
 
 
-z_ubf
-.....
+### z_ubf
 
 UBF-A encoding and decoding routines. Safe for atoms and maximum memory size.
 
 
-z_url
-.....
+### z_url
 
 URL encode, decode and more.
 
 
-z_url_fetch
-...........
+### z_url_fetch
 
 Fetch the first N bytes of an URL. Protection against too large return body.
 
 
-z_url_metadata
-..............
+### z_url_metadata
 
 Fetch an URL, extract metadata like mime type, title, description, images etc.
 
