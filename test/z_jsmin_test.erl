@@ -91,9 +91,12 @@ char_from_return_test() ->
     ?assertEqual(<<"return r/1;">>, minify(<<"return r / 1;">>)).
     
 precedence_of_parens_test() ->
-    ?assertEqual(<<"/a([)])b/g">>, <<"/a([)])b/g">>),
-    ?assertEqual(<<"/a[(]b/g">>, <<"/a[(]b/g">>),
+    ?assertEqual(<<"/a([)])b/g">>, minify(<<"/a([)])b/g">>)),
+    ?assertEqual(<<"/a[(]b/g">>, minify(<<"/a[(]b/g">>)),
     ok.
+
+instanceof_test() ->
+    ?assertEqual(<<"a instanceof Object">>, minify(<<"a instanceof Object">>)).
 
 
 %%
