@@ -1,6 +1,6 @@
 %% @author Marc Worrell <marc@worrell.nl>
 %% @copyright 2018 Marc Worrell
-%% @doc Javascript and CSS minifier. Based on jsmin.c
+%% @doc Javascript minifier. Based on jsmin.c
 
 %% Copyright 2018 Marc Worrell
 %%
