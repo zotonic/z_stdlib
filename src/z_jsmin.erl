@@ -43,6 +43,8 @@
 minify( JS ) ->
     minify(next(JS), []).
 
+minify(<<>>, [ C | Acc ]) when ?isspace(C) ->
+    minify(<<>>, Acc);
 minify(<<>>, Acc) ->
     iolist_to_binary(lists:reverse(Acc));
 minify(<<$\n, JS/binary>>, []) ->
@@ -50,6 +52,8 @@ minify(<<$\n, JS/binary>>, []) ->
 minify(<<32, JS/binary>>, []) ->
     minify(next(JS), []);
 minify(<<$\n, JS/binary>>, [ $\n | _ ] = Acc) ->
+    minify(next(JS), Acc);
+minify(<<$\n, JS/binary>>, [ $; | _ ] = Acc) ->
     minify(next(JS), Acc);
 minify(<<32, JS/binary>>, [ C | _ ] = Acc) when ?isspace(C) ->
     minify(next(JS), Acc);
@@ -67,7 +71,7 @@ minify(<<$\n, B, JS/binary>>, [ A | Acc ])
          (?is_alnum(A) orelse A =:= $} orelse A =:= $] orelse A =:= $) orelse B =:= $+ orelse B =:= $- orelse B =:= $" orelse B =:= $' orelse B =:= $`) ->
     minify(next(<<B, JS/binary>>), [ $\n, A | Acc ]);
 minify(<<$\n, JS/binary>>, Acc) ->
-    minify(next(JS), Acc);
+    minify(next(JS), [ $\n | Acc ]);
 minify(<<Q, JS/binary>>, Acc) when Q =:= $'; Q =:= $"; Q =:= $` ->
     {JS1, Acc1} = string(Q, JS, [ Q | Acc]),
     minify(next(JS1), Acc1);
