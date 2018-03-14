@@ -86,7 +86,7 @@ Match an IP address against lists, check if an IP address is a non routable LAN 
 
 ### z_jsmin
 
-JavaScriot minimizer, removes spaces, comments and newlines.
+JavaScript minimizer, removes spaces, comments and newlines.
 
 
 ### z_string
