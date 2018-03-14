@@ -27,6 +27,12 @@ simple_expressions_test() ->
     ?assertEqual(<<"1+2;">>, minify(<<"1 /* one */ + 2; // two">>)),
     ok.
 
+implicit_semicolon_test() ->
+    ?assertEqual(<<"return\na">>, minify(<<"return\na">>)).
+
+explicit_semicolon_test() ->
+    ?assertEqual(<<"return;a">>, minify(<<"return;//comment\r\na">>)).
+
 space_in_regexp_test() ->
     ?assertEqual(<<"/a (a)/.test(\"a\")">>, <<"/a (a)/.test(\"a\")">>).
 
@@ -78,6 +84,14 @@ re_nl_if_test() ->
 copyright_comment_test() ->
     ?assertEqual(<<"/*! hello */\na;b">>, minify(<<"/*! hello */\na;\nb">>)).
 
+
+char_from_return_test() ->
+    ?assertEqual(<<"return r/1;">>, minify(<<"return r / 1;">>)).
+    
+precedence_of_parens_test() ->
+    ?assertEqual(<<"/a([)])b/g">>, <<"/a([)])b/g">>),
+    ?assertEqual(<<"/a[(]b/g">>, <<"/a[(]b/g">>),
+    ok.
 
 
 %%
