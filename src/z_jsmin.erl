@@ -75,6 +75,9 @@ minify(<<$\n, JS/binary>>, Acc) ->
 minify(<<Q, JS/binary>>, Acc) when Q =:= $'; Q =:= $"; Q =:= $` ->
     {JS1, Acc1} = string(Q, JS, [ Q | Acc]),
     minify(next(JS1), Acc1);
+minify(<<"/*!", JS/binary>>, Acc) ->
+    {JS1, Acc1} = copy_comment(JS, [ $!, $*, $/ | Acc ]),
+    minify(next(JS1), Acc1);
 minify(<<$/, JS/binary>>, [ C | _] = Acc) when ?is_pre_regexp(C) ->
     Acc1 = case C of
         $/ -> [ $/, 32 | Acc ];
@@ -124,6 +127,7 @@ regexp_set(<<>>, _Acc) ->
 -spec next(binary()) -> binary().
 next(<<>>) -> <<>>;
 next(<<"//", A/binary>>) -> next(skip_to_eol(A));
+next(<<"/*!", _/binary>> = A) -> A;
 next(<<"/*", A/binary>>) -> next(skip_comment(A));
 next(<<$\r, A/binary>>) -> <<$\n, A/binary>>;
 next(<<$\n, _/binary>> = A) -> A;
@@ -137,7 +141,12 @@ skip_to_eol(<<C, _/binary>> = A) when C =< $\n -> A;
 skip_to_eol(<<_, A/binary>>) -> skip_to_eol(A).
 
 -spec skip_comment(binary()) -> binary().
-skip_comment(<<>>) -> <<>>;
+skip_comment(<<>>) -> throw('Unterminated comment');
 skip_comment(<<"*/", A/binary>>) -> <<" ", A/binary>>;
 skip_comment(<<_, A/binary>>) -> skip_comment(A).
+
+-spec copy_comment(binary(), list()) -> {binary(), list()}.
+copy_comment(<<>>, _Acc) -> throw('Unterminated comment');
+copy_comment(<<"*/", A/binary>>, Acc) -> {A, [ $/, $* | Acc ]};
+copy_comment(<<C, A/binary>>, Acc) -> copy_comment(A, [ C | Acc ]).
 

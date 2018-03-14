@@ -73,8 +73,12 @@ re_nl_if_test() ->
              "var re = /\\d{4}/",
              "if (1) { console.log(2); }"],
     ?assertEqual(<<"var re=/\\d{4}/\nif(1){console.log(2);}">>, minify_multi_line(Lines)). 
-    
-    
+
+
+copyright_comment_test() ->
+    ?assertEqual(<<"/*! hello */\na;b">>, minify(<<"/*! hello */\na;\nb">>)).
+
+
 
 %%
 %% Helpers
