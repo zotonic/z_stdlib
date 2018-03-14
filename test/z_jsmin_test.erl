@@ -4,6 +4,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+% Tests from: https://github.com/tikitu/jsmin/blob/master/jsmin/test.py
+
 
 remove_comment_and_whitespace_test() ->
     ?assertEqual(<<>>, minify(<<>>)),
@@ -55,17 +57,34 @@ single_comments_test() ->
              "    a += \" world\"",
              ""],
     
-    ?assertEqual(<<"var a=\"hello\"\na+=\" world\"">>, 
-                 minify(list_to_binary(string:join(Lines, "\n")))).
+    ?assertEqual(<<"var a=\"hello\"\na+=\" world\"">>, minify_multi_line(Lines)).
 
 
+multi_comments_test() ->
+    Lines = ["",
+             "var a = \"hello\" /* this is a comment */",
+             "    a += \" world\"",
+             ""],
+
+    ?assertEqual(<<"var a=\"hello\"\na+=\" world\"">>, minify_multi_line(Lines)).
+
+re_nl_if_test() ->
+    Lines = [""
+             "var re = /\\d{4}/"
+             "if (1) { console.log(2); }"],
+    ?assertEqual(<<"var re=/\\d{4}/\nif(1){console.log(2);}">>, minify_multi_line(Lines)). 
+    
+    
 
 %%
 %% Helpers
 %%
 
-minify(A) ->
-    z_jsmin:minify(A).
+minify_multi_line(Lines) when is_list(Lines) -> 
+    minify(list_to_binary(string:join(Lines, "\n"))).
+
+minify(Bin) when is_binary(Bin) ->
+    z_jsmin:minify(Bin).
 
     
 
