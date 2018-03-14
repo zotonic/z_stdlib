@@ -5,6 +5,7 @@ priv
 *.beam
 *.plt
 ebin/z_stdlib.app
+ebin/zotonic_stdlib.app
 rebar
 .rebar
 .rebar3
