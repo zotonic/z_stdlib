@@ -53,14 +53,15 @@ s_utf8a() ->
     ).
 
 %% @doc For every random binary if unicode.erl claims it's utf8,
-%% s_utf agrees
+%% s_utf agrees.
 s_utf8b() ->
     ?FORALL(
         ProbablyUtf8,
         ?SUCHTHAT(
             B,
             binary(),
-            unicode:characters_to_binary(B) == B),
+            unicode:characters_to_binary(B) == B
+            andalso no_ill_codepoint(B)),
         v_utf8(ProbablyUtf8)
     ).
 
@@ -85,6 +86,12 @@ utf8_string() ->
         iolist_to_binary(CodePoints)
     ).
 
+%% @doc Check if there is not an illegal codepoint.
+no_ill_codepoint(B) ->
+    binary:match(B, <<0>>) == nomatch
+    andalso binary:match(B, <<239,191,190>>) == nomatch
+    andalso binary:match(B, <<239,191,191>>) == nomatch.
+
 %% @doc Generate a codepoint of max Len bytes in length
 -spec gen_codepoint(pos_integer(), [proper_types:type(), ...]) ->
     proper_types:type().
@@ -100,7 +107,7 @@ gen_codepoint(2, Acc) ->
     gen_codepoint(1, [{integer(16#80, 16#7FF), 2}|Acc]);
 
 gen_codepoint(1, Acc) ->
-    union([{integer(0, 16#7F), 1}|Acc]).
+    union([{integer(1, 16#7F), 1}|Acc]).
 
 utf8_codepoint() ->
     utf8_codepoint(4).
@@ -112,6 +119,8 @@ utf8_codepoint(MaxLen) ->
         {Codepoint, Octets},
         gen_codepoint(MaxLen, []),
         case Octets of
+            _ when Codepoint == 0; Codepoint == 16#fffe; Codepoint == 16#ffff ->
+                <<1:8>>;
             1 ->
                 <<Codepoint:8>>;
             2 ->
