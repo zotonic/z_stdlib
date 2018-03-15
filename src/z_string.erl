@@ -759,6 +759,8 @@ s_utf8(<<>>, Acc) ->
     Acc;
 
 %% 1 byte
+s_utf8(<<0, Rest/binary>>, Acc) ->
+    s_utf8(Rest, Acc);
 s_utf8(<<X, Rest/binary>>, Acc) when X < 128 ->
     s_utf8(Rest, <<Acc/binary, X>>);
 
