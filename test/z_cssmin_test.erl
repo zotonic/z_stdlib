@@ -11,8 +11,14 @@ simple_test() ->
     ok.
 
 class_selector_test() ->
+    ?assertEqual(<<"p :link">>, minify(<<"p :link">>)),
+
     ?assertEqual(<<"code.html{color: #191970}">>, minify(<<"code.html { color:    #191970; }">>)),
-    ?assertEqual(<<"code.html{color: #191970}">>, minify(<<"/* a */code.html  /* b */  { /* c */color: /* d */    #191970; /* e */  } /* f */">>)),
+    ?assertEqual(<<"code.html{color: #191970}">>, minify(<<"code.html     { color:    #191970; }">>)),
+    %% The comment after the selector causes the insertion of an extra space
+    %% it also leaves an extra colon after the last element of a block
+    ?assertEqual(<<"code.html { color: #191970; }">>, 
+                 minify(<<"/* a */code.html  /* b */  { /* c */ color: /* d */  #191970; /* e */  } /* f */">>)),
     ok.
 
 %%

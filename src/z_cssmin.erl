@@ -36,16 +36,19 @@ machine(<<$@, Rest/binary>>, Acc) -> atrule(Rest, <<Acc/binary, $@>>);
 machine(Bin, Acc) -> selector(Bin, Acc).
 
 selector(<<>>, Acc) -> Acc;
-selector(<<$/, $*, Rest/binary>>, Acc) -> continue_selector(skip_comment(Rest), Acc);
+selector(<<$/, $*, Rest/binary>>, Acc) -> selector(skip_comment(Rest), Acc);
 selector(<<${, Rest/binary>>, Acc) -> block(Rest, <<Acc/binary, ${>>);
 selector(<<$@, Rest/binary>>, Acc) -> atrule(Rest, <<Acc/binary, $@>>);
 selector(<<10, Rest/binary>>, Acc) -> selector(Rest, Acc);
-selector(<<32, Rest/binary>>, Acc) -> continue_selector(Rest, Acc); 
+selector(<<32, Rest/binary>>, Acc) -> continue_selector(skip_space(Rest), Acc); 
 selector(<<C, Rest/binary>>, Acc) -> selector(Rest, <<Acc/binary, C>>).
 
 continue_selector(<<${, _/binary>> = Rest, Acc) -> selector(Rest, Acc);
-continue_selector(Rest, Acc) -> selector(skip_whitespace(Rest), <<Acc/binary, 32>>).
-
+continue_selector(Rest, Acc) -> 
+    case binary:last(Acc) of
+        32 -> selector(Rest, Acc);
+        _ -> selector(Rest, <<Acc/binary, 32>>)
+    end.
 
 atrule(<<>>, Acc) -> Acc;
 atrule(<<$/, $*, Rest/binary>>, Acc) -> atrule(skip_comment(Rest), Acc);
@@ -62,9 +65,8 @@ atrule(<<C, Rest/binary>>, Acc) -> atrule(Rest, <<Acc/binary, C>>).
  
 block(<<>>, Acc) -> Acc;
 block(<<$/, $*, Rest/binary>>, Acc) -> block(skip_comment(Rest), Acc);
-block(<<C, Rest/binary>>, Acc) when C =:= 32 orelse C =:= 10 -> block(Rest, Acc);
 block(<<$}, Rest/binary>>, Acc) -> machine(Rest, <<Acc/binary, $}>>);
-block(Bin, Acc) -> declaration(Bin, Acc).
+block(Bin, Acc) -> declaration(skip_whitespace(Bin), Acc).
 
 declaration(<<>>, Acc) -> Acc;
 declaration(<<$/, $*, Rest/binary>>, Acc) -> declaration(skip_comment(Rest), Acc);
@@ -76,8 +78,8 @@ declaration(<<$;, Rest/binary>>, Acc) ->
     end;
 declaration(<<$}, Rest/binary>>, Acc) -> machine(Rest, <<Acc/binary, $}>>);
 declaration(<<32, Rest/binary>>, Acc) ->
-    case Rest of
-        <<32, _/binary>> -> declaration(Rest, Acc);
+    case binary:last(Acc) of
+        32 -> declaration(Rest, Acc);
         _ -> declaration(Rest, <<Acc/binary, 32>>)
     end;
 declaration(<<C, Rest/binary>>, Acc) ->
@@ -91,8 +93,10 @@ skip_comment(<<>>) -> <<>>;
 skip_comment(<<$*, $/, Rest/binary>>) -> Rest;
 skip_comment(<<_C, Rest/binary>>) -> skip_comment(Rest).
 
-skip_whitespace(<<C, Rest/binary>>) when C =:= 32 orelse C =:= 10 ->
-    skip_whitespace(Rest);
+skip_space(<<32, Rest/binary>>) -> skip_space(Rest);
+skip_space(Bin) -> Bin.
+
+skip_whitespace(<<C, Rest/binary>>) when C =:= 32 orelse C =:= 10 -> skip_whitespace(Rest);
 skip_whitespace(Bin) -> Bin.
 
     
