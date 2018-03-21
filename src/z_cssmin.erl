@@ -79,12 +79,14 @@ declaration(<<$0, $m, $m, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary,
 declaration(<<$0, $p, $c, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
 declaration(<<$0, $p, $t, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
 declaration(<<$0, $e, $x, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+% re
 
 declaration(<<$/, $*, Rest/binary>>, Acc) -> declaration(skip_comment(Rest), Acc);
 declaration(<<$(, Rest/binary>>, Acc) -> declaration_in_paren(Rest, <<Acc/binary, $(>>);
 declaration(<<$;, Rest/binary>>, Acc) ->
     case skip_whitespace(Rest) of
         <<$}, _/binary>> = Rest1 -> block(Rest1, Acc);
+        <<$;, _/binary>> = Rest1 -> block(Rest1, Acc);
         _ -> block(Rest, <<Acc/binary, $;>>)
     end;
 declaration(<<$}, Rest/binary>>, Acc) -> machine(Rest, <<Acc/binary, $}>>);
