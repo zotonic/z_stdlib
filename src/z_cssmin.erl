@@ -69,6 +69,17 @@ block(<<$}, Rest/binary>>, Acc) -> machine(Rest, <<Acc/binary, $}>>);
 block(Bin, Acc) -> declaration(skip_whitespace(Bin), Acc).
 
 declaration(<<>>, Acc) -> Acc;
+% reduce zero units 
+declaration(<<$0, $p, $x, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $e, $m, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $%, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $i, $n, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $c, $m, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $m, $m, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $p, $c, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $p, $t, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+declaration(<<$0, $e, $x, Rest/binary>>, Acc) -> declaration(Rest, <<Acc/binary, $0>>);
+
 declaration(<<$/, $*, Rest/binary>>, Acc) -> declaration(skip_comment(Rest), Acc);
 declaration(<<$(, Rest/binary>>, Acc) -> declaration_in_paren(Rest, <<Acc/binary, $(>>);
 declaration(<<$;, Rest/binary>>, Acc) ->
