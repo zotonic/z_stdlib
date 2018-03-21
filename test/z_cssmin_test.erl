@@ -27,9 +27,10 @@ condense_multiple_semicolons_test() ->
     ok.
 
 minimize_zero_units_test() ->
-    ?assertEqual(<<"div{border: 0}">>, minify(<<"div {border:   0px}">>)),
-    ?assertEqual(<<"div{border: 0}">>, minify(<<"div {border:   0pt}">>)),
-    ?assertEqual(<<"div{width: 0;border: 0}">>, minify(<<"div {width: 0%; border: 0in}">>)),
+    ?assertEqual(<<"div{border: 10px}">>, minify(<<"div {border: 10px}">>)),
+    ?assertEqual(<<"div{border: 0px}">>, minify(<<"div {border:   0px}">>)),
+    ?assertEqual(<<"div{border: 0pt}">>, minify(<<"div {border:   0pt}">>)),
+    ?assertEqual(<<"div{width: 0%;border: 0in}">>, minify(<<"div {width: 0%; border: 0in}">>)),
     ok.
 
 %%
