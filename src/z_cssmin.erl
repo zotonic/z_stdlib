@@ -1,5 +1,5 @@
-%% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2018 Marc Worrell
+%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
+%% @copyright 2018 Maas-Maarten Zeeman
 %% @doc Javascript minifier. Based on cssmin.c
 
 %% Copyright 2018 Maas-Maarten Zeeman
