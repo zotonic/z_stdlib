@@ -34,9 +34,9 @@ join(List, Sep) ->
                     end, <<>>, List),
     ResultSize = byte_size(Result),
     case SepSize > ResultSize of
-        true ->
+        false ->
             binary:part(Result, 0,  ResultSize - SepSize);
         %% This should only happen when `List` is empty
-        false ->
+        true ->
             Result
     end.
