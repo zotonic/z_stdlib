@@ -22,7 +22,7 @@
          join/2
         ]).
 
-%% @doc Turn a list of binarys into a single binary separated by the given separator
+%% @doc Turn a list of binaries into a single binary separated by the given separator
 %%      Example:
 %%        z_binary:join([<<"foo">>, <<"bar">>], <<",">>) = <<"foo,bar"">>
 -spec join([binary()], binary()) -> binary().
