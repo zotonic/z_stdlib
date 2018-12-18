@@ -32,4 +32,11 @@ join(List, Sep) ->
         lists:foldr(fun(Bin, Acc) ->
                             <<Bin/binary, Sep/binary, Acc/binary>>
                     end, <<>>, List),
-    binary:part(Result, 0, byte_size(Result) - SepSize).
+    ResultSize = byte_size(Result),
+    case SepSize > ResultSize of
+        true ->
+            binary:part(Result, 0,  ResultSize - SepSize);
+        %% This should only happen when `List` is empty
+        false ->
+            Result
+    end.
