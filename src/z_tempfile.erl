@@ -1,8 +1,8 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2011 Marc Worrell
+%% @copyright 2011-2019 Marc Worrell
 %% @doc Simple temporary file handling, deletes the file when the calling process stops or crashes.
 
-%% Copyright 2010 Marc Worrell
+%% Copyright 2011-2019 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,11 @@
 -export([
 	new/0,
 	new/1,
+
+    monitored_new/0,
+    monitored_attach/1,
+    monitored_detach/1,
+
 	tempfile/0,
 	tempfile/1,
 	is_tempfile/1,
@@ -45,18 +50,47 @@ new(Extension) ->
 		{is_monitoring, Pid} -> Filename
 	end.
 
+monitored_new() ->
+    Filename = tempfile(""),
+    Self = self(),
+    Pid = erlang:spawn(fun() -> cleanup(Filename, Self) end),
+    receive
+        {is_monitoring, Pid} ->
+            {ok, {Pid, Filename}}
+    end.
+
+monitored_attach(Pid) when is_pid(Pid) ->
+    Pid ! {attach, self()}.
+
+monitored_detach(Pid) when is_pid(Pid) ->
+    Pid ! {detach, self()}.
 
 %% @doc Monitoring process, delete file when requesting process stops or crashes
 cleanup(Filename, OwnerPid) ->
 	process_flag(trap_exit, true),
-	MRef = erlang:monitor(process, OwnerPid),
-	OwnerPid ! {is_monitoring, self()},
+    erlang:monitor(process, OwnerPid),
+    OwnerPid ! {is_monitoring, self()},
+    cleanup_loop(Filename, [OwnerPid]).
+
+cleanup_loop(Filename, Pids) ->
 	receive
-		{'EXIT', OwnerPid, _Reason} ->
-			erlang:demonitor(MRef),
-			file:delete(Filename);
-		{'DOWN', _MRef, process, OwnerPid, _Reason} ->
-			file:delete(Filename)
+		{'DOWN', _MRef, process, Pid, _Reason} ->
+            cleanup_loop(Filename, lists:delete(Pid, Pids));
+        {detach, Pid} ->
+            cleanup_loop(Filename, lists:delete(Pid, Pids));
+        {attach, Pid} ->
+            case lists:member(Pid, Pids) of
+                false ->
+                    erlang:monitor(process, Pid),
+                    cleanup_loop(Filename, [ Pid | Pids ]);
+                true ->
+                    cleanup_loop(Filename, Pids)
+            end
+    after 10000 ->
+        case Pids of
+            [] -> file:delete(Filename);
+            _ -> cleanup_loop(Filename, Pids)
+        end
 	end.
 
 %% @doc return a unique temporary filename.
