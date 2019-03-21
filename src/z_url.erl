@@ -271,7 +271,13 @@ decode_data_url(<<"data:", Data/binary>>) ->
     end.
 
 decode_url_data(<<"base64,", Data/binary>>) ->
-    {ok, base64:decode(Data)};
+    Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
+    Data2 = case byte_size(Data1) rem 4 of
+        0 -> Data1;
+        2 -> <<Data1/binary, "==">>;
+        3 -> <<Data1/binary, "=">>
+    end,
+    {ok, base64:decode(Data2)};
 decode_url_data(<<",", Data/binary>>) ->
     {ok, Data};
 decode_url_data(_) ->
