@@ -105,7 +105,9 @@ profile(_Url) ->
 
 %% -------------------------------------- Fetch first part of a HTTP location -----------------------------------------
 
-fetch_data_url(DataUrl, Options) ->
+fetch_data_url(DataUrl, Options) when is_list(DataUrl) ->
+    fetch_data_url(iolist_to_binary(DataUrl), Options);
+fetch_data_url(DataUrl, Options) when is_binary(DataUrl) ->
     case z_url:decode_data_url(DataUrl) of
         {ok, Mime, _Charset, Bytes} ->
             % TODO: charset
