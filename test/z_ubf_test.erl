@@ -38,3 +38,11 @@ proplist_test() ->
     {ok, L1, _} = z_ubf:decode(Enc),
     ?assertEqual(L, L1),
     ?assertEqual(Enc, <<"#{'b',2}&{'a',1}&`plist`$">>).
+
+% bug_test() ->
+%  %% TODO: this was on the original code as a bug/0 function. 
+%    %% was never called, but points to a bug.
+%    C = z_ubf:decode("{'abc"),
+%    z_ubf:decode("d'}$", C).
+
+

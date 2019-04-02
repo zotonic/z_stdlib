@@ -28,20 +28,12 @@
 
 -module(z_ubf).
 
--compile(export_all).
-
 -export([decode_init/0, decode_init/1, decode/1, decode/2, encode/1, encode/2]).
 -export([encode_print/1, deabstract/1]).
-
--import(lists, [foldl/3, reverse/1, map/2, seq/2, sort/1]).
 
 %% Maximum flat-size of the decoded terms.
 %% Prevents attacks where a decode can consume all available memory.
 -define(MAX_DECODE_SIZE, 10*1024*1024).
-
-bug() ->
-    C = decode("{'abc"),
-    decode("d'}$", C).
 
 %% Decoding rules
 %% {'#S', String} -> String
@@ -99,7 +91,7 @@ decode(<<H, T/binary>>, Stack, Dict, MaxSize) when $0 =< H, H =< $9 ->
 decode(<<${, T/binary>>, Stack, Dict, MaxSize) ->
     decode1(T, [[]|Stack], Dict, MaxSize);
 decode(<<$}, T/binary>>, [H|Stack], Dict, MaxSize) ->
-    decode1(T, push(list_to_tuple(reverse(H)),Stack), Dict, MaxSize);
+    decode1(T, push(list_to_tuple(lists:reverse(H)),Stack), Dict, MaxSize);
 decode(<<$&, T/binary>>, [ [H1,H2|T1] | Stack], Dict, MaxSize) ->
     decode1(T, [[[H1|H2]|T1]|Stack], Dict, MaxSize);
 decode(<<$#, T/binary>>, Stack, Dict, MaxSize) ->
@@ -223,7 +215,7 @@ encode(X, Dict0) ->
     end.
 
 initial_dict(X, Dict0) ->
-    Free = seq(32,255) -- special_chars(),
+    Free = lists:seq(32,255) -- special_chars(),
     Most = analyse(X),
     %% io:format("Analysis:~p~n",[Most]),
     load_dict(Most, Free, Dict0, []).
@@ -238,8 +230,8 @@ analyse(T) ->
     KV = dict:to_list(analyse(T, dict:new())),
     %% The Range is the Number of things times its size
     %% If the size is greater than 0
-    KV1 = map(fun rank/1, KV),
-    reverse(sort(KV1)).
+    KV1 = lists:map(fun rank/1, KV),
+    lists:reverse(lists:sort(KV1)).
              
 rank({X, K}) when is_atom(X) ->
     case length(atom_to_list(X)) of
@@ -261,7 +253,7 @@ rank({X, _}) ->
 analyse({'#S', Str}, Dict) ->
     analyse(Str, Dict);
 analyse(T, Dict) when is_tuple(T) ->
-    foldl(fun analyse/2, Dict, tuple_to_list(T)); 
+    lists:foldl(fun analyse/2, Dict, tuple_to_list(T)); 
 analyse(X, Dict) ->
     case dict:find(X, Dict) of
     {ok, Val} ->
@@ -351,7 +343,7 @@ add_string([], _)            -> [].
     
 deabstract({'#S',S}) -> S;
 deabstract(T) when is_tuple(T) ->
-    list_to_tuple(map(fun deabstract/1, tuple_to_list(T)));
+    list_to_tuple(lists:map(fun deabstract/1, tuple_to_list(T)));
 deabstract([H|T]) -> [deabstract(H)|deabstract(T)];
 deabstract(T) -> T.
 
