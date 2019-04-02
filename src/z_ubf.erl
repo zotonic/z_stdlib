@@ -200,14 +200,19 @@ encode_print(X) ->
     io:format("~s~n",[encode(X)]).
 
 encode(X) ->
-    case encode(X, dict:new()) of
+    encode(X, []).
+
+encode(X, Options) when is_list(Options) ->
+    case encode(X, dict:new(), Options) of
         {ok, Bin, _Dict} -> {ok, Bin};
         {error, _} = Error -> Error
-    end.
+    end;
+encode(X, Dict) ->
+    encode(X, Dict, []).
 
-encode(X, Dict0) ->
+encode(X, Dict0, Options) ->
     {Dict1, L1} = initial_dict(X, Dict0),
-    case (catch do_encode(X, Dict1)) of
+    case (catch do_encode(X, Dict1, Options)) of
     {'EXIT', What} ->
         {error, What};
     L ->
@@ -270,64 +275,64 @@ encode_string(S) -> [$",add_string(S, $"), $"].
 encode_atom(X)   -> [$',add_string(atom_to_list(X), $'), $'].
 encode_binary(X) -> [integer_to_list(size(X)), $~,X,$~].
     
-do_encode(X, Dict) when is_atom(X); is_integer(X); is_binary(X) ->
+do_encode(X, Dict, _Options) when is_atom(X); is_integer(X); is_binary(X) ->
     case dict:find(X, Dict) of
     {ok, Y} ->
         Y;
     error ->
         encode_obj(X)
     end;
-do_encode({'#S', Str}, _Dict) ->
+do_encode({'#S', Str}, _Dict, _Options) ->
     %% This *is* a string
     encode_string(Str);
-do_encode({{Y,M,D},{H,I,S}} = DT, Dict)
+do_encode({{Y,M,D},{H,I,S}} = DT, Dict, Options)
     when is_integer(Y), is_integer(M), is_integer(D),
          is_integer(H), is_integer(I), is_integer(S) ->
     case datetime_to_timestamp(DT) of
-        undefined -> do_encode(undefined, Dict);
+        undefined -> do_encode(undefined, Dict, Options);
         Timestamp -> [integer_to_binary(Timestamp),"`dt`"]
     end;
-do_encode([_|_] = List, Dict) ->
-    Enc = encode_list(List, Dict, []),
-    case list_type(List) of
+do_encode([_|_] = List, Dict, Options) ->
+    Enc = encode_list(List, Dict, [], Options),
+    case list_type(List, Options) of
         plist -> [$#,Enc,"`plist`"];
         list -> [$#,Enc]
     end;
-do_encode(T, Dict) when is_tuple(T) ->
-    S1 = encode_tuple(1, T, Dict),
+do_encode(T, Dict, Options) when is_tuple(T) ->
+    S1 = encode_tuple(1, T, Dict, Options),
     [${,S1,$}];
-do_encode(F, _Dict) when is_float(F) ->
+do_encode(F, _Dict, _Options) when is_float(F) ->
     [$",io_lib:format("~p", [F]),$","`f`"];
-do_encode([], _Dict) ->
+do_encode([], _Dict, _Options) ->
     $#.
 
-list_type([]) ->
+list_type([], _Options) ->
     list;
-list_type(L) ->
-    case lists:all(fun is_proplist_elt/1, L)
-        and not lists:all(fun is_atom/1, L)
+list_type(L, Options) ->
+    case lists:all(fun(E) -> is_proplist_elt(E, Options) end, L) and not lists:all(fun is_atom/1, L)
     of
         true -> plist;
         false -> list
     end.
 
-is_proplist_elt({K,_}) when is_binary(K); is_atom(K) ->
+is_proplist_elt({K,_}, Options) when is_binary(K); is_atom(K) ->
+    RecordNames = proplists:get_value(record_names, Options, []),
+    not lists:member(K, RecordNames);
+is_proplist_elt(A, _Options) when is_atom(A) ->
     true;
-is_proplist_elt(A) when is_atom(A) ->
-    true;
-is_proplist_elt(_) ->
+is_proplist_elt(_, _Options) ->
     false.
 
-encode_list([H|T], Dict, L) ->
-    encode_list(T, Dict, [do_encode(H, Dict),$&|L]);
-encode_list([], _Dict, L) ->
+encode_list([H|T], Dict, L, Options) ->
+    encode_list(T, Dict, [do_encode(H, Dict, Options),$&|L], Options);
+encode_list([], _Dict, L, _Options) ->
     L.
 
-encode_tuple(N, T, _Dict) when N > size(T) ->
+encode_tuple(N, T, _Dict, _Options) when N > size(T) ->
     "";
-encode_tuple(N, T, Dict) ->
-    S1 = do_encode(element(N, T), Dict),
-    S2 = encode_tuple(N+1, T,  Dict),
+encode_tuple(N, T, Dict, Options) ->
+    S1 = do_encode(element(N, T), Dict, Options),
+    S2 = encode_tuple(N+1, T,  Dict, Options),
     [S1,possible_comma(N, T),S2].
 
 possible_comma(N, T) when N < size(T) -> $,;

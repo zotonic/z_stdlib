@@ -39,6 +39,13 @@ proplist_test() ->
     ?assertEqual(L, L1),
     ?assertEqual(Enc, <<"#{'b',2}&{'a',1}&`plist`$">>).
 
+recordlist_test() ->
+    L = [{a,1},{b,2},{a,3},{b,4}],
+    {ok, Enc} = z_ubf:encode(L, [{record_names, [a, b]}]),
+    {ok, L1, _} = z_ubf:decode(Enc),
+    ?assertEqual(L, L1),
+    ?assertEqual(<<"#{'b',4}&{'a',3}&{'b',2}&{'a',1}&$">>, Enc).
+
 % bug_test() ->
 %  %% TODO: this was on the original code as a bug/0 function. 
 %    %% was never called, but points to a bug.
