@@ -96,9 +96,13 @@ sanitize_expr({ident, Line, Ident}) ->
 sanitize_expr({uri, Line, _Uri}) -> 
     % No external url references
     {uri, Line, "url()"};
-sanitize_expr({function, _Func, Expr}) -> 
-    % No unchecked functions
-    sanitize_expr(Expr);
+sanitize_expr({function, {function, _Line, Func} = F, Expr}) ->
+    case func_whitelisted(Func) of
+        true ->
+            {function, F, sanitize_expr(Expr)};
+        false ->
+            sanitize_expr(Expr)
+    end;
 sanitize_expr({number, _, _} = E) -> E;
 sanitize_expr({length, _, _} = E) -> E;
 sanitize_expr({ems, _, _} = E) -> E;
@@ -117,6 +121,12 @@ sanitize_string([Quot|S]) when Quot =:= $"; Quot =:= $' ->
     S1 = lists:sublist(S, length(S)-1),
     [ $", z_html:escape_check(z_html:strip(unicode:characters_to_binary(S1))), $"].
 
+
+func_whitelisted("rgb(") -> true;
+func_whitelisted("rgba(") -> true;
+func_whitelisted("calc(") -> true;
+func_whitelisted("minmax(") -> true;
+func_whitelisted(_) -> false.
 
 %%% -------------------------------------------------------- 
 %%% Serialize the sanitized parse tree
