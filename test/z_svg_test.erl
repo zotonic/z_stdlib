@@ -4,7 +4,8 @@
 
 svg_test() ->
     ?assertEqual(svg1(), z_svg:sanitize(svg1())),
-    ?assertEqual(svg2_out(), z_svg:sanitize(svg2())).
+    ?assertEqual(svg2_out(), z_svg:sanitize(svg2())),
+    ?assertEqual(svg3_out(), z_svg:sanitize(svg3())).
 
 
 svg1() ->
@@ -29,4 +30,16 @@ svg2_out() -> <<
   <rect x=\"10\" y=\"10\" width=\"60\" height=\"10\" fill=\"url(#Gradient01)\"></rect>
   <rect x=\"10\" y=\"10\" width=\"60\" height=\"10\" fill=\"\"></rect>
 </svg>">>.
+
+%% Functions like rgb
+svg3() -> <<
+"<svg>",
+  "<rect x=\"0\" y=\"0\" width=\"213\" height=\"101\" style=\"fill:rgb(53.334045%,54.902649%,95.294189%);fill-opacity:0.5741;stroke:none;\"/>",
+"</svg>">>.
+
+svg3_out() -> <<
+"<svg>",
+  "<rect x=\"0\" y=\"0\" width=\"213\" height=\"101\" style=\"fill:rgb(53.334045%,54.902649%,95.294189%); fill-opacity:0.5741; stroke:none; \"></rect>",
+"</svg>"
+>>.
 
