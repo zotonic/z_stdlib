@@ -122,9 +122,18 @@ sanitize_string([Quot|S]) when Quot =:= $"; Quot =:= $' ->
     [ $", z_html:escape_check(z_html:strip(unicode:characters_to_binary(S1))), $"].
 
 
+func_whitelisted("attr(") -> true;
+func_whitelisted("calc(") -> true;
+func_whitelisted("cubic-bezier(") -> true;
+func_whitelisted("hsl(") -> true;
+func_whitelisted("hsla(") -> true;
+func_whitelisted("linear-gradient(") -> true;
+func_whitelisted("radial-gradient(") -> true;
+func_whitelisted("repeating-linear-gradient(") -> true;
+func_whitelisted("repeating-radial-gradient(") -> true;
 func_whitelisted("rgb(") -> true;
 func_whitelisted("rgba(") -> true;
-func_whitelisted("calc(") -> true;
+func_whitelisted("var(") -> true;
 func_whitelisted("minmax(") -> true;
 func_whitelisted(_) -> false.
 
