@@ -52,7 +52,15 @@
 
 -type options() :: list(option()).
 
--type option() :: {device, pid()} | {timeout, pos_integer()} | {max_length, pos_integer()}.
+-type option() :: {device, pid()}
+                | {timeout, pos_integer()}
+                | {max_length, pos_integer()}
+                | {authorization, binary() | string()}.
+
+-export_type([
+    options/0,
+    option/0
+]).
 
 %% @doc Fetch the data and headers from an url
 -spec fetch(string()|binary(), options()) -> {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
@@ -139,9 +147,12 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
         {"Accept-Language", "en,*;q=0"},
         {"User-Agent", httpc_ua(Url)}
     ] ++ case Max of
-            undefined -> [];
-            _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
-         end,
+        undefined -> [];
+        _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
+    end ++ case proplists:get_value(authorization, Opts) of
+        undefined -> [];
+        Auth -> [ {"Authorization", to_list(Auth)} ]
+    end,
     case fetch_stream(start_stream(Url, Headers, Opts), Max, OutDev) of
         {ok, Result} ->
             maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
@@ -149,6 +160,9 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
             error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
             Error
     end.
+
+to_list(B) when is_binary(B) -> binary_to_list(B);
+to_list(L) when is_list(L) -> L.
 
 normalize_url(Url) ->
     {Protocol, Host, Path, Qs, _Frag} = mochiweb_util:urlsplit(Url),
