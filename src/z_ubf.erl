@@ -31,8 +31,6 @@
 -export([decode_init/0, decode_init/1, decode/1, decode/2, encode/1, encode/2]).
 -export([encode_print/1, deabstract/1]).
 
--import(lists, [foldl/3, reverse/1, map/2, seq/2, sort/1]).
-
 %% Maximum flat-size of the decoded terms.
 %% Prevents attacks where a decode can consume all available memory.
 -define(MAX_DECODE_SIZE, 10*1024*1024).
@@ -93,7 +91,7 @@ decode(<<H, T/binary>>, Stack, Dict, MaxSize) when $0 =< H, H =< $9 ->
 decode(<<${, T/binary>>, Stack, Dict, MaxSize) ->
     decode1(T, [[]|Stack], Dict, MaxSize);
 decode(<<$}, T/binary>>, [H|Stack], Dict, MaxSize) ->
-    decode1(T, push(list_to_tuple(reverse(H)),Stack), Dict, MaxSize);
+    decode1(T, push(list_to_tuple(lists:reverse(H)),Stack), Dict, MaxSize);
 decode(<<$&, T/binary>>, [ [H1,H2|T1] | Stack], Dict, MaxSize) ->
     decode1(T, [[[H1|H2]|T1]|Stack], Dict, MaxSize);
 decode(<<$#, T/binary>>, Stack, Dict, MaxSize) ->
@@ -202,14 +200,19 @@ encode_print(X) ->
     io:format("~s~n",[encode(X)]).
 
 encode(X) ->
-    case encode(X, dict:new()) of
+    encode(X, []).
+
+encode(X, Options) when is_list(Options) ->
+    case encode(X, dict:new(), Options) of
         {ok, Bin, _Dict} -> {ok, Bin};
         {error, _} = Error -> Error
-    end.
+    end;
+encode(X, Dict) ->
+    encode(X, Dict, []).
 
-encode(X, Dict0) ->
+encode(X, Dict0, Options) ->
     {Dict1, L1} = initial_dict(X, Dict0),
-    case (catch do_encode(X, Dict1)) of
+    case (catch do_encode(X, Dict1, Options)) of
     {'EXIT', What} ->
         {error, What};
     L ->
@@ -217,7 +220,7 @@ encode(X, Dict0) ->
     end.
 
 initial_dict(X, Dict0) ->
-    Free = seq(32,255) -- special_chars(),
+    Free = lists:seq(32,255) -- special_chars(),
     Most = analyse(X),
     %% io:format("Analysis:~p~n",[Most]),
     load_dict(Most, Free, Dict0, []).
@@ -232,9 +235,9 @@ analyse(T) ->
     KV = dict:to_list(analyse(T, dict:new())),
     %% The Range is the Number of things times its size
     %% If the size is greater than 0
-    KV1 = map(fun rank/1, KV),
-    reverse(sort(KV1)).
-
+    KV1 = lists:map(fun rank/1, KV),
+    lists:reverse(lists:sort(KV1)).
+             
 rank({X, K}) when is_atom(X) ->
     case length(atom_to_list(X)) of
     N when N > 1, K > 1 ->
@@ -255,7 +258,7 @@ rank({X, _}) ->
 analyse({'#S', Str}, Dict) ->
     analyse(Str, Dict);
 analyse(T, Dict) when is_tuple(T) ->
-    foldl(fun analyse/2, Dict, tuple_to_list(T));
+    lists:foldl(fun analyse/2, Dict, tuple_to_list(T)); 
 analyse(X, Dict) ->
     case dict:find(X, Dict) of
     {ok, Val} ->
@@ -271,65 +274,65 @@ encode_obj(X) when is_binary(X) -> encode_binary(X).
 encode_string(S) -> [$",add_string(S, $"), $"].
 encode_atom(X)   -> [$',add_string(atom_to_list(X), $'), $'].
 encode_binary(X) -> [integer_to_list(size(X)), $~,X,$~].
-
-do_encode(X, Dict) when is_atom(X); is_integer(X); is_binary(X) ->
+    
+do_encode(X, Dict, _Options) when is_atom(X); is_integer(X); is_binary(X) ->
     case dict:find(X, Dict) of
     {ok, Y} ->
         Y;
     error ->
         encode_obj(X)
     end;
-do_encode({'#S', Str}, _Dict) ->
+do_encode({'#S', Str}, _Dict, _Options) ->
     %% This *is* a string
     encode_string(Str);
-do_encode({{Y,M,D},{H,I,S}} = DT, Dict)
+do_encode({{Y,M,D},{H,I,S}} = DT, Dict, Options)
     when is_integer(Y), is_integer(M), is_integer(D),
          is_integer(H), is_integer(I), is_integer(S) ->
     case datetime_to_timestamp(DT) of
-        undefined -> do_encode(undefined, Dict);
+        undefined -> do_encode(undefined, Dict, Options);
         Timestamp -> [integer_to_binary(Timestamp),"`dt`"]
     end;
-do_encode([_|_] = List, Dict) ->
-    Enc = encode_list(List, Dict, []),
-    case list_type(List) of
+do_encode([_|_] = List, Dict, Options) ->
+    Enc = encode_list(List, Dict, [], Options),
+    case list_type(List, Options) of
         plist -> [$#,Enc,"`plist`"];
         list -> [$#,Enc]
     end;
-do_encode(T, Dict) when is_tuple(T) ->
-    S1 = encode_tuple(1, T, Dict),
+do_encode(T, Dict, Options) when is_tuple(T) ->
+    S1 = encode_tuple(1, T, Dict, Options),
     [${,S1,$}];
-do_encode(F, _Dict) when is_float(F) ->
+do_encode(F, _Dict, _Options) when is_float(F) ->
     [$",io_lib:format("~p", [F]),$","`f`"];
-do_encode([], _Dict) ->
+do_encode([], _Dict, _Options) ->
     $#.
 
-list_type([]) ->
+list_type([], _Options) ->
     list;
-list_type(L) ->
-    case lists:all(fun is_proplist_elt/1, L)
-        and not lists:all(fun is_atom/1, L)
+list_type(L, Options) ->
+    case lists:all(fun(E) -> is_proplist_elt(E, Options) end, L) and not lists:all(fun is_atom/1, L)
     of
         true -> plist;
         false -> list
     end.
 
-is_proplist_elt({K,_}) when is_binary(K); is_atom(K) ->
+is_proplist_elt({K,_}, Options) when is_binary(K); is_atom(K) ->
+    RecordNames = proplists:get_value(record_names, Options, []),
+    not lists:member(K, RecordNames);
+is_proplist_elt(A, _Options) when is_atom(A) ->
     true;
-is_proplist_elt(A) when is_atom(A) ->
-    true;
-is_proplist_elt(_) ->
+is_proplist_elt(_, _Options) ->
     false.
 
-encode_list([H|T], Dict, L) ->
-    encode_list(T, Dict, [do_encode(H, Dict),$&|L]);
-encode_list([], _Dict, L) ->
+encode_list([H|T], Dict, L, Options) ->
+    encode_list(T, Dict, [do_encode(H, Dict, Options),$&|L], Options);
+encode_list([], _Dict, L, _Options) ->
     L.
 
-encode_tuple(N, T, _Dict) when N > size(T) ->
+encode_tuple(N, T, _Dict, _Options) when N > size(T) ->
     "";
-encode_tuple(N, T, Dict) ->
-    S1 = do_encode(element(N, T), Dict),
-    S2 = encode_tuple(N+1, T,  Dict),
+encode_tuple(N, T, Dict, Options) ->
+    S1 = do_encode(element(N, T), Dict, Options),
+    S2 = encode_tuple(N+1, T,  Dict, Options),
     [S1,possible_comma(N, T),S2].
 
 possible_comma(N, T) when N < size(T) -> $,;
@@ -345,7 +348,7 @@ add_string([], _)            -> [].
 
 deabstract({'#S',S}) -> S;
 deabstract(T) when is_tuple(T) ->
-    list_to_tuple(map(fun deabstract/1, tuple_to_list(T)));
+    list_to_tuple(lists:map(fun deabstract/1, tuple_to_list(T)));
 deabstract([H|T]) -> [deabstract(H)|deabstract(T)];
 deabstract(T) -> T.
 
