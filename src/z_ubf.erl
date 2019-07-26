@@ -306,8 +306,6 @@ do_encode(F, _Dict, _Options) when is_float(F) ->
 do_encode([], _Dict, _Options) ->
     $#.
 
-list_type([], _Options) ->
-    list;
 list_type(L, Options) ->
     case lists:all(fun(E) -> is_proplist_elt(E, Options) end, L) and not lists:all(fun is_atom/1, L)
     of

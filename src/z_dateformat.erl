@@ -7,6 +7,7 @@
 
 -module(z_dateformat).
 -export([format/1, format/2, format/3]).
+-export([tz_name/3]).
 
 -define(TAG_SUPPORTED(C),
     C =:= $a orelse
@@ -50,12 +51,16 @@
     C =:= $Z
 ).
 
+-type tz() :: string().
+
 %
 % Format the current date/time
 %
+-spec format( string() ) -> binary() | undefined.
 format(FormatString) ->
     format(FormatString, []).
 
+-spec format( string(), list() ) -> binary() | undefined.
 format(FormatString, Options) ->
     {Date, Time} = erlang:localtime(),
     iolist_to_binary(replace_tags(Date, Time, FormatString, Options)).
@@ -65,6 +70,7 @@ format(FormatString, Options) ->
 % This is the format returned by erlang:localtime()
 % and other standard date/time BIFs
 %
+-spec format( calendar:datetime() | calendar:date(), string(), list() ) -> binary() | undefined.
 format({{9999,_,_},_}, _FormatString, _Options) ->
     undefined;
 format({{_,_,_} = Date,{_,_,_} = Time}, FormatString, Options) ->
@@ -415,6 +421,7 @@ tzoffset_1(LTime, UTime) ->
        calendar:datetime_to_gregorian_seconds(UTime),
     DiffSecs div 60.
 
+-spec tz_name( calendar:datetime(), prefer_standard | prefer_daylight | both, tz() ) -> string().
 tz_name(Date, Disambiguate, ToTZ) ->
     case localtime:tz_name(Date, ToTZ) of
         {ShortName, _} when is_list(ShortName) ->
@@ -439,7 +446,8 @@ integer_to_list_zerofill(N) ->
 tr(What, Label, Options) ->
     case proplists:get_value(tr, Options) of
         undefined -> tr(What, Label);
-        F when is_function(F,1) -> F(What, Label);
+        F when is_function(F,1) -> F(Label);
+        F when is_function(F,2) -> F(What, Label);
         A when is_atom(A) -> erlang:apply(A, What, [Label]);
         {M,A} when is_atom(M), is_list(A) -> erlang:apply(M, What, [Label|A]);
         {M,F,A} -> erlang:apply(M, F, [What, Label|A])

@@ -1,24 +1,30 @@
 language: erlang
-otp_release:
-  - 19.3
-  - 18.0
-  - 17.0
-jobs:
-  include:
-    - stage: deploy
-      otp_release: 19.3
-      script: skip
-      deploy:
-        provider: script
-        script: ./hex.sh
-        skip_cleanup: true
-        on:
-          tags: true
-          all_branches: true
-
+matrix:
+    include:
+      - otp_release: 21.3
+      - otp_release: 20.3
+      - otp_release: 19.3
+      - otp_release: 18.3
+        dist: trusty
+# jobs:
+#   include:
+#     - stage: deploy
+#       otp_release: 19.3
+#       script: skip
+#       deploy:
+#         provider: script
+#         script: ./hex.sh
+#         skip_cleanup: true
+#         on:
+#           tags: true
+#           all_branches: true
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
-script: make clean test
+script:
+  - make
+  - make test
+  - make xref
+  - make dialyzer
 sudo: false
 notifications:
   email:

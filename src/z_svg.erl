@@ -59,12 +59,7 @@ sanitize_element({Elt, Attrs, Enclosed}) ->
             Attrs1 = lists:filter(fun({A,_}) -> allow_attr(A) end, Attrs),
             {Elt, Attrs1, [ sanitize_element(E) || E <- Enclosed ]};
         false ->
-            case skip_contents(Elt) of
-                false ->
-                    {nop, [ sanitize_element(Encl) || Encl <- Enclosed ]};
-                true ->
-                    {nop, []}
-            end
+            {nop, []}
     end;
 sanitize_element(_) -> 
     <<>>.
@@ -83,10 +78,7 @@ flatten({Elt, Attrs, Enclosed}) ->
     EncBin = flatten(Enclosed),
     Attrs1 = [ flatten_attr(Attr) || Attr <- Attrs ],
     Attrs2 = iolist_to_binary(prefix(32, Attrs1)),
-    case is_selfclosing(Elt) andalso EncBin == <<>> of
-        true ->  <<$<, Elt/binary, Attrs2/binary, 32, $/, $>>>;
-        false -> <<$<, Elt/binary, Attrs2/binary, $>, EncBin/binary, $<, $/, Elt/binary, $>>>
-    end;
+    <<$<, Elt/binary, Attrs2/binary, $>, EncBin/binary, $<, $/, Elt/binary, $>>>;
 flatten(L) when is_list(L) -> 
     iolist_to_binary([ flatten(A) || A <- L ]).
 
@@ -124,8 +116,6 @@ is_acceptable_svg(AttrVal) ->
         {_,_} -> false;
         nomatch -> true
     end.
-
-is_selfclosing(_) -> false.
 
 prefix(Sep, List) -> prefix(Sep,List,[]).
 prefix(_Sep, [], Acc) -> lists:reverse(Acc);
@@ -536,6 +526,3 @@ allow_attr(<<"z">>) -> true;
 allow_attr(<<"zoomAndPan">>) -> true;
 
 allow_attr(_) -> false.
-
-
-skip_contents(_) -> true.
