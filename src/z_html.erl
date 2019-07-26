@@ -110,7 +110,7 @@ escape_value(V) ->
 %% @doc Checks if all properties are properly escaped
 -spec escape_props_check(list()) -> list().
 escape_props_check(Props) ->
-    escape_props_check(Props, undefined).
+    escape_props_check(Props, []).
 
 -spec escape_props_check(list(), Options::list()) -> list().
 escape_props_check(Props, Options) ->

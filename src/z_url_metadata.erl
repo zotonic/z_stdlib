@@ -120,8 +120,6 @@ maybe_abs_link(false, Value, _FinalUrl) ->
     Value;
 maybe_abs_link(true, <<>>, _FinalUrl) ->
     undefined;
-maybe_abs_link(true, undefined, _FinalUrl) ->
-    undefined;
 maybe_abs_link(true, Value, FinalUrl) ->
     z_url:abs_link(Value, FinalUrl).
 
@@ -176,8 +174,6 @@ partial_metadata(Url, Hs, Data) ->
         partial_data = Data
     }.
 
-is_index_page(undefined) ->
-    true;
 is_index_page(Url) ->
     {_Protocol, _Host, Path, Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
     case Qs of
