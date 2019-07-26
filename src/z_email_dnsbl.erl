@@ -53,7 +53,7 @@ is_blocked(IP, RTBLs, WLs) ->
         _ -> false
     end.
 
--spec status(inet:ip_address()) -> {ok, {ok, notlisted|whitelisted|{blocked, list(string())}}} | {error, term()}.
+-spec status(inet:ip_address()) -> {ok, notlisted|whitelisted|{blocked, list(string())}} | {error, term()}.
 status(IP) ->
     status(IP, dnsbl_list(), dnswl_list()).
 
@@ -103,7 +103,7 @@ gethostbyname(Name, true) ->
     case inet_res:lookup(Name, in, a, ResolverOptions) of
         [] -> {error, enoent};
         IPs when is_list(IPs) ->
-            {ok, #hostent{h_addr_list=IPs}}
+            {ok, #hostent{ h_addr_list=IPs, h_addrtype = inet, h_length = 0 }}
     end.
 
 

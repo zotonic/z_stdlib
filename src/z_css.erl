@@ -141,18 +141,18 @@ func_whitelisted(_) -> false.
 %%% Serialize the sanitized parse tree
 %%% -------------------------------------------------------- 
 
-serialize_charset(no_charset) -> <<>>;
-serialize_charset({charset, {string,_,S}}) -> [ <<"@charset ">>, S, $; ].
+serialize_charset(no_charset) -> <<>>.
+% serialize_charset({charset, {string,_,S}}) -> [ <<"@charset ">>, S, $; ].
 
-serialize_import(no_import) -> <<>>;
-serialize_import({charset, Location, MediaList}) -> 
-    [ <<"@charset ">>,
-      serialize_location(Location),
-      serialize_medialist(MediaList)
-    ].
+serialize_import(no_import) -> <<>>.
+% serialize_import({import, Location, MediaList}) ->
+%     [ <<"@import ">>,
+%       serialize_location(Location),
+%       serialize_medialist(MediaList)
+%     ].
 
-serialize_location({string, _, S}) -> S;
-serialize_location({url, _, Url}) -> Url.
+% serialize_location({string, _, S}) -> S;
+% serialize_location({url, _, Url}) -> Url.
 
 serialize_medialist([]) -> 
     [];

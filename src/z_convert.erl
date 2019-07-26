@@ -279,7 +279,7 @@ to_time(L) when is_list(L) ->
 %% @doc Convert a datetime (in universal time) to an ISO time string.
 -spec to_isotime(calendar:datetime()) -> string().
 to_isotime(DateTime) ->
-    to_list(z_dateformat:format(DateTime, "x-m-d\\TH:i:s\\Z", en)).
+    to_list(z_dateformat:format(DateTime, "x-m-d\\TH:i:s\\Z", [])).
 
 
 %%

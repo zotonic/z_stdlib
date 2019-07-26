@@ -43,7 +43,7 @@ fetch(Url) ->
 
 
 %% @doc Fetch properties of the fetched metadata
--spec p(atom(), #url_metadata{}) -> list(binary()) | binary() | undefined.
+-spec p(atom() | binary(), #url_metadata{}) -> list(binary()) | binary() | undefined.
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(final_url, MD) -> 
