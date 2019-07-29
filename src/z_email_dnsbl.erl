@@ -53,19 +53,18 @@ is_blocked(IP, RTBLs, WLs) ->
         _ -> false
     end.
 
--spec status(inet:ip_address()) -> {ok, notlisted|whitelisted|{blocked, list(string())}} | {error, term()}.
+-spec status(inet:ip_address()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
 status(IP) ->
     status(IP, dnsbl_list(), dnswl_list()).
 
--spec status(inet:ip_address(), list()) -> {ok, notlisted|whitelisted|{blocked, list(string())}} | {error, term()}.
+-spec status(inet:ip_address(), list()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
 status(IP, DNSBLs) ->
     status(IP, DNSBLs, []).
 
 -spec status(inet:ip_address(), list(), list()) ->
-          {ok, {blocked, list()}} 
+          {ok, {blocked, list()}}
         | {ok, notlisted}
-        | {ok, whitelisted}
-        | {error, term()}.
+        | {ok, whitelisted}.
 status(IP, DNSBLs, DNSWLs) ->
     Dotted = reverse(IP),
     case status_1(Dotted, IP, DNSWLs, true) of
