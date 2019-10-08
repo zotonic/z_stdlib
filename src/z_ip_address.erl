@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2012 Marc Worrell
+%% @copyright 2012-2019 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
 
-%% Copyright 2012 Marc Worrell
+%% Copyright 2012-2019 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,12 +26,13 @@
     ]).
 
 
-%% @doc An IP address is local if it matches "127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,169.254.0.0/16,::1,fd00::/8,fe80::/10"
+%% @doc An IP address is local if it matches "127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,169.254.0.0/16,::1,fd00::/8,fe80::/10,100.64.0.0/10"
 is_local({127,_,_,_}) -> true;
 is_local({10,_,_,_}) -> true;
 is_local({192,168,_,_}) -> true;
 is_local({169,254,_,_}) -> true;
-is_local({172,X,_,_}) when X >= 16, X =< 31 -> true;
+is_local({172,X,_,_})  when X > 63, X < 128 -> true;
+is_local({100,64,X,_}) when X < 4 -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fd00, X =< 16#fdff -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fe80, X =< 16#fecf -> true;
 is_local(_) -> false.
@@ -43,12 +44,12 @@ ip_match(undefined, _IPs) ->
     false;
 ip_match(_IP, []) ->
     false;
-ip_match(IP, local) ->
+ip_match(IP, Local) when Local =:= local; Local =:= "local"; Local =:= <<"local">> ->
     {ok, IP1} = parse_address(IP),
     is_local(IP1);
-ip_match(_IP, any) ->
+ip_match(_IP, Any) when Any =:= any; Any =:= "any"; Any =:= <<"any">> ->
     true;
-ip_match(_IP, none) ->
+ip_match(_IP, None) when None =:= none; None =:= "none"; None =:= <<"none">> ->
     false;
 ip_match(IP, [IP|_IPs]) ->
     true;
@@ -66,15 +67,15 @@ ip_match_1(_PeerAdr, []) ->
     false;
 ip_match_1(PeerAdr, [PeerAdr|_IPs]) ->
     true;
-ip_match_1(PeerAdr, [Local|IPs]) when Local =:= "local"; Local =:= local ->
+ip_match_1(PeerAdr, [Local|IPs]) when Local =:= "local"; Local =:= local; Local =:= <<"local">> ->
     case is_local(PeerAdr) of
         true -> true;
         false -> ip_match_1(PeerAdr, IPs)
     end;
-ip_match_1(_PeerAdr, [Any|_]) when Any =:= "any"; Any =:= any ->
+ip_match_1(_PeerAdr, [Any|_]) when Any =:= "any"; Any =:= any; Any =:= <<"any">> ->
     true;
-ip_match_1(_PeerAdr, [None|_]) when None =:= "none"; None =:= none ->
-    false;
+ip_match_1(PeerAdr, [None|IPs]) when None =:= "none"; None =:= none; None =:= <<"none">> ->
+    ip_match_1(PeerAdr, IPs);
 ip_match_1(PeerAdr, [{MatchAdr,BitsNr}|IPs]) when is_tuple(MatchAdr), is_integer(BitsNr) ->
     case ip_match_mask(PeerAdr, MatchAdr, BitsNr) of
         true -> true;
@@ -95,9 +96,11 @@ ip_match_1(PeerAdr, [IP|IPs]) when is_list(IP) ->
                 PeerAdr -> true;
                 _ -> ip_match(PeerAdr, IPs)
             end;
-        [] -> 
+        [] ->
             ip_match(PeerAdr, IPs)
-    end.
+    end;
+ip_match_1(PeerAdr, [IP|IPs]) when is_binary(IP) ->
+    ip_match_1(PeerAdr, [ binary_to_list(IP) | IPs ]).
 
 parse_address({_,_,_,_} = IP) -> {ok, IP};
 parse_address({_,_,_,_,_,_,_,_} = IP) -> {ok, IP};
