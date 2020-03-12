@@ -20,7 +20,8 @@
 -module(z_filelib).
 
 -export([
-    ensure_dir/1
+    ensure_dir/1,
+    os_filename/1
     ]).
 
 %% @doc Ensure the directory of a file is present. This will still work
@@ -74,3 +75,29 @@ first_missing([P|Ps], Acc) ->
         true -> first_missing(Ps, [P|Acc]);
         false -> {Path, Ps}
     end.
+
+
+%% @doc Simple escape function for filenames as commandline arguments.
+%% foo/"bar.jpg -> "foo/\"bar.jpg"; on windows "foo\\\"bar.jpg" (both including quotes!)
+-spec os_filename( string()|binary() ) -> string().
+os_filename(A) when is_binary(A) ->
+    os_filename(binary_to_list(A));
+os_filename(A) when is_list(A) ->
+    os_filename(lists:flatten(A), []).
+
+os_filename([], Acc) ->
+    filename:nativename([$'] ++ lists:reverse(Acc) ++ [$']);
+os_filename([$\\|Rest], Acc) ->
+    os_filename_bs(Rest, Acc);
+os_filename([$'|Rest], Acc) ->
+    os_filename(Rest, [$', $\\ | Acc]);
+os_filename([C|Rest], Acc) ->
+    os_filename(Rest, [C|Acc]).
+
+os_filename_bs([$\\|Rest], Acc) ->
+    os_filename(Rest, [$\\,$\\|Acc]);
+os_filename_bs([$'|Rest], Acc) ->
+    os_filename(Rest, [$',$\\,$\\,$\\|Acc]);
+os_filename_bs([C|Rest], Acc) ->
+    os_filename(Rest, [C,$\\|Acc]).
+
