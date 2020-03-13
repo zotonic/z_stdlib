@@ -818,7 +818,7 @@ truncate(_, 0, Append, _LastState, Last, _AccState, _Acc) ->
 truncate(<<$>,Rest/binary>>, N, Append, _LastState, Last, in_element, Acc) ->
     truncate(Rest, N, Append, sentence, Last, in_word, <<Acc/binary,$>>>);
 
-truncate(<<C/utf8,Rest>>, N, Append, LastState, Last, in_element, Acc) ->
+truncate(<<C/utf8,Rest/binary>>, N, Append, LastState, Last, in_element, Acc) ->
     truncate(Rest, N, Append, LastState, Last, in_element, <<Acc/binary,C/utf8>>);
 
 truncate(<<$<,Rest/binary>>, N, Append, LastState, _Last, _AccState, Acc) ->
@@ -843,7 +843,7 @@ truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc)
             in_word -> truncate(Rest, N-1, Append, word, Acc, word, <<Acc/binary,C>>);
             _       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
         end;
-truncate(<<$&,_binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
+truncate(<<$&,_/binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
     {Rest1,Acc1} = get_entity(Input,Acc),
     case AccState of
         in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
