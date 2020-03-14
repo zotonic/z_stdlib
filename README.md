@@ -52,6 +52,9 @@ Conversion routines for:
 
 Strict CSS parser and sanitizer.
 
+### z_cssmin
+
+CSS minifier
 
 ### z_dateformat
 
