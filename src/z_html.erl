@@ -512,13 +512,17 @@ sanitize(Html, Options) when is_list(Html) ->
     sanitize_opts(iolist_to_binary(["<sanitize>", Html, "</sanitize>"]), Options).
 
 sanitize_opts(Html, Options) ->
-    sanitize1(Html, proplists:get_value(elt_extra, Options, []), 
+    sanitize1(Html, proplists:get_value(elt_extra, Options, []),
         proplists:get_value(attr_extra, Options, []), Options).
 
 sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
-    Parsed = z_html_parse:parse(ensure_escaped_amp(Html)),
-    Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
-    flatten(Sanitized).
+    case z_html_parse:parse(ensure_escaped_amp(Html)) of
+        {ok, Parsed} ->
+            Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
+            flatten(Sanitized);
+        {error, _} ->
+            <<>>
+    end.
 
 %% @doc Sanitize a mochiwebparse tree. Remove harmful elements and attributes.
 %% @spec sanitize(mochiweb_html:html_node(), binary() | list(), binary() | list(), any())
@@ -902,8 +906,12 @@ scrape_link_elements(Html) ->
         {match, Elements} ->
             F = fun(El) ->
                         H = iolist_to_binary(["<p>", El, "</p>"]),
-                        {<<"p">>, [], [{_, Attrs, []}]} = z_html_parse:parse(H),
-                        [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)]
+                        case z_html_parse:parse(H) of
+                            {ok, {<<"p">>, [], [{_, Attrs, []}]}} ->
+                                [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)];
+                            {error, _} ->
+                                []
+                        end
                 end,
             [F(El) || [El] <- Elements];
         nomatch ->

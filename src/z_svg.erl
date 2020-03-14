@@ -43,9 +43,13 @@ sanitize(Svg) when is_binary(Svg) ->
     sanitize_1(Svg).
 
 sanitize_1(Svg) ->
-    Parsed = z_html_parse:parse(Svg),
-    Sanitized = sanitize_element(Parsed),
-    flatten(Sanitized).
+    case z_html_parse:parse(Svg) of
+        {ok, Parsed} ->
+            Sanitized = sanitize_element(Parsed),
+            flatten(Sanitized);
+        {error, _} ->
+            <<>>
+    end.
 
 %% @doc Sanitize an element from the SVG parse tree. Also called from z_html.erl
 -spec sanitize_element(svg_element()|term()) -> svg_element(). 
