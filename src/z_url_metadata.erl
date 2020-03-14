@@ -189,24 +189,28 @@ is_index_page(Url) ->
         _ ->
             false
     end.
-    
+
 html_meta(Data) ->
     html_meta(true, Data).
 
 html_meta(true, PartialData) ->
-    Parsed = parse(PartialData),
-    lists:reverse(html(Parsed, [], #ps{}));
+    case parse(PartialData) of
+        {ok, Parsed} ->
+            lists:reverse(html(Parsed, [], #ps{}));
+        {error, _} ->
+            []
+    end;
 html_meta(false, _PartialData) ->
     [].
-    
+
 parse(PartialData) when is_binary(PartialData) ->
-    parse_html(<<"<partial>", PartialData/binary, "</partial>">>);   
+    parse_html(<<"<partial>", PartialData/binary, "</partial>">>);
 parse(PartialData) when is_list(PartialData) ->
     parse_html(iolist_to_binary([<<"<partial>">>, PartialData, <<"</partial>">>])).
-    
+
 parse_html(Html) ->
     z_html_parse:parse(Html).
-    
+
 
 html([], MD, _P) ->
     MD;

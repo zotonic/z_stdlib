@@ -50,6 +50,9 @@ abs_links_test() ->
                          <<"http://example.com/a/b/d.html">>)),
     ok.
 
+nonhtml_test() ->
+    ?assertEqual({error, nohtml}, z_html_parse:parse(<<"<??/N>">>)),
+    ok.
 
 unescape_test() ->
 	?assertEqual(<<"<>">>, z_html:unescape(<<"&lt;&gt;">>)),

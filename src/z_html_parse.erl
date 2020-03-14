@@ -8,6 +8,43 @@
 -export([tokens/1, parse/1, parse_tokens/1, to_tokens/1, escape/1,
          escape_attr/1, to_html/1]).
 
+
+-type html_node() :: {binary(), [html_attr()], [ html_element() ]}.
+-type html_attr() :: {binary(), binary()}.
+-type html_element() :: html_node()
+                      | html_comment()
+                      | pi_tag()
+                      | binary().
+-type html_comment() :: {comment, Comment::binary()}.
+-type pi_tag() :: {pi, binary()}
+                | {pi, Tag::binary(), [html_attr()]}.
+
+-type html_data() :: {data, binary(), Whitespace::boolean()}.
+-type start_tag() :: {start_tag, Name::binary(), [ html_attr() ], Singleton::boolean()}.
+-type end_tag() :: {end_tag, Name::binary()}.
+-type html_doctype() :: {doctype, [ Doctype::any() ]}.
+-type inline_html() :: {'=', binary()}.
+
+-type html_token() :: html_data()
+                    | start_tag()
+                    | end_tag()
+                    | pi_tag()
+                    | inline_html()
+                    | html_comment()
+                    | html_doctype().
+
+-export_type([
+    html_node/0,
+    html_element/0,
+    html_attr/0,
+    html_data/0,
+    html_comment/0,
+    html_doctype/0,
+    start_tag/0,
+    end_tag/0,
+    html_token/0
+    ]).
+
 %% This is a macro to placate syntax highlighters..
 -define(QUOTE, $\").
 -define(SQUOTE, $\').
@@ -47,25 +84,16 @@
                   column=1,
                   offset=0}).
 
-%% @type html_node() = {string(), [html_attr()], [html_node() | string()]}
-%% @type html_attr() = {string(), string()}
-%% @type html_token() = html_data() | start_tag() | end_tag() | inline_html() | html_comment() | html_doctype()
-%% @type html_data() = {data, string(), Whitespace::boolean()}
-%% @type start_tag() = {start_tag, Name, [html_attr()], Singleton::boolean()}
-%% @type end_tag() = {end_tag, Name}
-%% @type html_comment() = {comment, Comment}
-%% @type html_doctype() = {doctype, [Doctype]}
-%% @type inline_html() = {'=', iolist()}
 
 %% External API.
 
-%% @spec parse(string() | binary()) -> html_node()
 %% @doc tokenize and then transform the token stream into a HTML tree.
+-spec parse( iodata() ) -> {ok, html_node()} | {error, nohtml}.
 parse(Input) ->
     parse_tokens(tokens(Input)).
 
-%% @spec parse_tokens([html_token()]) -> html_node()
 %% @doc Transform the output of tokens(Doc) into a HTML tree.
+-spec parse_tokens( [ html_token() ] ) -> {ok, html_node()} | {error, nohtml}.
 parse_tokens(Tokens) when is_list(Tokens) ->
     %% Skip over doctype, processing instructions
     F = fun (X) ->
@@ -76,9 +104,13 @@ parse_tokens(Tokens) when is_list(Tokens) ->
                         true
                 end
         end,
-    [{start_tag, Tag, Attrs, false} | Rest] = lists:dropwhile(F, Tokens),
-    {Tree, _} = tree(Rest, [norm({Tag, Attrs})]),
-    Tree.
+    case lists:dropwhile(F, Tokens) of
+        [{start_tag, Tag, Attrs, false} | Rest] ->
+            {Tree, _} = tree(Rest, [norm({Tag, Attrs})]),
+            {ok, Tree};
+        [] ->
+            {error, nohtml}
+    end.
 
 %% @spec tokens(StringOrBinary) -> [html_token()]
 %% @doc Transform the input UTF-8 HTML into a token stream.
@@ -672,8 +704,8 @@ find_qgt(Bin, S=#decoder{offset=O}) ->
         <<_:O/binary, "/>", _/binary>> ->
             ?ADV_COL(S, 2);
         %% tokenize_attributes takes care of this state:
-        %% <<_:O/binary, C, _/binary>> ->
-        %%     find_qgt(Bin, ?INC_CHAR(S, C));
+        <<_:O/binary, C, _/binary>> ->
+            find_qgt(Bin, ?INC_CHAR(S, C));
         <<_:O/binary>> ->
             S
     end.
@@ -1324,7 +1356,7 @@ parse_test() ->
  <body id=\"home\" class=\"tundra\"><![CDATA[&lt;<this<!-- is -->CDATA>&gt;]]></body>
 </html>">>,
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [<<"\n ">>,
          {<<"head">>, [],
           [<<"\n   ">>,
@@ -1368,63 +1400,63 @@ parse_test() ->
           [{<<"id">>,<<"home">>},
            {<<"class">>,<<"tundra">>}],
           [<<"&lt;<this<!-- is -->CDATA>&gt;">>]},
-         <<"\n">>]},
+         <<"\n">>]}},
        parse(D0)),
     ?assertEqual(
-       {<<"html">>,[],
+       {ok, {<<"html">>,[],
         [{pi, <<"xml:namespace">>,
           [{<<"prefix">>,<<"o">>},
-           {<<"ns">>,<<"urn:schemas-microsoft-com:office:office">>}]}]},
+           {<<"ns">>,<<"urn:schemas-microsoft-com:office:office">>}]}]}},
        parse(
          <<"<html><?xml:namespace prefix=\"o\" ns=\"urn:schemas-microsoft-com:office:office\"?></html>">>)),
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"dd">>, [], [<<"foo">>]},
-         {<<"dt">>, [], [<<"bar">>]}]},
+         {<<"dt">>, [], [<<"bar">>]}]}},
        parse(<<"<html><dd>foo<dt>bar</html>">>)),
     %% Singleton sadness
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"link">>, [], []},
          <<"foo">>,
          {<<"br">>, [], []},
-         <<"bar">>]},
+         <<"bar">>]}},
        parse(<<"<html><link>foo<br>bar</html>">>)),
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"link">>, [], [<<"foo">>,
                            {<<"br">>, [], []},
-                           <<"bar">>]}]},
+                           <<"bar">>]}]}},
        parse(<<"<html><link>foo<br>bar</link></html>">>)),
     %% Case insensitive html tags and attributes.
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"head">>, [], [<<"foo">>,
                            {<<"br">>, [], []},
                            <<"BAR">>]},
          {<<"body">>, [{<<"class">>, <<"">>}, {<<"bgcolor">>, <<"#Aa01fF">>}], []}
-        ]},
+        ]}},
        parse(<<"<html><Head>foo<bR>BAR</head><body Class=\"\" bgcolor=\"#Aa01fF\"></BODY></html>">>)),
 
     %% Case insensitive html tags and attributes mixed with case sensitive xml data islands.
-    ?assertEqual({<<"body">>,
+    ?assertEqual({ok, {<<"body">>,
       [{<<"class">>,<<>>},{<<"bgcolor">>,<<"#Aa01fF">>}],
       [{<<"xml">>,
         [{<<"id">>,<<"data">>}],
         [{<<"Score">>,
           [{<<"Property">>,<<"test">>}],
-          [{<<"Player">>,[],[<<"Me">>]}]}]}]},
+          [{<<"Player">>,[],[<<"Me">>]}]}]}]}},
        parse(<<"<body Class=\"\" bgcolor=\"#Aa01fF\"><xml id=\"data\"><Score Property='test'><Player>Me</Player></Score></xml></BODY>">>)),
 
     %% Case insensitive html tags and attributes mixed with case sensitive xml data islands.
     %% Difference in lowercasing attribute names and tag names.
-    ?assertEqual({<<"body">>,
+    ?assertEqual({ok, {<<"body">>,
       [{<<"id">>,<<"x">>},{<<"bgcolor">>,<<"#Aa01fF">>}],
       [{<<"xml">>,
         [{<<"id">>,<<"data">>}],
         [{<<"Score">>,
           [{<<"Property">>,<<"test">>}],
-          [{<<"Id">>,[],[<<"Me">>]}]}]}]},
+          [{<<"Id">>,[],[<<"Me">>]}]}]}]}},
        parse(<<"<body Id=\"x\" bgcolor=\"#Aa01fF\"><xml id=\"data\"><Score Property='test'><Id>Me</Id></Score></xml></BODY>">>)),
 
     ok.
@@ -1435,12 +1467,12 @@ exhaustive_is_singleton_test() ->
 
 tokenize_attributes_test() ->
     ?assertEqual(
-       {<<"foo">>,
+       {ok, {<<"foo">>,
         [{<<"bar">>, <<"b\"az">>},
          {<<"wibble">>, <<"wibble">>},
          {<<"taco", 16#c2, 16#a9>>, <<"bell">>},
          {<<"quux">>, <<"quux">>}],
-        []},
+        []}},
        parse(<<"<foo bar=\"b&quot;az\" wibble taco&copy;=bell quux">>)),
     ok.
 
@@ -1491,14 +1523,14 @@ to_tokens_test() ->
 parse2_test() ->
     D0 = <<"<channel><title>from __future__ import *</title><link>http://bob.pythonmac.org<br>foo</link><description>Bob's Rants</description></channel>">>,
     ?assertEqual(
-       {<<"channel">>,[],
+       {ok, {<<"channel">>,[],
         [{<<"title">>,[],[<<"from __future__ import *">>]},
          {<<"link">>,[],[
                          <<"http://bob.pythonmac.org">>,
                          {<<"br">>,[],[]},
                          <<"foo">>]},
-         {<<"description">>,[],[<<"Bob's Rants">>]}]},
-       parse(D0)),
+         {<<"description">>,[],[<<"Bob's Rants">>]}]}},
+       ?MODULE:parse(D0)),
     ok.
 
 parse_tokens_test() ->
@@ -1506,21 +1538,21 @@ parse_tokens_test() ->
           {data,<<"\n">>,true},
           {start_tag,<<"html">>,[],false}],
     ?assertEqual(
-       {<<"html">>, [], []},
+       {ok, {<<"html">>, [], []}},
        parse_tokens(D0)),
     D1 = D0 ++ [{end_tag, <<"html">>}],
     ?assertEqual(
-       {<<"html">>, [], []},
+       {ok, {<<"html">>, [], []}},
        parse_tokens(D1)),
     D2 = D0 ++ [{start_tag, <<"body">>, [], false}],
     ?assertEqual(
-       {<<"html">>, [], [{<<"body">>, [], []}]},
+       {ok, {<<"html">>, [], [{<<"body">>, [], []}]}},
        parse_tokens(D2)),
     D3 = D0 ++ [{start_tag, <<"head">>, [], false},
                 {end_tag, <<"head">>},
                 {start_tag, <<"body">>, [], false}],
     ?assertEqual(
-       {<<"html">>, [], [{<<"head">>, [], []}, {<<"body">>, [], []}]},
+       {ok, {<<"html">>, [], [{<<"head">>, [], []}, {<<"body">>, [], []}]}},
        parse_tokens(D3)),
     D4 = D3 ++ [{data,<<"\n">>,true},
                 {start_tag,<<"div">>,[{<<"class">>,<<"a">>}],false},
@@ -1532,12 +1564,12 @@ parse_tokens_test() ->
                 {end_tag,<<"div">>},
                 {end_tag,<<"div">>}],
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"head">>, [], []},
          {<<"body">>, [],
           [{<<"div">>, [{<<"class">>, <<"a">>}], [{<<"a">>, [{<<"name">>, <<"#anchor">>}], []}]},
            {<<"div">>, [{<<"class">>, <<"b">>}], [{<<"div">>, [{<<"class">>, <<"c">>}], []}]}
-          ]}]},
+          ]}]}},
        parse_tokens(D4)),
     D5 = [{start_tag,<<"html">>,[],false},
           {data,<<"\n">>,true},
@@ -1546,14 +1578,14 @@ parse_tokens_test() ->
           {data,<<"\n">>,true},
           {end_tag,<<"html">>}],
     ?assertEqual(
-       {<<"html">>, [], [<<"\nboohoo\n">>]},
+       {ok, {<<"html">>, [], [<<"\nboohoo\n">>]}},
        parse_tokens(D5)),
     D6 = [{start_tag,<<"html">>,[],false},
           {data,<<"\n">>,true},
           {data,<<"\n">>,true},
           {end_tag,<<"html">>}],
     ?assertEqual(
-       {<<"html">>, [], []},
+       {ok, {<<"html">>, [], []}},
        parse_tokens(D6)),
     D7 = [{start_tag,<<"html">>,[],false},
           {start_tag,<<"ul">>,[],false},
@@ -1569,11 +1601,11 @@ parse_tokens_test() ->
           {end_tag,<<"ul">>},
           {end_tag,<<"html">>}],
     ?assertEqual(
-       {<<"html">>, [],
+       {ok, {<<"html">>, [],
         [{<<"ul">>, [],
           [{<<"li">>, [], [<<"word">>]},
            {<<"li">>, [], [<<"up">>]},
-           {<<"li">>, [], [<<"fdsa">>,{<<"br">>, [], []}, <<"asdf">>]}]}]},
+           {<<"li">>, [], [<<"fdsa">>,{<<"br">>, [], []}, <<"asdf">>]}]}]}},
        parse_tokens(D7)),
     ok.
 
@@ -1594,18 +1626,18 @@ destack_test() ->
 
 doctype_test() ->
     ?assertEqual(
-       {<<"html">>,[],[{<<"head">>,[],[]}]},
+       {ok, {<<"html">>,[],[{<<"head">>,[],[]}]}},
        ?MODULE:parse("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
                            "<html><head></head></body></html>")),
     %% http://code.google.com/p/mochiweb/issues/detail?id=52
     ?assertEqual(
-       {<<"html">>,[],[{<<"head">>,[],[]}]},
+       {ok, {<<"html">>,[],[{<<"head">>,[],[]}]}},
        ?MODULE:parse("<html>"
                            "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
                            "<head></head></body></html>")),
     %% http://github.com/mochi/mochiweb/pull/13
     ?assertEqual(
-       {<<"html">>,[],[{<<"head">>,[],[]}]},
+       {ok, {<<"html">>,[],[{<<"head">>,[],[]}]}},
        ?MODULE:parse("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"/>"
                            "<html>"
                            "<head></head></body></html>")),
@@ -1614,16 +1646,16 @@ doctype_test() ->
 dumb_br_test() ->
     %% http://code.google.com/p/mochiweb/issues/detail?id=71
     ?assertEqual(
-       {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]},
+       {ok, {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]}},
        ?MODULE:parse("<div><br/><br/>z</br/></br/></div>")),
     ?assertEqual(
-       {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]},
+       {ok, {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]}},
        ?MODULE:parse("<div><br><br>z</br/></br/></div>")),
     ?assertEqual(
-       {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>, {<<"br">>, [], []}, {<<"br">>, [], []}]},
+       {ok, {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>, {<<"br">>, [], []}, {<<"br">>, [], []}]}},
        ?MODULE:parse("<div><br><br>z<br/><br/></div>")),
     ?assertEqual(
-       {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]},
+       {ok, {<<"div">>,[],[{<<"br">>, [], []}, {<<"br">>, [], []}, <<"z">>]}},
        ?MODULE:parse("<div><br><br>z</br></br></div>")).
 
 
@@ -1634,7 +1666,7 @@ php_test() ->
        ?MODULE:tokens(
          "<?php\n?>")),
     ?assertEqual(
-       {<<"div">>, [], [{pi, <<"php\n">>}]},
+       {ok, {<<"div">>, [], [{pi, <<"php\n">>}]}},
        ?MODULE:parse(
          "<div><?php\n?></div>")),
     ok.
@@ -1642,86 +1674,86 @@ php_test() ->
 parse_unquoted_attr_test() ->
     D0 = <<"<html><img src=/images/icon.png/></html>">>,
     ?assertEqual(
-        {<<"html">>,[],[
+        {ok, {<<"html">>,[],[
             { <<"img">>, [ { <<"src">>, <<"/images/icon.png">> } ], [] }
-        ]},
+        ]}},
         ?MODULE:parse(D0)),
     D1 = <<"<html><img src=/images/icon.png></img></html>">>,
         ?assertEqual(
-            {<<"html">>,[],[
+            {ok, {<<"html">>,[],[
                 { <<"img">>, [ { <<"src">>, <<"/images/icon.png">> } ], [] }
-            ]},
+            ]}},
             ?MODULE:parse(D1)),
     D2 = <<"<html><img src=/images/icon&gt;.png width=100></img></html>">>,
         ?assertEqual(
-            {<<"html">>,[],[
+            {ok, {<<"html">>,[],[
                 { <<"img">>, [ { <<"src">>, <<"/images/icon>.png">> }, { <<"width">>, <<"100">> } ], [] }
-            ]},
+            ]}},
             ?MODULE:parse(D2)),
     ok.        
     
 parse_quoted_attr_test() ->    
     D0 = <<"<html><img src='/images/icon.png'></html>">>,
     ?assertEqual(
-        {<<"html">>,[],[
+        {ok, {<<"html">>,[],[
             { <<"img">>, [ { <<"src">>, <<"/images/icon.png">> } ], [] }
-        ]},
+        ]}},
         ?MODULE:parse(D0)),     
 
     D1 = <<"<html><img src=\"/images/icon.png'></html>">>,
     ?assertEqual(
-        {<<"html">>,[],[
+        {ok, {<<"html">>,[],[
             { <<"img">>, [ { <<"src">>, <<"/images/icon.png'></html>">> } ], [] }
-        ]},
+        ]}},
         ?MODULE:parse(D1)),     
 
     D2 = <<"<html><img src=\"/images/icon&gt;.png\"></html>">>,
     ?assertEqual(
-        {<<"html">>,[],[
+        {ok, {<<"html">>,[],[
             { <<"img">>, [ { <<"src">>, <<"/images/icon>.png">> } ], [] }
-        ]},
+        ]}},
         ?MODULE:parse(D2)),
 
     %% Quoted attributes can contain whitespace and newlines
     D3 = <<"<html><a href=\"#\" onclick=\"javascript: test(1,\ntrue);\"></html>">>,
     ?assertEqual(
-        {<<"html">>,[],[
+        {ok, {<<"html">>,[],[
             { <<"a">>, [ { <<"href">>, <<"#">> }, {<<"onclick">>, <<"javascript: test(1,\ntrue);">>} ], [] }
-        ]},
+        ]}},
         ?MODULE:parse(D3)),     
     ok.
 
 parse_missing_attr_name_test() ->
     D0 = <<"<html =black></html>">>,
     ?assertEqual(
-        {<<"html">>, [ { <<"=">>, <<"=">> }, { <<"black">>, <<"black">> } ], [] },
-       ?MODULE:parse(D0)),
+        {ok, {<<"html">>, [ { <<"=">>, <<"=">> }, { <<"black">>, <<"black">> } ], [] }},
+        ?MODULE:parse(D0)),
     ok.
 
 parse_amps_attr_test() ->
     D0 = <<"<a href=\"/hello?test=1&amp;that=2\"></a>">>,
     ?assertEqual(
-       {<<"a">>, [ { <<"href">>, <<"/hello?test=1&that=2">> }], [] },
+       {ok, {<<"a">>, [ { <<"href">>, <<"/hello?test=1&that=2">> }], [] }},
        ?MODULE:parse(D0)),
     
     D1 = <<"<a href=\"/hello?test=1&that=2\"></a>">>,
     ?assertEqual(
-       {<<"a">>, [ { <<"href">>, <<"/hello?test=1&that=2">> }], [] },
+       {ok, {<<"a">>, [ { <<"href">>, <<"/hello?test=1&that=2">> }], [] }},
        ?MODULE:parse(D1)),
 
     D2 = <<"<a href=\"/hello?test=123&that=2&amp;this=too\"></a>">>,
     ?assertEqual(
-       {<<"a">>, [ { <<"href">>, <<"/hello?test=123&that=2&this=too">> }], [] },
+       {ok, {<<"a">>, [ { <<"href">>, <<"/hello?test=123&that=2&this=too">> }], [] }},
        ?MODULE:parse(D2)),
 
     D3 = <<"<a href=\"/product/54?c=hk-machine&id=1008&shop=auto-oko-74-H\"></a>">>,
     ?assertEqual(
-       {<<"a">>, [ { <<"href">>, <<"/product/54?c=hk-machine&id=1008&shop=auto-oko-74-H">> }], [] },
+       {ok, {<<"a">>, [ { <<"href">>, <<"/product/54?c=hk-machine&id=1008&shop=auto-oko-74-H">> }], [] }},
        ?MODULE:parse(D3)),
 
     D4 = <<"<a href=\"test?a=1&amp=1008\"></a>">>,
     ?assertEqual(
-       {<<"a">>, [ { <<"href">>, <<"test?a=1&amp=1008">> }], [] },
+       {ok, {<<"a">>, [ { <<"href">>, <<"test?a=1&amp=1008">> }], [] }},
        ?MODULE:parse(D4)),
     
     ok.
@@ -1729,20 +1761,20 @@ parse_amps_attr_test() ->
 parse_broken_pi_test() ->
     D0 = <<"<html><?xml:namespace prefix = o ns = \"urn:schemas-microsoft-com:office:office\" /></html>">>,
     ?assertEqual(
-        {<<"html">>, [], [
+        {ok, {<<"html">>, [], [
             { pi, <<"xml:namespace">>, [ { <<"prefix">>, <<"o">> }, 
                                          { <<"ns">>, <<"urn:schemas-microsoft-com:office:office">> } ] }
-        ] },
+        ] }},
         ?MODULE:parse(D0)),
     ok.
 
 parse_funny_singletons_test() ->
     D0 = <<"<html><input><input>x</input></input></html>">>,
     ?assertEqual(
-        {<<"html">>, [], [
+        {ok, {<<"html">>, [], [
             { <<"input">>, [], [] },
             { <<"input">>, [], [ <<"x">> ] }
-        ] },
+        ] }},
         ?MODULE:parse(D0)),
     ok.
 
@@ -1779,29 +1811,29 @@ parse_charref_test() ->
     %% Normal charref
     D0 = <<"<div>&amp;</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"&">>]},
+       {ok, {<<"div">>, [], [<<"&">>]}},
        ?MODULE:parse(D0)),
 
     %% Missing semicolon in the middle. 
     D1 = <<"<div>&amp &amp;</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"& &">>]},
+       {ok, {<<"div">>, [], [<<"& &">>]}},
        ?MODULE:parse(D1)),
 
     %% Missing semicolon on the last enitity
     D2 = <<"<div>&amp &amp</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"& &">>]},
+       {ok, {<<"div">>, [], [<<"& &">>]}},
        ?MODULE:parse(D2)),
 
     D3 = <<"<div>&amp&amp</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"&&">>]},
+       {ok, {<<"div">>, [], [<<"&&">>]}},
        ?MODULE:parse(D3)),
 
     D4 = <<"<div>&amp</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"&">>]},
+       {ok, {<<"div">>, [], [<<"&">>]}},
        ?MODULE:parse(D4)),
 
     ok.
@@ -1810,63 +1842,63 @@ parse_charref_garbage_in_garbage_out_test() ->
     %% faulty charref is left alone
     D1 = <<"<div>&amp. test</div>">>,
     ?assertEqual(
-       {<<"div">>, [], [<<"&amp. test">>]},
+       {ok, {<<"div">>, [], [<<"&amp. test">>]}},
        ?MODULE:parse(D1)),
     
     ok.
 
 parse_invalid_charref_test() ->
     D1 = <<"<i>&#55357;</i>">>,
-    ?assertEqual({<<"i">>,[],[<<"&#55357;">>]}, 
+    ?assertEqual({ok, {<<"i">>,[],[<<"&#55357;">>]}}, 
                  ?MODULE:parse(D1)),
     ok.
 
 parse_amp_test_() ->
     [?_assertEqual(
-       {<<"html">>,[],
-        [{<<"body">>,[{<<"onload">>,<<"javascript:A('1&2')">>}],[]}]},
+       {ok, {<<"html">>,[],
+        [{<<"body">>,[{<<"onload">>,<<"javascript:A('1&2')">>}],[]}]}},
        ?MODULE:parse("<html><body onload=\"javascript:A('1&2')\"></body></html>")),
      ?_assertEqual(
-        {<<"html">>,[],
-         [{<<"body">>,[{<<"onload">>,<<"javascript:A('1& 2')">>}],[]}]},
+        {ok, {<<"html">>,[],
+         [{<<"body">>,[{<<"onload">>,<<"javascript:A('1& 2')">>}],[]}]}},
         ?MODULE:parse("<html><body onload=\"javascript:A('1& 2')\"></body></html>")),
      ?_assertEqual(
-        {<<"html">>,[],
-         [{<<"body">>,[],[<<"& ">>]}]},
+        {ok, {<<"html">>,[],
+         [{<<"body">>,[],[<<"& ">>]}]}},
         ?MODULE:parse("<html><body>& </body></html>")),
      ?_assertEqual(
-        {<<"html">>,[],
-         [{<<"body">>,[],[<<"&">>]}]},
+        {ok, {<<"html">>,[],
+         [{<<"body">>,[],[<<"&">>]}]}},
         ?MODULE:parse("<html><body>&</body></html>"))].
 
 parse_unescaped_lt_test() ->
     D1 = <<"<div> < < <a href=\"/\">Back</a></div>">>,
     ?assertEqual(
-        {<<"div">>, [], [<<" < < ">>, {<<"a">>, [{<<"href">>, <<"/">>}], 
-                                       [<<"Back">>]}]},
+        {ok, {<<"div">>, [], [<<" < < ">>, {<<"a">>, [{<<"href">>, <<"/">>}], 
+                                       [<<"Back">>]}]}},
         ?MODULE:parse(D1)),
 
     D2 = <<"<div> << <a href=\"/\">Back</a></div>">>,
     ?assertEqual(
-        {<<"div">>, [], [<<" << ">>, {<<"a">>, [{<<"href">>, <<"/">>}], 
-                                      [<<"Back">>]}]},
+        {ok, {<<"div">>, [], [<<" << ">>, {<<"a">>, [{<<"href">>, <<"/">>}], 
+                                      [<<"Back">>]}]}},
     ?MODULE:parse(D2)).
 
 parse_unclosed_tbody_test() ->
     D1 = <<"<table><tbody><tr><td>1</td><td>2</td></tr><tbody><tr><td>a</td></tr></tbody></table>">>,
     %% Browsers parse this as two separate tbody's and not a nested one. This should 
     %% be handled in the same way as li's and options are handled.
-    ?assertMatch({<<"table">>, [], [
+    ?assertMatch({ok, {<<"table">>, [], [
         {<<"tbody">>, [], _},
         {<<"tbody">>, [], _}
-    ]}, ?MODULE:parse(D1)).
+    ]}}, ?MODULE:parse(D1)).
 
 parse_table_with_omitted_tr_and_td_close_test() ->
     D1 = "<table><tr><td>1<td>2<tr><td>3<td>4</table",
-    ?assertEqual({<<"table">>, [], [
+    ?assertEqual({ok, {<<"table">>, [], [
         {<<"tr">>, [], [{<<"td">>, [], [<<"1">>]}, {<<"td">>, [], [<<"2">>]}]},
         {<<"tr">>, [], [{<<"td">>,[], [<<"3">>]}, {<<"td">>, [], [<<"4">>]}]} 
-    ]}, ?MODULE:parse(D1)),
+    ]}}, ?MODULE:parse(D1)),
     ok.
 
 parse_table_with_omitted_close_tags_test() ->
@@ -1878,7 +1910,7 @@ parse_table_with_omitted_close_tags_test() ->
         "<tbody><tr><td>1<td>2<td>3<tr><td>4<td>5<td>6"
     "</table",
 
-    ?assertEqual({<<"table">>,[],
+    ?assertEqual({ok, {<<"table">>,[],
          [{<<"thead">>,[],
            [{<<"tr">>,[],[{<<"td">>,[],[<<"1">>]},{<<"td">>,[],[<<"2">>]}]}]},
           {<<"tfoot">>,[],
@@ -1888,15 +1920,15 @@ parse_table_with_omitted_close_tags_test() ->
             {<<"tr">>,[], [{<<"td">>,[],[<<"2">>]},{<<"td">>,[],[<<"3">>]}]}]},
           {<<"tbody">>,[],
            [{<<"tr">>,[], [{<<"td">>,[],[<<"1">>]}, {<<"td">>,[],[<<"2">>]}, {<<"td">>,[], [<<"3">>]}]},
-            {<<"tr">>,[], [{<<"td">>,[],[<<"4">>]}, {<<"td">>,[],[<<"5">>]}, {<<"td">>,[],[<<"6">>]}]}]}]}, ?MODULE:parse(D1)),
+            {<<"tr">>,[], [{<<"td">>,[],[<<"4">>]}, {<<"td">>,[],[<<"5">>]}, {<<"td">>,[],[<<"6">>]}]}]}]}}, ?MODULE:parse(D1)),
 
     D2 = "<table><tfoot><tr><td>1<td>2</table",
-    ?assertEqual({<<"table">>,[], [{<<"tfoot">>,[], [
+    ?assertEqual({ok, {<<"table">>,[], [{<<"tfoot">>,[], [
         {<<"tr">>,[], [
             {<<"td">>,[],[<<"1">>]},
             {<<"td">>,[],[<<"2">>]}
             ]}
-    ]}]}, ?MODULE:parse(D2)),
+    ]}]}}, ?MODULE:parse(D2)),
     ok.
 
 parse_table_colgroups_test() ->
@@ -1909,7 +1941,7 @@ parse_table_colgroups_test() ->
         "<tbody><tr><td>1<td>2<td>3<tr><td>4<td>5<td>6"
     "</table",
 
-    ?assertMatch({<<"table">>,[],
+    ?assertMatch({ok, {<<"table">>,[],
         [{<<"colgroup">>,
           [{<<"width">>,<<"20">>}],
           [{<<"col">>,[{<<"span">>,<<"39">>}],[]},
@@ -1920,14 +1952,14 @@ parse_table_colgroups_test() ->
            {<<"tr">>,[],[{<<"td">>,[],[<<"2">>]},{<<"td">>,[],[<<"3">>]}]}]},
          {<<"tbody">>,[],
           [{<<"tr">>,[], [{<<"td">>,[],[<<"1">>]}, {<<"td">>,[],[<<"2">>]}, {<<"td">>,[],[<<"3">>]}]},
-           {<<"tr">>,[], [{<<"td">>,[],[<<"4">>]}, {<<"td">>,[],[<<"5">>]}, {<<"td">>,[],[<<"6">>]}]}]}]}, ?MODULE:parse(D1)),
+           {<<"tr">>,[], [{<<"td">>,[],[<<"4">>]}, {<<"td">>,[],[<<"5">>]}, {<<"td">>,[],[<<"6">>]}]}]}]}}, ?MODULE:parse(D1)),
 
     ok.
 
 parse_table_elements_without_table_test() ->
     % Table elements are omitted when there is no table tag
     D1 = "<html><tr><td>1<td>2</html>",
-    ?assertEqual({<<"html">>,[],[<<"1">>,<<"2">>]}, ?MODULE:parse(D1)),
+    ?assertEqual({ok, {<<"html">>,[],[<<"1">>,<<"2">>]}}, ?MODULE:parse(D1)),
     ok.
 
 nested_table_test() ->
@@ -1990,8 +2022,8 @@ nested_table_test() ->
                     ]}
                   ]},
 
-    ?assertEqual(T, ?MODULE:parse(D)),
-    ?assertEqual(T, ?MODULE:parse(D1)),
+    ?assertEqual({ok, T}, ?MODULE:parse(D)),
+    ?assertEqual({ok, T}, ?MODULE:parse(D1)),
 
     ok.
 

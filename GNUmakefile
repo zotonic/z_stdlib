@@ -6,8 +6,10 @@ ERLC      ?= $(ERL)c
 REBAR := ./rebar3
 REBAR_URL := https://s3.amazonaws.com/rebar3/rebar3
 REBAR_OPTS ?=
+
 # Default target - update sources and call all compile rules in succession
 .PHONY: all
+
 all: compile
 
 $(REBAR):
@@ -36,6 +38,7 @@ xref: $(REBAR)
 
 test: $(REBAR)
 	$(REBAR) as test ct
+	$(REBAR) as test eunit
 
 
 # Cleaning
