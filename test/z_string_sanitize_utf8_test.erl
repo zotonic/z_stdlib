@@ -33,15 +33,18 @@ valid_utf8_test_() ->
 v_utf8(Bin) ->
     z_string:sanitize_utf8(Bin) =:= Bin.
 
-z_string_test_() ->
-    [
-        {"z_string:sanitize_utf8 -> unicode.erl",
-            proper_utils:qc_(s_utf8a())},
-        {"unicode.erl -> z_string:sanitize_utf8",
-            proper_utils:qc_(s_utf8b())},
-        {"For every utf8 binary unicode.erl and z_string:sanitize_utf8",
-            proper_utils:qc_(s_utf8c())}
-    ].
+z_string_test() ->
+    Options = [
+        {constraint_tries, 1000},
+        {numtests, 1000},
+        {to_file, user}
+    ],
+    % z_string:sanitize_utf8 -> unicode.erl
+    ?assert( proper:quickcheck( s_utf8a(), Options ) ),
+    % "unicode.erl -> z_string:sanitize_utf8"
+    ?assert( proper:quickcheck( s_utf8b(), Options ) ),
+    % For every utf8 binary unicode.erl and z_string:sanitize_utf8
+    ?assert( proper:quickcheck( s_utf8c(), Options ) ).
 
 %% @doc For every random binary if s_utf8 claims it's utf8,
 %% unicode.erl agrees
