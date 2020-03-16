@@ -63,8 +63,8 @@ clean_lower(L) -> z_string:trim(z_string:to_lower(L)).
 
 %% @doc Convert (almost) any value to a list.
 -spec to_list(term()) -> string().
-to_list(undefined) -> [];
-to_list(<<>>) -> [];
+to_list(undefined) -> "";
+to_list(<<>>) -> "";
 to_list({rsc_list, L}) -> L;
 to_list(L) when is_list(L) -> L;
 to_list(A) when is_atom(A) -> atom_to_list(A);
@@ -87,7 +87,7 @@ to_flatlist(L) ->
 %% @doc Convert (almost) any value to an atom.
 -spec to_atom(term()) -> atom() | undefined.
 to_atom(<<>>) -> undefined;
-to_atom([]) -> undefined;
+to_atom("") -> undefined;
 to_atom(A) when is_atom(A) -> A;
 to_atom(B) when is_binary(B) -> to_atom(binary_to_list(B));
 to_atom(I) when is_integer(I) -> to_atom(integer_to_list(I));
@@ -111,9 +111,10 @@ to_binary(A, _Context) -> to_binary(A).
 %% @doc Convert (almost) any value to an integer.
 -spec to_integer(term()) -> integer() | undefined.
 to_integer(undefined) -> undefined;
-to_integer([]) -> undefined;
+to_integer("") -> undefined;
+to_integer(<<>>) -> undefined;
 to_integer(A) when is_atom(A) -> to_integer(atom_to_list(A));
-to_integer(B) when is_binary(B) -> to_integer(binary_to_list(B));
+to_integer(B) when is_binary(B) -> binary_to_integer(B);
 to_integer(I) when is_integer(I) -> I;
 to_integer(F) when is_float(F) -> erlang:round(F);
 to_integer([C]) when is_integer(C) andalso (C > $9 orelse C < $0) -> C;
@@ -135,7 +136,7 @@ to_float(L) when is_list(L) ->
 
 
 %% @doc Quite loose conversion of values to boolean
--spec to_bool(term()) -> true | false.
+-spec to_bool(term()) -> boolean().
 to_bool("false") -> false;
 to_bool("FALSE") -> false;
 to_bool("n") -> false;
@@ -156,14 +157,14 @@ to_bool([0]) -> false;
 to_bool(V) -> to_bool_strict(V).
 
 % @doc Convert values to boolean values according to the Django rules
--spec to_bool_strict(term()) -> true | false.
+-spec to_bool_strict(term()) -> boolean().
 to_bool_strict(undefined) -> false;
 to_bool_strict(false) -> false;
 to_bool_strict(0) -> false;
 to_bool_strict(0.0) -> false;
 to_bool_strict(<<>>) -> false;
 to_bool_strict(<<0>>) -> false;
-to_bool_strict([]) -> false;
+to_bool_strict("") -> false;
 to_bool_strict({rsc_list, []}) -> false;
 to_bool_strict({trans, []}) -> false;
 to_bool_strict("0") -> false;
@@ -177,6 +178,7 @@ to_bool_strict(_) -> true.
 
 
 %% @doc Convert a local date time to utc
+-spec to_utc( calendar:datetime() | undefined ) -> calendar:datetime() | undefined.
 to_utc(undefined) ->
     undefined;
 to_utc({{9999,_,_}, _}) ->
@@ -191,6 +193,7 @@ to_utc(D) ->
 
 
 %% @doc Convert a utc date time to local
+-spec to_localtime( calendar:datetime() | undefined ) -> calendar:datetime() | undefined.
 to_localtime(undefined) ->
     undefined;
 to_localtime({{9999,_,_},_}) ->
@@ -205,14 +208,18 @@ to_localtime(D) ->
 %% to_time/1.  If the input is a string, it is expected to be in iso
 %% 8601 format, although it can also handle timestamps without time
 %% zones. The time component of the datatime is optional.
+-spec to_datetime( calendar:datetime() | calendar:date() | binary() | string() | undefined ) -> calendar:datetime() | undefined.
+to_datetime(undefined) -> undefined;
 to_datetime({{_,_,_},{_,_,_}} = DT) -> DT;
 to_datetime({_,_,_} = D) -> {D, {0,0,0}};
 to_datetime(B) when is_binary(B) ->
     to_datetime(binary_to_list(B));
+to_datetime("") ->
+    undefined;
 to_datetime(L) when is_list(L) ->
-	try
-		case string:tokens(L, " T") of
-			[Date,Time] ->
+    try
+      case string:tokens(L, " T") of
+            [Date,Time] ->
                 WithTZ = fun(Tm, Tz, Mul) ->
                                  TZTime = to_time(Tz),
                                  Add = calendar:datetime_to_gregorian_seconds({{0,1,1},TZTime}),
@@ -239,21 +246,21 @@ to_datetime(L) when is_list(L) ->
                                 end
                         end
                 end;
-			[Date] ->
+            [Date] ->
                 {to_date(Date), {0,0,0}}
         end
-	catch
-		_:_ -> undefined
-	end;
-to_datetime(undefined) ->
-	undefined.
+    catch
+        _:_ -> undefined
+    end.
 
 %% @doc Convert an input to a date. Input is expected to be YYYY-MM-DD
 %% or YYYY/MM/DD.
+-spec to_date( calendar:date() | binary() | string() | undefined ) -> calendar:date() | undefined.
+to_date(undefined) -> undefined;
 to_date({_,_,_} = D) -> D;
 to_date(B) when is_binary(B) ->
     to_date(binary_to_list(B));
-to_date([]) -> undefined;
+to_date("") -> undefined;
 to_date(L) when is_list(L) ->
     case string:tokens(L, "-/") of
         [D,M,Y] when length(Y) =:= 4 ->
@@ -264,12 +271,14 @@ to_date(L) when is_list(L) ->
             undefined
     end.
 
-%% @doc Convert an input to a time. INput is expected to be HH:MM:SS
+%% @doc Convert an input to a time. Input is expected to be HH:MM:SS
 %% or HH.MM.SS.
+-spec to_time( calendar:time() | binary() | string() | undefined ) -> calendar:time() | undefined.
+to_time(undefined) -> undefined;
 to_time({_,_,_} = D) -> D;
 to_time(B) when is_binary(B) ->
     to_time(binary_to_list(B));
-to_time([]) -> undefined;
+to_time("") -> undefined;
 to_time([H1,H2,M1,M2]) ->
     to_time([H1,H2,$:,M1,M2]);
 to_time(L) when is_list(L) ->
@@ -277,9 +286,9 @@ to_time(L) when is_list(L) ->
     {H,I,S}.
 
 %% @doc Convert a datetime (in universal time) to an ISO time string.
--spec to_isotime(calendar:datetime()) -> string().
+-spec to_isotime( calendar:datetime() ) -> binary().
 to_isotime(DateTime) ->
-    to_list(z_dateformat:format(DateTime, "x-m-d\\TH:i:s\\Z", [])).
+    z_dateformat:format(DateTime, "x-m-d\\TH:i:s\\Z", []).
 
 
 %%

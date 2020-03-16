@@ -1,5 +1,5 @@
 %% @author Bob Ippolito <bob@mochimedia.com>
-%% @copyright 2007 Mochi Media, Inc.
+%% @copyright 2007 Mochi Media, Inc.; copyright 2018-2020 Maas-Maarten Zeeman
 
 %% @doc Loosely tokenizes and generates parse trees for HTML 4.
 %%      Adapted by Maas-Maarten Zeeman
