@@ -24,6 +24,7 @@ script:
   - make
   - make test
   - make xref
+  - make edoc
   - make dialyzer
 sudo: false
 notifications:
