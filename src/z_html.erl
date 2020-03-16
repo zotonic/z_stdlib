@@ -110,7 +110,7 @@ escape_value(V) ->
 %% @doc Checks if all properties are properly escaped
 -spec escape_props_check(list()) -> list().
 escape_props_check(Props) ->
-    escape_props_check(Props, undefined).
+    escape_props_check(Props, []).
 
 -spec escape_props_check(list(), Options::list()) -> list().
 escape_props_check(Props, Options) ->
@@ -516,9 +516,13 @@ sanitize_opts(Html, Options) ->
         proplists:get_value(attr_extra, Options, []), Options).
 
 sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
-    Parsed = mochiweb_html:parse(ensure_escaped_amp(Html)),
-    Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
-    flatten(Sanitized).
+    case z_html_parse:parse(ensure_escaped_amp(Html)) of
+        {ok, Parsed} ->
+            Sanitized = sanitize(Parsed, ExtraElts, ExtraAttrs, Options),
+            flatten(Sanitized);
+        {error, _} ->
+            <<>>
+    end.
 
 %% @doc Sanitize a mochiwebparse tree. Remove harmful elements and attributes.
 %% @spec sanitize(mochiweb_html:html_node(), binary() | list(), binary() | list(), any())
@@ -901,9 +905,13 @@ scrape_link_elements(Html) ->
     case re:run(Html, "<link[^>]+>", [global, caseless, {capture,all,binary}]) of
         {match, Elements} ->
             F = fun(El) ->
-                        H = iolist_to_binary(["<p>", El, "</p>"]),
-                        {<<"p">>, [], [{_, Attrs, []}]} = mochiweb_html:parse(H),
-                        [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)]
+                    H = iolist_to_binary(["<p>", El, "</p>"]),
+                    case z_html_parse:parse(H) of
+                        {ok, {<<"p">>, [], [{_, Attrs, []}]}} ->
+                            [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)];
+                        {error, _} ->
+                            []
+                    end
                 end,
             [F(El) || [El] <- Elements];
         nomatch ->
