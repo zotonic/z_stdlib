@@ -43,6 +43,26 @@
     abs_links/2
 ]).
 
+-type text() :: iodata() | {trans, list( {atom(), binary()} )}.
+-type maybe_text() :: undefind | text().
+-type maybe_binary() :: undefind | binary().
+-type maybe_iodata() :: undefind | iodata().
+
+-type sanitize_options() :: [ sanitize_option() ].
+-type sanitize_option() :: {elt_extra, list( binary() )}
+                         | {attr_extra, list( binary() )}.
+
+-export_type([
+    text/0,
+    maybe_text/0,
+    maybe_binary/0,
+    maybe_iodata/0,
+
+    sanitize_options/0,
+    sanitize_option/0
+]).
+
+
 % Used by z_svg.erl
 % @todo: move this to separate erlang module
 -export([
@@ -53,7 +73,11 @@
 
 
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
+<<<<<<< HEAD
 -spec escape_props(list() | map()) -> list() | map().
+=======
+-spec escape_props( proplists:proplist() ) -> proplists:proplist().
+>>>>>>> Add type specs and edoc build target.
 escape_props(Props) ->
     escape_props(Props, []).
 
@@ -241,8 +265,7 @@ escape_value_check(V) ->
 
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
-%% @spec escape(iolist()) -> binary()
--spec escape(list()|binary()|{trans, list()}) -> binary() | undefined.
+-spec escape( maybe_text() ) -> maybe_text().
 escape({trans, Tr}) ->
     {trans, [{Lang, escape(V)} || {Lang,V} <- Tr]};
 escape(undefined) ->
@@ -275,7 +298,7 @@ escape1(<<C, T/binary>>, Acc) ->
 
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
--spec escape_check(list()|binary()|{trans, list()}) -> binary() | undefined.
+-spec escape_check( maybe_text() ) -> maybe_text().
 escape_check({trans, Tr}) ->
     {trans, [{Lang, escape_check(V)} || {Lang,V} <- Tr]};
 escape_check(undefined) ->
@@ -328,7 +351,7 @@ escape_check1(<<C, T/binary>>, Acc) ->
 
 
 %% @doc Unescape - reverses the effect of escape.
-%% @spec unescape(iolist()) -> binary()
+-spec unescape( maybe_text() ) -> maybe_text().
 unescape({trans, Tr}) ->
     {trans, [{Lang, unescape(V)} || {Lang,V} <- Tr]};
 unescape(undefined) ->
@@ -367,7 +390,7 @@ unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
 
 
 %% @doc Escape a text. Expands any urls to links with a nofollow attribute.
-%% @spec escape_link(Text) -> binary()
+-spec escape_link( maybe_iodata() ) -> maybe_binary().
 escape_link(undefined) ->
     undefined;
 escape_link(<<>>) ->
@@ -426,6 +449,7 @@ ensure_protocol(Link) ->
     end.
 
 %% @doc Ensure that an uri is (quite) harmless by removing any script reference
+-spec sanitize_uri( maybe_iodata() ) -> maybe_binary().
 sanitize_uri(undefined) ->
     undefined;
 sanitize_uri(<<>>) ->
@@ -456,15 +480,15 @@ cleanup_uri_chars(<<C, B/binary>>, Acc) ->
     end.
 
 %% @doc Strip all html elements from the text. Simple parsing is applied to find the elements. Does not escape the end result.
-%% @spec strip(iolist()) -> iolist()
+-spec strip( maybe_text() ) -> maybe_text().
 strip({trans, Tr}) ->
     {trans, [{Lang, strip(V)} || {Lang,V} <- Tr]};
 strip(undefined) ->
-    [];
+    <<>>;
 strip(<<>>) ->
     <<>>;
 strip([]) ->
-    [];
+    <<>>;
 strip(Html) when is_binary(Html) ->
     strip(Html, in_text, <<>>);
 strip(L) when is_list(L) ->
@@ -519,10 +543,18 @@ maybe_add_space(Bin) ->
     end.
 
 %% @doc Truncate a previously sanitized HTML string.
+-spec truncate( maybe_text(), integer() ) -> maybe_text().
 truncate(Html,Length) ->
     truncate(Html, Length, <<>>).
 
+-spec truncate( maybe_text(), integer(), iodata() ) -> maybe_text().
+truncate(undefined, _Length, _Append) ->
+    undefined;
 truncate(_, Length, _Append) when Length =< 0 ->
+    <<>>;
+truncate(<<>>, _Length, _Append) ->
+    <<>>;
+truncate("", _Length, _Append) ->
     <<>>;
 truncate({trans, Tr}, Length, Append) ->
     {trans, [{Lang,truncate(V,Length, Append)} || {Lang,V} <- Tr]};
@@ -585,13 +617,20 @@ make_closetag(<<$<, Rest/binary>>) ->
     end.
 
 %% @doc Sanitize a (X)HTML string. Remove elements and attributes that might be harmful.
-%% @spec sanitize(binary()) -> binary()
+-spec sanitize( maybe_text() ) -> maybe_text().
 sanitize(Html) ->
     sanitize(Html, []).
 
 
+-spec sanitize( maybe_text(), sanitize_options() ) -> maybe_text().
+sanitize(undefined, _Options) ->
+    undefined;
 sanitize({trans, Tr}, Options) ->
     {trans, [{Lang, sanitize(V, Options)} || {Lang,V} <- Tr]};
+sanitize(<<>>, _Options) ->
+    <<>>;
+sanitize("", _Options) ->
+    <<>>;
 sanitize(Html, Options) when is_binary(Html) ->
     sanitize_opts(<<"<sanitize>",Html/binary,"</sanitize>">>, Options);
 sanitize(Html, Options) when is_list(Html) ->
@@ -611,7 +650,7 @@ sanitize1(Html, ExtraElts, ExtraAttrs, Options) ->
     end.
 
 %% @doc Sanitize a mochiwebparse tree. Remove harmful elements and attributes.
-%% @spec sanitize(mochiweb_html:html_node(), binary() | list(), binary() | list(), any())
+-spec sanitize( z_html_parse:html_element(), binary() | list(), binary() | list(), any()) -> z_html_parse:html_element().
 sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) when is_binary(ExtraElts) ->
     sanitize(ParseTree, binary:split(ExtraElts, <<",">>, [global]), ExtraAttrs, Options);
 sanitize(ParseTree, ExtraElts, ExtraAttrs, Options) when is_binary(ExtraAttrs) ->
@@ -674,7 +713,8 @@ sanitize_element({M, F, A}, Element, Stack, _Options) ->
     erlang:apply(M, F, [Element, Stack|A]).
 
 
-%% @doc Flatten the sanitized html tree to a binary 
+%% @doc Flatten the sanitized html tree to a binary
+-spec flatten( z_html_parse:html_element() ) -> binary().
 flatten(B) when is_binary(B) ->
     escape_html_text(B, <<>>);
 flatten({nop, Enclosed}) ->
@@ -716,7 +756,7 @@ flatten_attr({Attr,Value}) ->
     <<Attr/binary, $=, $", Value2/binary, $">>.
 
 %% @doc Escape smaller-than, greater-than, single and double quotes in texts (&amp; is already removed or escaped).
-escape_html_text(<<>>, Acc) -> 
+escape_html_text(<<>>, Acc) ->
     Acc;
 escape_html_text(<<$<, T/binary>>, Acc) ->
     escape_html_text(T, <<Acc/binary, "&lt;">>);
@@ -730,7 +770,7 @@ escape_html_text(<<C, T/binary>>, Acc) ->
     escape_html_text(T, <<Acc/binary, C>>).
 
 %% @doc Escape smaller-than, greater-than (for in comments)
-escape_html_comment(<<>>, Acc) -> 
+escape_html_comment(<<>>, Acc) ->
     Acc;
 escape_html_comment(<<$<, T/binary>>, Acc) ->
     escape_html_comment(T, <<Acc/binary, "&lt;">>);
@@ -871,12 +911,15 @@ skip_contents(_) -> false.
 
 %% @doc Run the CSS sanitizer over 'style' attributes. This is a strict sanitizer, all
 %%      non-conforming css is rejected.
-filter_css(undefined) -> [];
+-spec filter_css( maybe_iodata() ) -> binary().
+filter_css(undefined) -> <<>>;
 filter_css(<<>>) -> <<>>;
-filter_css([]) -> [];
-filter_css(Css) when is_binary(Css) -> 
+filter_css("") -> <<>>;
+filter_css(L) when is_list(L) ->
+    filter_css(iolist_to_binary(L));
+filter_css(Css) when is_binary(Css) ->
     case z_css:sanitize_style(Css) of
-        {ok, Css1} -> 
+        {ok, Css1} ->
             Css1;
         {error, _Error} ->
             <<>>
@@ -891,7 +934,7 @@ noscript(Url) ->
     noscript(Url, true).
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
-noscript(Url, IsStrict) -> 
+noscript(Url, IsStrict) ->
     case nows(z_convert:to_binary(Url), <<>>) of
         <<"script:", _/binary>> -> <<"#script-removed">>;
         <<"vbscript:", _/binary>> -> <<"#script-removed">>;
@@ -926,6 +969,7 @@ noscript_data(_) -> <<>>.
 
 
 %% @doc Translate any html br entities to newlines.
+-spec br2nl( maybe_text() ) -> maybe_text().
 br2nl(undefined) ->
     undefined;
 br2nl({trans, Ts}) ->
@@ -955,6 +999,7 @@ br2nl_bin(<<C, Post/binary>>, Acc) ->
 
 
 %% @doc Translate any newlines to html br entities.
+-spec nl2br( maybe_text() ) -> maybe_text().
 nl2br(undefined) ->
     undefined;
 nl2br({trans, Ts}) ->
@@ -986,26 +1031,29 @@ nl2br_bin(<<C, Post/binary>>, Acc) ->
 
 
 %% @doc Given a HTML list, scrape all `<link>' elements and return their attributes. Attribute names are lowercased.
-%% @spec scrape_link_elements(string()) -> [LinkAttributes]
+-spec scrape_link_elements( iodata() ) -> list( [ z_html_parse:html_attr() ] ).
 scrape_link_elements(Html) ->
     case re:run(Html, "<link[^>]+>", [global, caseless, {capture,all,binary}]) of
         {match, Elements} ->
             F = fun(El) ->
-                        H = iolist_to_binary(["<p>", El, "</p>"]),
-                        case z_html_parse:parse(H) of
-                            {ok, {<<"p">>, [], [{_, Attrs, []}]}} ->
-                                [{z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs)];
-                            {error, _} ->
-                                []
-                        end
+                    H = iolist_to_binary(["<p>", El, "</p>"]),
+                    case z_html_parse:parse(H) of
+                        {ok, {<<"p">>, [], [{_, Attrs, []}]}} ->
+                            [ {z_string:to_lower(K),V} || {K,V} <- lists:flatten(Attrs) ];
+                        {error, _} ->
+                            []
+                    end
                 end,
-            [F(El) || [El] <- Elements];
+            [ F(El) || [El] <- Elements ];
         nomatch ->
             []
     end.
 
 
 %% @doc Ensure that `&'-characters are properly escaped inside a html string.
+-spec ensure_escaped_amp( maybe_binary() ) -> binary().
+ensure_escaped_amp(undefined) ->
+    <<>>;
 ensure_escaped_amp(B) ->
     ensure_escaped_amp(B, <<>>).
 
@@ -1064,9 +1112,12 @@ is_valid_ent_val(C) ->
     orelse (C >= $0 andalso C =< $9).
 
 %% @doc Make all links (href/src) in the html absolute to the base URL
-%%      For now this takes a shortcut by checking all ' (src|href)=".."'
+%%      This takes a shortcut by checking all ' (src|href)=".."'
+-spec abs_links( maybe_iodata(), binary() ) -> iodata().
+abs_links(undefined, _Base) ->
+    <<>>;
 abs_links(Html, Base) ->
-    case re:run(Html, 
+    case re:run(Html,
                 <<"(src|href)=\"([^\"]*)\"">>,
                 [global, notempty, {capture, all, binary}])
     of
