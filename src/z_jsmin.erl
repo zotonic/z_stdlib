@@ -39,6 +39,8 @@
 
 -define(isspace(C), (C =:= 32 orelse C =:= $\n)).
 
+
+%% @doc Minify a binary containing JavaScript.
 -spec minify( binary() ) -> binary().
 minify( JS ) ->
     minify(next(JS), []).
