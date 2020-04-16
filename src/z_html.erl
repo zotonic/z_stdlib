@@ -1,10 +1,8 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2014 Marc Worrell
-%% Date: 2009-04-17
-%%
+%% @copyright 2009-2020 Marc Worrell
 %% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
 
-%% Copyright 2009-2014 Marc Worrell
+%% Copyright 2009-2020 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,43 +53,47 @@
 
 
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
--spec escape_props(list()) -> list().
+-spec escape_props(list() | map()) -> list() | map().
 escape_props(Props) ->
     escape_props(Props, []).
 
--spec escape_props(list(), Options::list()) -> list().
-escape_props(Props, Options) ->
-    [ escape_props1(P, Options) || P <- Props ].
+-spec escape_props(list() | map(), Options::list()) -> list() | map().
+escape_props(Props, Options) when is_list(Props) ->
+    lists:map(
+        fun({P, V}) ->
+            V1 = escape_props1(z_convert:to_binary(P), V, Options),
+            {P, V1}
+        end,
+        Props);
+escape_props(Props, Options) when is_map(Props) ->
+    maps:map(
+        fun(K, V) ->
+            escape_props1(z_convert:to_binary(K), V, Options)
+        end,
+        Props).
 
-escape_props1({_K,V} = Prop, _Options) when is_float(V); is_integer(V); is_atom(V) -> 
-    Prop;
-escape_props1({body, V}, Options) ->
-    {body, sanitize(V, Options)};
-escape_props1({body_extra, V}, Options) ->
-    {body_extra, sanitize(V, Options)};
-escape_props1({summary, Summary}, _Options) ->
-    {summary, nl2br(escape_value(Summary))};
-escape_props1({blocks, V}, Options) when is_list(V) ->
-    V1 = [ escape_props(L, Options) || L <- V ],
-    {blocks, V1};
-escape_props1({website, V}, _Options) ->
-    V1 = escape_value(sanitize_uri(V)),
-    {website, V1};
-escape_props1({K, V}, Options) ->
-    case z_convert:to_list(K) of
-        "is_" ++ _ ->
-            {K, z_convert:to_bool(V)};
-        KS ->
-            EscapeFun = case lists:reverse(KS) of
-                            "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
-                            "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_uri'
-                            "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(A)) end; %% prop ends in '_url'
-                            _ -> fun escape_value/1
-                        end,
-            {K, EscapeFun(V)}
-    end;
-escape_props1(P, _Options) ->
-    P.
+escape_props1(_K, V, _Options) when is_float(V); is_integer(V); is_atom(V) ->
+    V;
+escape_props1(<<"body", _/binary>>, V, Options) ->
+    sanitize(V, Options);
+escape_props1(<<"summary">>, Summary, _Options) ->
+    nl2br(escape_value(Summary));
+escape_props1(<<"blocks">>, V, Options) when is_list(V) ->
+    [ escape_props(L, Options) || L <- V ];
+escape_props1(<<"website">>, V, _Options) ->
+    escape_value(sanitize_uri(V));
+escape_props1(<<"is_", _/binary>>, V, _Options) ->
+    z_convert:to_bool(V);
+escape_props1(_K, V, Options) when is_map(V) ->
+    escape_props(V, Options);
+escape_props1(K, V, Options) ->
+    Type = lists:last(binary:split(K, <<"_">>, [global])),
+    case Type of
+        <<"html">> -> sanitize(V, Options);
+        <<"uri">> -> escape_value(sanitize_uri(V));
+        <<"url">> -> escape_value(sanitize_uri(V));
+        _ -> escape_value(V)
+    end.
 
 escape_value({trans, _Ts} = Tr) ->
     escape(Tr);
@@ -103,42 +105,53 @@ escape_value(V) when is_list(V) ->
     end;
 escape_value(B) when is_binary(B) ->
     escape(B);
-escape_value(V) -> 
+escape_value(V) ->
     V.
 
 
 %% @doc Checks if all properties are properly escaped
--spec escape_props_check(list()) -> list().
+-spec escape_props_check(list() | map()) -> list() | map().
 escape_props_check(Props) ->
     escape_props_check(Props, []).
 
--spec escape_props_check(list(), Options::list()) -> list().
-escape_props_check(Props, Options) ->
-    [ escape_props_check1(P, Options) || P <- Props ].
+-spec escape_props_check(list() | map(), Options::list()) -> list() | map().
+escape_props_check(Props, Options) when is_list(Props) ->
+    lists:map(
+        fun
+            ({P, V}) ->
+                V1 = escape_props_check1(z_convert:to_binary(P), V, Options),
+                {P, V1};
+            (P) when is_atom(P) ->
+                {P, true}
+        end,
+        Props);
+escape_props_check(Props, Options) when is_map(Props) ->
+    maps:map(
+        fun(P, V) ->
+            escape_props_check1(z_convert:to_binary(P), V, Options)
+        end,
+        Props).
 
-escape_props_check1({_K,V} = Prop, _Options) when is_float(V); is_integer(V); is_atom(V) -> 
-    Prop;
-escape_props_check1({body, V}, Options) ->
-    {body, sanitize(V, Options)};
-escape_props_check1({body_extra, V}, Options) ->
-    {body_extra, sanitize(V, Options)};
-escape_props_check1({summary, Summary}, _Options) ->
-    {summary, nl2br(escape_check(br2nl(Summary)))};
-escape_props_check1({blocks, V}, Options) when is_list(V) ->
-    V1 = [ escape_props_check(L, Options) || L <- V ],
-    {blocks, V1};
-escape_props_check1({website, V}, _Options) ->
-    {website, escape_value(sanitize_uri(unescape(V)))};
-escape_props_check1({K, V}, Options) ->
-    EscapeFun = case lists:reverse(z_convert:to_list(K)) of
-                    "lmth_" ++ _ -> fun(A) -> sanitize(A, Options) end; %% prop ends in '_html'
-                    "iru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(unescape(A))) end; %% prop ends in '_uri'
-                    "lru_" ++ _ -> fun(A) -> escape_value(sanitize_uri(unescape(A))) end; %% prop ends in '_url'
-                    _ -> fun escape_value_check/1
-                end,
-    {K, EscapeFun(V)};
-escape_props_check1(P, _Options) ->
-    P.
+escape_props_check1(_K, V, _Options) when is_float(V); is_integer(V); is_atom(V) ->
+    V;
+escape_props_check1(<<"body", _/binary>>, V, Options) ->
+    sanitize(V, Options);
+escape_props_check1(<<"summary">>, Summary, _Options) ->
+    nl2br(escape_check(br2nl(Summary)));
+escape_props_check1(<<"blocks">>, V, Options) when is_list(V) ->
+    [ escape_props_check(L, Options) || L <- V ];
+escape_props_check1(<<"website">>, V, _Options) ->
+    escape_value(sanitize_uri(unescape(V)));
+escape_props_check1(_K, V, Options) when is_map(V) ->
+    escape_props_check(V, Options);
+escape_props_check1(K, V, Options) ->
+    Type = lists:last(binary:split(K, <<"_">>, [global])),
+    case Type of
+        <<"html">> -> sanitize(V, Options);
+        <<"uri">> -> escape_value(sanitize_uri(unescape(V)));
+        <<"url">> -> escape_value(sanitize_uri(unescape(V)));
+        _ -> escape_value_check(V)
+    end.
 
 escape_value_check({trans, _Ts} = Tr) ->
     escape_check(Tr);
@@ -150,7 +163,7 @@ escape_value_check(V) when is_list(V) ->
     end;
 escape_value_check(B) when is_binary(B) ->
     escape_check(B);
-escape_value_check(V) -> 
+escape_value_check(V) ->
     V.
 
 
@@ -159,9 +172,9 @@ escape_value_check(V) ->
 -spec escape(list()|binary()|{trans, list()}) -> binary() | undefined.
 escape({trans, Tr}) ->
     {trans, [{Lang, escape(V)} || {Lang,V} <- Tr]};
-escape(undefined) -> 
+escape(undefined) ->
     undefined;
-escape(<<>>) -> 
+escape(<<>>) ->
     <<>>;
 escape([]) ->
     <<>>;
@@ -170,7 +183,7 @@ escape(L) when is_list(L) ->
 escape(B) when is_binary(B) ->
     escape1(B, <<>>).
 
-escape1(<<>>, Acc) -> 
+escape1(<<>>, Acc) ->
     Acc;
 escape1(<<"&euro;", T/binary>>, Acc) ->
     escape1(T, <<Acc/binary, "€">>);
@@ -192,9 +205,9 @@ escape1(<<C, T/binary>>, Acc) ->
 -spec escape_check(list()|binary()|{trans, list()}) -> binary() | undefined.
 escape_check({trans, Tr}) ->
     {trans, [{Lang, escape_check(V)} || {Lang,V} <- Tr]};
-escape_check(undefined) -> 
+escape_check(undefined) ->
     undefined;
-escape_check(<<>>) -> 
+escape_check(<<>>) ->
     <<>>;
 escape_check([]) ->
     <<>>;
@@ -205,7 +218,7 @@ escape_check(B) when is_binary(B) ->
 escape_check(Other) ->
     Other.
 
-escape_check1(<<>>, Acc) -> 
+escape_check1(<<>>, Acc) ->
     Acc;
 escape_check1(<<"&euro;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "€">>);
@@ -245,9 +258,9 @@ escape_check1(<<C, T/binary>>, Acc) ->
 %% @spec unescape(iolist()) -> binary()
 unescape({trans, Tr}) ->
     {trans, [{Lang, unescape(V)} || {Lang,V} <- Tr]};
-unescape(undefined) -> 
+unescape(undefined) ->
     undefined;
-unescape(<<>>) -> 
+unescape(<<>>) ->
     <<>>;
 unescape([]) ->
     <<>>;
@@ -256,7 +269,7 @@ unescape(L) when is_list(L) ->
 unescape(B) when is_binary(B) ->
     unescape(B, <<>>).
 
-unescape(<<>>, Acc) -> 
+unescape(<<>>, Acc) ->
     Acc;
 unescape(<<"&", Rest/binary>>, Acc) ->
     unescape_in_charref(Rest, <<>>, Acc);
@@ -278,7 +291,7 @@ unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
 
 unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
     unescape_in_charref(Rest, <<CharAcc/binary, Ch>>, ContAcc).
-    
+
 
 %% @doc Escape a text. Expands any urls to links with a nofollow attribute.
 %% @spec escape_link(Text) -> binary()
