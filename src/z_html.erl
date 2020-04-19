@@ -88,18 +88,42 @@ escape_props1(_K, V, Options) when is_map(V) ->
     escape_props(V, Options);
 escape_props1(K, V, Options) ->
     Type = lists:last(binary:split(K, <<"_">>, [global])),
-    case Type of
-        <<"html">> -> sanitize(V, Options);
-        <<"uri">> -> escape_value(sanitize_uri(V));
-        <<"url">> -> escape_value(sanitize_uri(V));
-        _ -> escape_value(V)
+    sanitize_type(Type, V, Options).
+
+sanitize_type(<<"html">>, V, Options) -> sanitize(V, Options);
+sanitize_type(<<"uri">>, V, _Options) -> escape_value(sanitize_uri(V));
+sanitize_type(<<"url">>, V, _Options) -> escape_value(sanitize_uri(V));
+sanitize_type(<<"list">>, V, Options) -> sanitize_list(V, Options);
+sanitize_type(<<"int">>, V, _Options) -> sanitize_int(V);
+sanitize_type(_, V, _Options) -> escape_value(V).
+
+sanitize_list(L, Options) when is_list(L) ->
+    lists:map(
+        fun
+            ({P, V}) ->
+                P1 = z_convert:to_binary(P),
+                V1 = escape_props1(P1, V, Options),
+                {P1, V1};
+            (V) ->
+                escape_value(V)
+        end,
+        L);
+sanitize_list(Map, Options) when is_map(Map) ->  sanitize_list(maps:to_list(Map), Options);
+sanitize_list(undefined, _Options) -> undefined;
+sanitize_list(V, Options) -> sanitize_list([V], Options).
+
+sanitize_int(V) ->
+    try
+        z_convert:to_integer(V)
+    catch
+        _:_ -> undefined
     end.
 
 escape_value({trans, _Ts} = Tr) ->
     escape(Tr);
 escape_value(V) when is_list(V) ->
     try
-        escape_value(iolist_to_binary(V))
+        escape_value(unicode:characters_to_binary(V))
     catch _:_ ->
         V
     end;
@@ -107,7 +131,6 @@ escape_value(B) when is_binary(B) ->
     escape(B);
 escape_value(V) ->
     V.
-
 
 %% @doc Checks if all properties are properly escaped
 -spec escape_props_check(list() | map()) -> list() | map().
@@ -146,18 +169,37 @@ escape_props_check1(_K, V, Options) when is_map(V) ->
     escape_props_check(V, Options);
 escape_props_check1(K, V, Options) ->
     Type = lists:last(binary:split(K, <<"_">>, [global])),
-    case Type of
-        <<"html">> -> sanitize(V, Options);
-        <<"uri">> -> escape_value(sanitize_uri(unescape(V)));
-        <<"url">> -> escape_value(sanitize_uri(unescape(V)));
-        _ -> escape_value_check(V)
-    end.
+    sanitize_type_check(Type, V, Options).
+
+sanitize_type_check(<<"html">>, V, Options) -> sanitize(V, Options);
+sanitize_type_check(<<"uri">>, V, _Options) -> escape_value(sanitize_uri(unescape(V)));
+sanitize_type_check(<<"url">>, V, _Options) -> escape_value(sanitize_uri(unescape(V)));
+sanitize_type_check(<<"list">>, V, Options) -> sanitize_list_check(V, Options);
+sanitize_type_check(<<"int">>, V, _Options) -> sanitize_int(V);
+sanitize_type_check(_, V, _Options) -> escape_value_check(V).
+
+
+sanitize_list_check(L, Options) when is_list(L) ->
+    lists:map(
+        fun
+            ({P, V}) ->
+                P1 = z_convert:to_binary(P),
+                V1 = escape_props_check1(P1, V, Options),
+                {P1, V1};
+            (V) ->
+                escape_value_check(V)
+        end,
+        L);
+sanitize_list_check(Map, Options) when is_map(Map) ->  sanitize_list_check(maps:to_list(Map), Options);
+sanitize_list_check(undefined, _Options) -> undefined;
+sanitize_list_check(V, Options) -> sanitize_list_check([V], Options).
+
 
 escape_value_check({trans, _Ts} = Tr) ->
     escape_check(Tr);
 escape_value_check(V) when is_list(V) ->
     try
-        escape_check(iolist_to_binary(V))
+        escape_check(unicode:characters_to_binary(V))
     catch _:_ ->
         V
     end;
