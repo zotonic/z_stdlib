@@ -72,8 +72,14 @@ escape_props(Props, Options) when is_map(Props) ->
         end,
         Props).
 
-escape_props1(_K, V, _Options) when is_float(V); is_integer(V); is_atom(V) ->
+escape_props1(_K, null, _Options) ->
+    null;
+escape_props1(_K, undefined, _Options) ->
+    undefined;
+escape_props1(_K, V, _Options) when is_number(V); is_boolean(V) ->
     V;
+escape_props1(K, V, Options) when is_atom(V) ->
+    escape_props1(K, atom_to_binary(V, utf8), Options);
 escape_props1(<<"body", _/binary>>, V, Options) ->
     sanitize(V, Options);
 escape_props1(<<"summary">>, Summary, _Options) ->
@@ -108,9 +114,12 @@ sanitize_list(L, Options) when is_list(L) ->
                 escape_value(V)
         end,
         L);
-sanitize_list(Map, Options) when is_map(Map) ->  sanitize_list(maps:to_list(Map), Options);
-sanitize_list(undefined, _Options) -> undefined;
-sanitize_list(V, Options) -> sanitize_list([V], Options).
+sanitize_list(Map, Options) when is_map(Map) ->
+    sanitize_list(maps:to_list(Map), Options);
+sanitize_list(undefined, _Options) ->
+    undefined;
+sanitize_list(V, Options) ->
+    sanitize_list([V], Options).
 
 sanitize_int(V) ->
     try
@@ -119,6 +128,12 @@ sanitize_int(V) ->
         _:_ -> undefined
     end.
 
+escape_value(undefined) -> undefined;
+escape_value(null) -> null;
+escape_value(V) when is_boolean(V) -> V;
+escape_value(V) when is_number(V) -> V;
+escape_value(V) when is_atom(V) ->
+    escape( atom_to_binary(V, utf8) );
 escape_value({trans, _Ts} = Tr) ->
     escape(Tr);
 escape_value(V) when is_list(V) ->
@@ -155,8 +170,15 @@ escape_props_check(Props, Options) when is_map(Props) ->
         end,
         Props).
 
-escape_props_check1(_K, V, _Options) when is_float(V); is_integer(V); is_atom(V) ->
+
+escape_props_check1(_K, null, _Options) ->
+    null;
+escape_props_check1(_K, undefined, _Options) ->
+    undefined;
+escape_props_check1(_K, V, _Options) when is_number(V); is_boolean(V) ->
     V;
+escape_props_check1(K, V, Options) when is_atom(V) ->
+    escape_props_check1(K, atom_to_binary(V, utf8), Options);
 escape_props_check1(<<"body", _/binary>>, V, Options) ->
     sanitize(V, Options);
 escape_props_check1(<<"summary">>, Summary, _Options) ->
@@ -190,11 +212,20 @@ sanitize_list_check(L, Options) when is_list(L) ->
                 escape_value_check(V)
         end,
         L);
-sanitize_list_check(Map, Options) when is_map(Map) ->  sanitize_list_check(maps:to_list(Map), Options);
-sanitize_list_check(undefined, _Options) -> undefined;
-sanitize_list_check(V, Options) -> sanitize_list_check([V], Options).
+sanitize_list_check(Map, Options) when is_map(Map) ->
+    sanitize_list_check(maps:to_list(Map), Options);
+sanitize_list_check(undefined, _Options) ->
+    undefined;
+sanitize_list_check(V, Options) ->
+    sanitize_list_check([V], Options).
 
 
+escape_value_check(undefined) -> undefined;
+escape_value_check(null) -> null;
+escape_value_check(V) when is_boolean(V) -> V;
+escape_value_check(V) when is_number(V) -> V;
+escape_value_check(V) when is_atom(V) ->
+    escape_check( atom_to_binary(V, utf8) );
 escape_value_check({trans, _Ts} = Tr) ->
     escape_check(Tr);
 escape_value_check(V) when is_list(V) ->
