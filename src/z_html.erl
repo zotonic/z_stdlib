@@ -73,11 +73,7 @@
 
 
 %% @doc Escape all properties used for an update statement. Only leaves the body property intact.
-<<<<<<< HEAD
 -spec escape_props(list() | map()) -> list() | map().
-=======
--spec escape_props( proplists:proplist() ) -> proplists:proplist().
->>>>>>> Add type specs and edoc build target.
 escape_props(Props) ->
     escape_props(Props, []).
 
