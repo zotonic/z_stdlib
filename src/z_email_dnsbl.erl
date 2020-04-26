@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2015 Marc Worrell
+%% @copyright 2015-2020 Marc Worrell
 %% @doc Check an IP address against some DNSBL providers (rfc5782)
 
-%% Copyright 2015 Marc Worrell
+%% Copyright 2015-2020 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,9 +28,7 @@
     status/2,
     status/3,
     dnswl_list/0,
-    dnsbl_list/0,
-
-    test/0
+    dnsbl_list/0
 ]).
 
 % Not all ISPs have a subscription to the dnswl.org whitelist, Google has.
@@ -38,14 +36,18 @@
 
 -include_lib("kernel/include/inet.hrl").
 
+%% @doc Check if the IP address is on one of the default blocklists.
 -spec is_blocked(inet:ip_address()) -> boolean().
 is_blocked(IP) ->
     is_blocked(IP, dnsbl_list(), dnswl_list()).
 
+%% @doc Check if the IP address is on one of the givem blocklists.
 -spec is_blocked(inet:ip_address(), list(string())) -> boolean().
 is_blocked(IP, RTBLs) ->
     is_blocked(IP, RTBLs, dnswl_list()).
 
+%% @doc Check if the IP address is on one of the givem blocklists and not on one of the white lists.
+%%      If an IP address is white listen then this routine always return true.
 -spec is_blocked(inet:ip_address(), list(string()), list(string())) -> boolean().
 is_blocked(IP, RTBLs, WLs) ->
     case status(IP, RTBLs, WLs) of
@@ -53,14 +55,21 @@ is_blocked(IP, RTBLs, WLs) ->
         _ -> false
     end.
 
+%% @doc Check the block- or whitelist status of an IP address. If it is blocked then the blocklists
+%%      where the IP address is blocked are returned.
 -spec status(inet:ip_address()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
 status(IP) ->
     status(IP, dnsbl_list(), dnswl_list()).
 
+%% @doc Check the block- or whitelist status of an IP address with the given block lists.
+%%      If it is blocked then the blocklists where the IP address is blocked are returned.
 -spec status(inet:ip_address(), list()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
 status(IP, DNSBLs) ->
     status(IP, DNSBLs, []).
 
+
+%% @doc Check the block- or whitelist status of an IP address with the given block- and whitelists.
+%%      If it is blocked then the blocklists where the IP address is blocked are returned.
 -spec status(inet:ip_address(), list(), list()) ->
           {ok, {blocked, list()}}
         | {ok, notlisted}
@@ -146,6 +155,7 @@ check_addr_list(DNSBL, List) ->
     end.
 
 %% @doc Default list of DNSWL services
+-spec dnswl_list() -> list( string() ).
 dnswl_list() ->
     [
         "list.dnswl.org",       % https://www.dnswl.org/?page_id=15
@@ -153,6 +163,7 @@ dnswl_list() ->
     ].
 
 %% @doc Default list of DNSBL services
+-spec dnsbl_list() -> list( string() ).
 dnsbl_list() ->
     [
         "zen.spamhaus.org",     % http://www.spamhaus.org/zen/
@@ -175,8 +186,13 @@ to_hex(C) -> C - 10 + $a.
 
 
 
-test() ->
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+reverse_test() ->
     "b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.8.b.d.0.1.0.0.2." = reverse({16#2001,16#db8,1,2,3,4,16#567,16#89ab}),
     "1.0.0.127." = reverse({127,0,0,1}),
     ok.
+
+-endif.
 

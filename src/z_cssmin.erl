@@ -25,6 +25,7 @@
     minify/1
     ]).
 
+%% @doc Minify a binary containing CSS.
 -spec minify( binary() ) -> binary().
 minify( CSS ) ->
     machine(CSS, <<>>).

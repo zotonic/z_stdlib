@@ -1,7 +1,6 @@
 %%% @author    Roberto Saccon <rsaccon@gmail.com> [http://rsaccon.com]
 %%% @author    Evan Miller <emmiller@gmail.com>
-%%% @copyright 2008 Roberto Saccon, Evan Miller
-%%% @copyright 2009-2014 Marc Worrell
+%%% @copyright 2008 Roberto Saccon, Evan Miller; 2009-2020 Marc Worrell
 %%%
 %%% Adapted and expanded for Zotonic by Marc Worrell <marc@worrell.nl>
 

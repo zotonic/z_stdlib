@@ -3,7 +3,7 @@
 %% coding: utf-8
 
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2014 Marc Worrell
+%% @copyright 2009-2020 Marc Worrell
 %% @doc String related functions
 
 %% @todo Check valid chars for filenames, allow chinese, japanese, etc?
@@ -12,7 +12,7 @@
 %% Kangxi Radicals: Range 2F00-2FDF
 %% See also: http://www.utf8-chartable.de/
 
-%% Copyright 2009-2014 Marc Worrell
+%% Copyright 2009-2020 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@
 -module(z_string).
 -author("Marc Worrell <marc@worrell.nl").
 
+%% Used to append to a string when truncating the string.
 -define(DOTS_UTF8, <<226,128,166>>).
 
 %% interface functions
 -export([
-    x/0,
     trim/1,
     trim_left/1,
     trim_right/1,
@@ -70,8 +70,6 @@
     concat/2
 ]).
 
-x() ->
-    list_to_tuple(binary_to_list(<<"üçgen"/utf8>>)).
 
 %% @doc Remove whitespace at the start and end of the string
 -spec trim(binary()|list()) -> binary()|list().
@@ -118,8 +116,6 @@ trim_left_func([L|Rest], F) when is_list(L); is_binary(L) ->
 trim_left_func(Other, _F) ->
     Other.
 
-    
-    
 %% @doc Remove whitespace at the end of the string
 -spec trim_right(binary()|list()) -> binary()|list().
 trim_right(B) when is_binary(B) ->
@@ -150,7 +146,7 @@ trim_right(L, Char) ->
     trim_right(<<>>, _Char, _WS, Acc) ->
         Acc.
 
-%% @doc Check if the variable is a one dimensional list, probably a string
+%% @doc Check if the variable is a one dimensional list of bytes, probably a string
 -spec is_string(list()) -> boolean().
 is_string([]) ->
     true;
@@ -164,7 +160,7 @@ is_string(_) ->
 
 %% @doc Is the character an ASCII or Unicode whitespace character?
 %%      See @link https://en.wikipedia.org/wiki/Whitespace_character
--spec is_whitespace(char()) -> boolean().
+-spec is_whitespace(non_neg_integer()) -> boolean().
 is_whitespace(C) when C =< 32 -> true;
 is_whitespace(133) -> true;
 is_whitespace(160) -> true;
@@ -191,7 +187,7 @@ first_char([H|_] = L) when is_integer(H) ->
 
 
 %% @doc Return the last character of a string
--spec last_char(binary()|list()) -> pos_integer().
+-spec last_char(binary()|string()) -> pos_integer().
 last_char([]) -> undefined;
 last_char(L) when is_list(L) -> last_char(z_convert:to_binary(L));
 last_char(<<>>) -> undefined;
@@ -200,6 +196,7 @@ last_char(<<_, R/binary>>) -> last_char(R).
 
 
 %% @doc Remove the first and last char if they are double quotes.
+-spec unquote( string() | binary() ) -> string() | binary().
 unquote(S) ->
     unquote(S, $").
 
@@ -220,7 +217,7 @@ unquote(S, Q) ->
 
 
 %% @doc Remove all spaces and control characters from a string.
--spec nospaces(binary()|list()) -> binary()|list().
+-spec nospaces(binary()|string()) -> binary()|string().
 nospaces(B) when is_binary(B) ->
     nospaces_bin(B, <<>>);
 nospaces(L) when is_list(L) ->
@@ -246,6 +243,7 @@ nospaces_bin(<<C,Rest/binary>>, Acc) ->
 
 
 %% @doc Make sure that the string is on one line only, replace control characters with spaces
+-spec line( string() | binary() ) -> string() | binary().
 line(B) when is_binary(B) ->
     << <<(if C < 32 -> 32; true -> C end)>> || <<C>> <= B >>;
 line(L) when is_list(L) ->
@@ -459,19 +457,19 @@ to_upper(<<H/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,H/utf8>>).
 
 
 %% @doc Filter a filename so that we obtain a basename that is safe to use.
-%% @spec to_rootname(string()) -> string()
+-spec to_rootname( file:filename_all() ) -> binary().
 to_rootname(Filename) ->
     to_slug(filename:rootname(filename:basename(Filename))).
 
 
 %% @doc Map a string to a slug that can be used in the uri of a page. Same as a name, but then with dashes instead of underscores.
--spec to_slug(string()|binary()|atom()) -> binary().
+-spec to_slug( string() | binary() | atom() ) -> binary().
 to_slug(Title) ->
     binary:replace(to_name(Title), <<$_>>, <<$->>, [global]).
 
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
--spec to_name(string()|binary()|atom()) -> binary().
+-spec to_name( string() | binary() | atom() ) -> binary().
 to_name(V) ->
     name_cleanup(to_name1(V)).
 
@@ -752,6 +750,7 @@ replace(String, S1, S2) when is_list(String), is_list(S1), is_list(S2) ->
     end.
 
 %% @doc Sanitize an utf-8 string, remove all non-utf-8 characters.
+-spec sanitize_utf8( string() | binary() ) -> binary().
 sanitize_utf8(L) when is_list(L) -> sanitize_utf8(iolist_to_binary(L));
 sanitize_utf8(B) when is_binary(B) -> s_utf8(B, <<>>).
 
@@ -791,7 +790,7 @@ s_utf8(<<_, Rest/binary>>, Acc) ->
     s_utf8(Rest, Acc).
 
 %% @doc Truncate a string.  Append the '...' character at the place of break off.
-%% @spec truncate(String, int()) -> String
+-spec truncate( String :: undefined | string() | binary(), Append :: binary() ) -> undefined | binary().
 truncate(undefined, _) ->
     undefined;
 truncate(L, N) ->
@@ -970,9 +969,9 @@ contains(What, String) ->
             <<_:C/binary, What:SizeWhat/binary, _/binary>> ->true;
             _ ->contains(What, SizeWhat, B, C + 1)
         end.
+
 %% @doc Split a string, see http://www.erlang.org/pipermail/erlang-questions/2008-October/038896.html
 %% @spec split(String, String) -> list()
-
 split(String, []) ->
      split0(String);
 split(String, [Sep]) when is_integer(Sep) ->
@@ -1023,7 +1022,8 @@ split_prefix([],    S)     -> S;
 split_prefix(_,     _)     -> no.
 
 
-%% Concatenate two strings (list or binary). Return type matches the first part.
+%% @doc Concatenate two strings (list or binary). Return type matching the first part.
+-spec concat( string() | binary(), string() | binary() ) -> string() | binary().
 concat(A, B) when is_binary(A) ->
     B1 = z_convert:to_binary(B),
     <<A/binary, B1/binary>>;

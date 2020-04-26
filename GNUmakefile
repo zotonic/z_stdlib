@@ -40,6 +40,8 @@ test: $(REBAR)
 	$(REBAR) as test ct
 	$(REBAR) as test eunit
 
+edoc: $(REBAR)
+	$(REBAR) edoc
 
 # Cleaning
 .PHONY: clean_logs

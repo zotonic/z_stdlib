@@ -27,7 +27,7 @@ strip_test() ->
     ?assertEqual(<<"Hello">>, z_html:strip(<<"<p class='hello'>Hello</p>">>)),
     ?assertEqual(<<"Hello">>, z_html:strip(<<"Hello">>)),
     ?assertEqual(<<"">>, z_html:strip(<<"">>)),
-    ?assertEqual([], z_html:strip([])),
+    ?assertEqual(<<"">>, z_html:strip("")),
     ?assertEqual(<<"1234">>, z_html:strip(1234)),
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234</p>\n<p>5678</p>">>)),
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234\n<span>5678</span></p>">>)),
@@ -52,6 +52,7 @@ abs_links_test() ->
 
 nonhtml_test() ->
     ?assertEqual({error, nohtml}, z_html_parse:parse(<<"<??/N>">>)),
+    ?assertEqual({ok,{<<"p">>,[],[{pi,<<"?">>,[]}]}}, z_html_parse:parse(<<"<p><??/N></p>">>)),
     ok.
 
 unescape_test() ->
@@ -63,7 +64,7 @@ unescape_test() ->
     ?assertEqual(<<"foo&&bar">>, z_html:unescape("foo&&bar")),
     ?assertEqual(<<"foo&&&bar">>, z_html:unescape("foo&&&bar")),
     ?assertEqual(<<"foo&;bar">>, z_html:unescape("foo&;bar")),
-    
+
     ok.
 
 

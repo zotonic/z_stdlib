@@ -1,5 +1,5 @@
 %% @author Bob Ippolito <bob@mochimedia.com>
-%% @copyright 2007 Mochi Media, Inc.
+%% @copyright 2007 Mochi Media, Inc.; copyright 2018-2020 Maas-Maarten Zeeman
 
 %% @doc Loosely tokenizes and generates parse trees for HTML 4.
 %%      Adapted by Maas-Maarten Zeeman
@@ -9,21 +9,23 @@
          escape_attr/1, to_html/1]).
 
 
--type html_node() :: {binary(), [html_attr()], [ html_element() ]}.
--type html_attr() :: {binary(), binary()}.
+-type html_node()    :: {binary(), [html_attr()], [ html_element() ]}.
+-type html_attr()    :: {binary(), binary()}.
 -type html_element() :: html_node()
                       | html_comment()
+                      | html_nop()
                       | pi_tag()
                       | binary().
 -type html_comment() :: {comment, Comment::binary()}.
--type pi_tag() :: {pi, binary()}
-                | {pi, Tag::binary(), [html_attr()]}.
+-type html_nop()     :: {nop, [ html_element() ]}.      % Special node used by sanitizer for unwanted elements
+-type pi_tag()       :: {pi, binary()}
+                      | {pi, Tag::binary(), [html_attr()]}.
 
--type html_data() :: {data, binary(), Whitespace::boolean()}.
--type start_tag() :: {start_tag, Name::binary(), [ html_attr() ], Singleton::boolean()}.
--type end_tag() :: {end_tag, Name::binary()}.
+-type html_data()    :: {data, binary(), Whitespace::boolean()}.
+-type start_tag()    :: {start_tag, Name::binary(), [ html_attr() ], Singleton::boolean()}.
+-type end_tag()      :: {end_tag, Name::binary()}.
 -type html_doctype() :: {doctype, [ Doctype::any() ]}.
--type inline_html() :: {'=', binary()}.
+-type inline_html()  :: {'=', binary()}.
 
 -type html_token() :: html_data()
                     | start_tag()
