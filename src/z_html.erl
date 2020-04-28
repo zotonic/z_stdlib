@@ -121,6 +121,7 @@ sanitize_type(<<"uri">>, V, _Options) -> escape_value(sanitize_uri(V));
 sanitize_type(<<"url">>, V, _Options) -> escape_value(sanitize_uri(V));
 sanitize_type(<<"list">>, V, Options) -> sanitize_list(V, Options);
 sanitize_type(<<"int">>, V, _Options) -> sanitize_int(V);
+sanitize_type(<<"unsafe">>, V, _Options) -> V;
 sanitize_type(_, V, _Options) -> escape_value(V).
 
 sanitize_list(L, Options) when is_list(L) ->
@@ -218,6 +219,7 @@ sanitize_type_check(<<"uri">>, V, _Options) -> escape_value(sanitize_uri(unescap
 sanitize_type_check(<<"url">>, V, _Options) -> escape_value(sanitize_uri(unescape(V)));
 sanitize_type_check(<<"list">>, V, Options) -> sanitize_list_check(V, Options);
 sanitize_type_check(<<"int">>, V, _Options) -> sanitize_int(V);
+sanitize_type_check(<<"unsafe">>, V, _Options) -> V;
 sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 
 
