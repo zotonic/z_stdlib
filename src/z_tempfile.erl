@@ -77,20 +77,28 @@ monitored_new(Extension) ->
             {ok, {Pid, Filename}}
     end.
 
-monitored_attach(Pid) when is_pid(Pid) ->
-    Pid ! {attach, self()}.
+%% @doc Add a process to the tempfile monitor. The tempfile is deleted after all
+%%      attached processes stopped or are detached.
+-spec monitored_attach( pid() ) -> ok.
+monitored_attach(MonitorPid) when is_pid(MonitorPid) ->
+    MonitorPid ! {attach, self()},
+    ok.
 
-monitored_detach(Pid) when is_pid(Pid) ->
-    Pid ! {detach, self()}.
+%% @doc Remove a process from the tempfile monitor. The tempfile is deleted after all
+%%      attached processes stopped or are detached.
+-spec monitored_detach( pid() ) -> ok.
+monitored_detach(MonitorPid) when is_pid(MonitorPid) ->
+    MonitorPid ! {detach, self()},
+    ok.
 
-%% @private
-%% @doc Monitoring process, delete file when requesting process stops or crashes
+%% @hidden Monitoring process, delete file when requesting process stops or crashes
 tmpfile_monitor(Filename, OwnerPid) ->
 	process_flag(trap_exit, true),
     erlang:monitor(process, OwnerPid),
     OwnerPid ! {is_monitoring, self()},
     ?MODULE:tmpfile_monitor_loop(Filename, [OwnerPid]).
 
+%% @private
 tmpfile_monitor_loop(Filename, AttachedPids) ->
     Timeout = case AttachedPids of
         [] -> 10000;

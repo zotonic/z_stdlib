@@ -26,19 +26,83 @@
     sanitize_style/1
     ]).
 
+
+-type tk() :: '{' | '}' | '[' | ']' | '(' | ')'
+            | ',' | '.' | ':' | '/'
+            | '-' | '+' | '*' | '>' | '='
+            | badcomment
+            | includes
+            | dashmatch
+            | string
+            | bad_string
+            | ident
+            | hash
+            | import_sym
+            | page_sym
+            | media_sym
+            | charset_sym
+            | important_sym
+            | ems
+            | exs
+            | length
+            | angle
+            | time
+            | freq
+            | dimension
+            | percentage
+            | number
+            | uri
+            | bad_uri
+            | function
+            | literal.
+-type line() :: pos_integer().
+-type token() :: {tk(), line(), string()}.
+-type tokens() :: [ token() ].
+
+-type charset() :: no_charset
+                 | {charset, string()}.
+
+-type media() :: [ {ident, line(), string()} ].
+-type medialist() :: [ media() ].
+-type import() :: no_import
+                | {import, Uri::token(), medialist()}.
+
+-type rules() :: list().
+
+-type stylesheet() :: {stylesheet, charset(), import(), rules()}.
+
+-export_type([
+    stylesheet/0,
+    charset/0,
+    import/0,
+    rules/0,
+    medialist/0,
+    media/0,
+    tokens/0,
+    token/0,
+    line/0,
+    tk/0
+    ]).
+
+
+%% @doc Tokenize a CSS string ot binary, returns a list of tokens.
+-spec scan( string()|binary() ) -> {ok, tokens()}.
 scan(Bs) when is_binary(Bs) ->
     scan(unicode:characters_to_list(Bs));
 scan(L) when is_list(L) ->
     {ok, Ts, _} = z_css_lexer:string(L),
     {ok, Ts}.
 
+%% @doc Parse a CSS binary or a token list. Return a parse tree of the css.
+-spec parse( binary() | tokens() ) -> {ok, stylesheet()} | {error, {line(), Error::binary()}}.
 parse(B) when is_binary(B) ->
     {ok, Ts} = scan(B),
     parse(Ts);
-parse(Ts) when is_list(Ts) -> 
+parse(Ts) when is_list(Ts) ->
     z_css_parser:parse(Ts).
 
-
+%% @doc Sanitize a css string, remove all external URI references and injectable content.
+-spec sanitize( Css::binary() ) -> {ok, Css::binary()} | {error, {Line::line(), Message::binary()}}.
 sanitize(Css) when is_binary(Css) ->
     {ok, Ts} = scan(Css),
     case z_css_parser:parse(Ts) of
@@ -55,6 +119,8 @@ sanitize(Css) when is_binary(Css) ->
             ])}
     end.
 
+%% @doc Sanitize a css style tag, remove all external URI references and injectable content.
+-spec sanitize_style( Css::binary() | string() ) -> {ok, Css::binary()} | {error, {Line::line(), Message::binary()}}.
 sanitize_style(Css) when is_list(Css) ->
     sanitize_style(unicode:characters_to_binary(Css));
 sanitize_style(Css) when is_binary(Css) ->
@@ -69,9 +135,9 @@ sanitize_style(Css) when is_binary(Css) ->
     end.
 
 
-%%% -------------------------------------------------------- 
+%%% --------------------------------------------------------
 %%% Sanitize a CSS parse tree
-%%% -------------------------------------------------------- 
+%%% --------------------------------------------------------
 
 sanitize_charset(_Charset) -> no_charset.
 
