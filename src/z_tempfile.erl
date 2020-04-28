@@ -131,8 +131,8 @@ tempfile() ->
 %% @doc return a unique temporary filename with the given extension.
 -spec tempfile( string()|binary() ) -> file:filename_all().
 tempfile(Extension) ->
-	A = crypto:rand_uniform(0, 1000000000),
-	B = crypto:rand_uniform(0, 1000000000),
+	A = rand:uniform(1000000000),
+	B = rand:uniform(1000000000),
     Filename = filename:join(
         temppath(),
         iolist_to_binary( io_lib:format("ztmp-~s-~p.~p~s",[node(),A,B,Extension]) )
@@ -171,7 +171,7 @@ temppath() ->
 
 
 %% @doc Delete all tempfiles not modified in the last day.
--spec cleanup() -> file:filename_all().
+-spec cleanup() -> ok.
 cleanup() ->
     Old = calendar:datetime_to_gregorian_seconds( calendar:universal_time() ) - ?CLEANUP_SECS,
     Tmp = filename:join(temppath(), <<"/ztmp-*">>),
