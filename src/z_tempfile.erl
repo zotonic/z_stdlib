@@ -88,7 +88,8 @@ monitored_attach(MonitorPid) when is_pid(MonitorPid) ->
 %%      attached processes stopped or are detached.
 -spec monitored_detach( pid() ) -> ok.
 monitored_detach(MonitorPid) when is_pid(MonitorPid) ->
-    MonitorPid ! {detach, self()}.
+    MonitorPid ! {detach, self()},
+    ok.
 
 %% @hidden Monitoring process, delete file when requesting process stops or crashes
 tmpfile_monitor(Filename, OwnerPid) ->
