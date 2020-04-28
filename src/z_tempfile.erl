@@ -1,8 +1,8 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2011-2019 Marc Worrell
+%% @copyright 2011-2020 Marc Worrell
 %% @doc Simple temporary file handling, deletes the file when the calling process stops or crashes.
 
-%% Copyright 2011-2019 Marc Worrell
+%% Copyright 2011-2020 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,36 +24,54 @@
 	new/1,
 
     monitored_new/0,
+    monitored_new/1,
     monitored_attach/1,
     monitored_detach/1,
 
 	tempfile/0,
 	tempfile/1,
 	is_tempfile/1,
-	temppath/0
+	temppath/0,
+
+    cleanup/0
 ]).
 
--type filename() :: string().
+% Export for tmp file monitor
+-export([
+    tmpfile_monitor_loop/2
+]).
+
+-include_lib("kernel/include/file.hrl").
+
+
+% Threshold for tmp files to be old and deleted if cleanup/0 is called.
+-define(CLEANUP_SECS, 3600*24).
+
 
 %% @doc Return a new unique filename, start a monitoring process to clean it up after use.
--spec new() -> filename().
+%       The file must be created and written within 10 seconds, or it will be deleted.
+-spec new() -> file:filename_all().
 new() ->
-	new("").
+	new(<<>>).
 
 %% @doc Return a new unique filename, start a monitoring process to clean it up after use.
--spec new(string()) -> filename().
+%       The file must be created and written within 10 seconds, or it will be deleted.
+-spec new( string() | binary() ) -> file:filename_all().
 new(Extension) ->
-	Filename = tempfile(Extension),
-	OwnerPid = self(),
-	Pid = erlang:spawn_link(fun() -> cleanup(Filename, OwnerPid) end),
-	receive
-		{is_monitoring, Pid} -> Filename
-	end.
+    {ok, {_Pid, Filename}} = monitored_new(Extension),
+    Filename.
 
+%% @doc Like new/0 but also return yhe Pid of the monitoring process.
+-spec monitored_new() -> {ok, {pid(), file:filename_all()}}.
 monitored_new() ->
-    Filename = tempfile(""),
+    monitored_new(<<>>).
+
+%% @doc Like new/1 but also return yhe Pid of the monitoring process.
+-spec monitored_new( string()|binary() ) -> {ok, {pid(), file:filename_all()}}.
+monitored_new(Extension) ->
+    Filename = tempfile(Extension),
     Self = self(),
-    Pid = erlang:spawn(fun() -> cleanup(Filename, Self) end),
+    Pid = erlang:spawn(fun() -> tmpfile_monitor(Filename, Self) end),
     receive
         {is_monitoring, Pid} ->
             {ok, {Pid, Filename}}
@@ -65,59 +83,115 @@ monitored_attach(Pid) when is_pid(Pid) ->
 monitored_detach(Pid) when is_pid(Pid) ->
     Pid ! {detach, self()}.
 
+%% @private
 %% @doc Monitoring process, delete file when requesting process stops or crashes
-cleanup(Filename, OwnerPid) ->
+tmpfile_monitor(Filename, OwnerPid) ->
 	process_flag(trap_exit, true),
     erlang:monitor(process, OwnerPid),
     OwnerPid ! {is_monitoring, self()},
-    cleanup_loop(Filename, [OwnerPid]).
+    ?MODULE:tmpfile_monitor_loop(Filename, [OwnerPid]).
 
-cleanup_loop(Filename, Pids) ->
+tmpfile_monitor_loop(Filename, AttachedPids) ->
+    Timeout = case AttachedPids of
+        [] -> 10000;
+        _ -> 100000
+    end,
 	receive
 		{'DOWN', _MRef, process, Pid, _Reason} ->
-            cleanup_loop(Filename, lists:delete(Pid, Pids));
+            ?MODULE:tmpfile_monitor_loop(Filename, lists:delete(Pid, AttachedPids));
         {detach, Pid} ->
-            cleanup_loop(Filename, lists:delete(Pid, Pids));
+            ?MODULE:tmpfile_monitor_loop(Filename, lists:delete(Pid, AttachedPids));
         {attach, Pid} ->
-            case lists:member(Pid, Pids) of
+            case lists:member(Pid, AttachedPids) of
                 false ->
                     erlang:monitor(process, Pid),
-                    cleanup_loop(Filename, [ Pid | Pids ]);
+                    ?MODULE:tmpfile_monitor_loop(Filename, [ Pid | AttachedPids ]);
                 true ->
-                    cleanup_loop(Filename, Pids)
+                    ?MODULE:tmpfile_monitor_loop(Filename, AttachedPids)
+            end;
+        {detach_delete, Pid} ->
+            case lists:delete(Pid, AttachedPids) of
+                [] ->
+                    file:delete(Filename);
+                OtherPids ->
+                    ?MODULE:tmpfile_monitor_loop(Filename, OtherPids)
             end
-    after 10000 ->
-        case Pids of
+    after Timeout ->
+        case AttachedPids of
             [] -> file:delete(Filename);
-            _ -> cleanup_loop(Filename, Pids)
+            _ -> ?MODULE:tmpfile_monitor_loop(Filename, AttachedPids)
         end
 	end.
 
-%% @doc return a unique temporary filename.
--spec tempfile() -> filename().
+%% @doc return a unique temporary filename located in the TMP directory.
+-spec tempfile() -> file:filename_all().
 tempfile() ->
-	tempfile("").
+	tempfile(<<>>).
 
-%% @doc return a unique temporary filename with a set extension.
--spec tempfile(string()) -> filename().
+%% @doc return a unique temporary filename with the given extension.
+-spec tempfile( string()|binary() ) -> file:filename_all().
 tempfile(Extension) ->
-	A = rand:uniform(100000000),
-	B = rand:uniform(100000000),
-    Filename = filename:join(temppath(), lists:flatten(io_lib:format("ztmp-~s-~p.~p~s",[node(),A,B,Extension]))),
+	A = crypto:rand_uniform(0, 1000000000),
+	B = crypto:rand_uniform(0, 1000000000),
+    Filename = filename:join(
+        temppath(),
+        iolist_to_binary( io_lib:format("ztmp-~s-~p.~p~s",[node(),A,B,Extension]) )
+    ),
     case filelib:is_file(Filename) of
     	true -> tempfile(Extension);
     	false -> Filename
     end.
 
 %% @doc Check if the file is a temporary filename.
--spec is_tempfile(filename()) -> boolean().
+-spec is_tempfile( file:filename_all() ) -> boolean().
 is_tempfile(Filename) ->
-	lists:prefix(filename:join(temppath(), "ztmp-"), Filename). 
+    FilenameParts = filename:split( unicode:characters_to_binary(Filename) ),
+    TempPathParts = filename:split( temppath() ),
+    is_tempfile(FilenameParts, TempPathParts).
+
+is_tempfile([ <<"ztmp-", _/binary>> ], []) ->
+    true;
+is_tempfile([ A | As], [ A | Bs ]) ->
+    is_tempfile(As, Bs);
+is_tempfile(_, _) ->
+    false.
 
 %% @doc Returns the path where to store temporary files.
--spec temppath() -> filename().
+-spec temppath() -> file:filename_all().
 temppath() ->
-    lists:foldl(fun(false, Fallback) -> Fallback;
-                   (Good, _) -> Good end,
-                "/tmp",
-                [os:getenv("TMP"), os:getenv("TEMP")]).
+    lists:foldl(
+        fun
+            (false, TmpPath) ->
+                TmpPath;
+            (Good, _) ->
+                unicode:characters_to_binary(Good)
+        end,
+        <<"/tmp">>,
+        [ os:getenv("TMP"), os:getenv("TEMP") ]).
+
+
+%% @doc Delete all tempfiles not modified in the last day.
+-spec cleanup() -> file:filename_all().
+cleanup() ->
+    Old = calendar:datetime_to_gregorian_seconds( calendar:universal_time() ) - ?CLEANUP_SECS,
+    Tmp = filename:join(temppath(), <<"/ztmp-*">>),
+    Files = filelib:wildcard(Tmp),
+    lists:foreach(
+        fun(F) ->
+            case file:read_file_info(F, [ {time, universal} ]) of
+                {ok, #file_info{
+                    type = regular,
+                    mtime = ModDT
+                }} ->
+                    ModSecs = calendar:datetime_to_gregorian_seconds( ModDT ),
+                    case ModSecs < Old of
+                        true ->
+                            file:delete(F);
+                        false ->
+                            ok
+                    end;
+                _ ->
+                    ok
+            end
+        end,
+        Files).
