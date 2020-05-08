@@ -790,12 +790,13 @@ s_utf8(<<_, Rest/binary>>, Acc) ->
     s_utf8(Rest, Acc).
 
 %% @doc Truncate a string.  Append the '...' character at the place of break off.
--spec truncate( String :: undefined | string() | binary(), Append :: binary() ) -> undefined | binary().
+-spec truncate( String :: undefined | string() | binary(), Length :: integer() ) -> undefined | binary().
 truncate(undefined, _) ->
     undefined;
 truncate(L, N) ->
     truncate(L, N, ?DOTS_UTF8).
 
+-spec truncate( String :: undefined | string() | binary(), Length :: integer(), Append :: binary() | string() ) -> binary().
 truncate(_L, N, _Append) when N =< 0 ->
     <<>>;
 truncate(B, N, Append) when is_binary(B), is_binary(Append) ->

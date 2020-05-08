@@ -44,9 +44,9 @@
 ]).
 
 -type text() :: iodata() | {trans, list( {atom(), binary()} )}.
--type maybe_text() :: undefind | text().
--type maybe_binary() :: undefind | binary().
--type maybe_iodata() :: undefind | iodata().
+-type maybe_text() :: undefined | text().
+-type maybe_binary() :: undefined | binary().
+-type maybe_iodata() :: undefined | iodata().
 
 -type sanitize_options() :: [ sanitize_option() ].
 -type sanitize_option() :: {elt_extra, list( binary() )}
