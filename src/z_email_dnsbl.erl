@@ -27,8 +27,8 @@
     status/1,
     status/2,
     status/3,
-    dnswl_list/0,
-    dnsbl_list/0
+    dns_allowlist/0,
+    dns_blocklist/0
 ]).
 
 % Not all ISPs have a subscription to the dnswl.org allowlist, Google has.
@@ -39,12 +39,12 @@
 %% @doc Check if the IP address is on one of the default blocklists.
 -spec is_blocked(inet:ip_address()) -> boolean().
 is_blocked(IP) ->
-    is_blocked(IP, dnsbl_list(), dnswl_list()).
+    is_blocked(IP, dns_blocklist(), dns_allowlist()).
 
 %% @doc Check if the IP address is on one of the givem blocklists.
 -spec is_blocked(inet:ip_address(), list(string())) -> boolean().
 is_blocked(IP, RTBLs) ->
-    is_blocked(IP, RTBLs, dnswl_list()).
+    is_blocked(IP, RTBLs, dns_allowlist()).
 
 %% @doc Check if the IP address is on one of the givem blocklists and not on one of the white lists.
 %%      If an IP address is white listen then this routine always return true.
@@ -59,7 +59,7 @@ is_blocked(IP, RTBLs, WLs) ->
 %%      where the IP address is blocked are returned.
 -spec status(inet:ip_address()) -> {ok, notlisted|allowed|{blocked, list(string())}}.
 status(IP) ->
-    status(IP, dnsbl_list(), dnswl_list()).
+    status(IP, dns_blocklist(), dns_allowlist()).
 
 %% @doc Check the block- or allowlist status of an IP address with the given block lists.
 %%      If it is blocked then the blocklists where the IP address is blocked are returned.
@@ -155,16 +155,16 @@ check_addr_list(DNSBL, List) ->
     end.
 
 %% @doc Default list of DNSWL services
--spec dnswl_list() -> list( string() ).
-dnswl_list() ->
+-spec dns_allowlist() -> list( string() ).
+dns_allowlist() ->
     [
         "list.dnswl.org",       % https://www.dnswl.org/?page_id=15
         "swl.spamhaus.org"      % http://www.spamhauswhitelist.com/en/usage.html
     ].
 
 %% @doc Default list of DNSBL services
--spec dnsbl_list() -> list( string() ).
-dnsbl_list() ->
+-spec dns_blocklist() -> list( string() ).
+dns_blocklist() ->
     [
         "zen.spamhaus.org",     % http://www.spamhaus.org/zen/
         "dnsbl.sorbs.net"       % http://dnsbl.sorbs.net/general/using.shtml
