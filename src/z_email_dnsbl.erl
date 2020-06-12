@@ -31,8 +31,8 @@
     dnsbl_list/0
 ]).
 
-% Not all ISPs have a subscription to the dnswl.org whitelist, Google has.
--define(WHITELIST_NAMESERVERS, [{{8,8,8,8},53}, {{8,8,4,4},53}]).
+% Not all ISPs have a subscription to the dnswl.org allowlist, Google has.
+-define(ALLOWLIST_NAMESERVERS, [{{8,8,8,8},53}, {{8,8,4,4},53}]).
 
 -include_lib("kernel/include/inet.hrl").
 
@@ -55,15 +55,15 @@ is_blocked(IP, RTBLs, WLs) ->
         _ -> false
     end.
 
-%% @doc Check the block- or whitelist status of an IP address. If it is blocked then the blocklists
+%% @doc Check the block- or allowlist status of an IP address. If it is blocked then the blocklists
 %%      where the IP address is blocked are returned.
--spec status(inet:ip_address()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
+-spec status(inet:ip_address()) -> {ok, notlisted|allowed|{blocked, list(string())}}.
 status(IP) ->
     status(IP, dnsbl_list(), dnswl_list()).
 
-%% @doc Check the block- or whitelist status of an IP address with the given block lists.
+%% @doc Check the block- or allowlist status of an IP address with the given block lists.
 %%      If it is blocked then the blocklists where the IP address is blocked are returned.
--spec status(inet:ip_address(), list()) -> {ok, notlisted|whitelisted|{blocked, list(string())}}.
+-spec status(inet:ip_address(), list()) -> {ok, notlisted|allowed|{blocked, list(string())}}.
 status(IP, DNSBLs) ->
     status(IP, DNSBLs, []).
 
@@ -73,40 +73,40 @@ status(IP, DNSBLs) ->
 -spec status(inet:ip_address(), list(), list()) ->
           {ok, {blocked, list()}}
         | {ok, notlisted}
-        | {ok, whitelisted}.
+        | {ok, allowed}.
 status(IP, DNSBLs, DNSWLs) ->
     Dotted = reverse(IP),
     case status_1(Dotted, IP, DNSWLs, true) of
-        {ok, {blocked, _}} -> {ok, whitelisted};
+        {ok, {blocked, _}} -> {ok, allowed};
         _ ->
-            case is_whitelisted(IP) of
-                true -> {ok, whitelisted};
+            case is_allowed(IP) of
+                true -> {ok, allowed};
                 false -> status_1(Dotted, IP, DNSBLs, false)
             end
     end.
 
-status_1(_Dotted, _IP, [], _IsWhiteList) ->
+status_1(_Dotted, _IP, [], _IsAllowList) ->
     {ok, notlisted};
-status_1(Dotted, IP, [DNSBL|Rest], IsWhiteList) ->
-    case gethostbyname(Dotted++DNSBL, IsWhiteList) of
+status_1(Dotted, IP, [DNSBL|Rest], IsAllowList) ->
+    case gethostbyname(Dotted++DNSBL, IsAllowList) of
         {ok, #hostent{h_addr_list=AddrList}} ->
             case check_addr_list(DNSBL, AddrList) of
                 {ok, notlisted} ->
-                    status_1(Dotted, IP, Rest, IsWhiteList);
+                    status_1(Dotted, IP, Rest, IsAllowList);
                 Other ->
                     Other
             end;
         {error, nxdomain} ->
-            status_1(Dotted, IP, Rest, IsWhiteList);
+            status_1(Dotted, IP, Rest, IsAllowList);
         {error, _} ->
-            status_1(Dotted, IP, Rest, IsWhiteList)
+            status_1(Dotted, IP, Rest, IsAllowList)
     end.
 
 gethostbyname(Name, false) ->
     inet:gethostbyname(Name);
 gethostbyname(Name, true) ->
     ResolverOptions = [
-        {nameservers, ?WHITELIST_NAMESERVERS}
+        {nameservers, ?ALLOWLIST_NAMESERVERS}
     ],
     case inet_res:lookup(Name, in, a, ResolverOptions) of
         [] -> {error, enoent};
@@ -115,11 +115,11 @@ gethostbyname(Name, true) ->
     end.
 
 
-%% @todo Use the SPF records of well-known email hosters for whitelist checks
-is_whitelisted(IP) ->
+%% @todo Use the SPF records of well-known email hosters for allowlist checks
+is_allowed(IP) ->
     case inet_res:gethostbyaddr(IP) of
         {ok, #hostent{h_name=Hostname}} ->
-            case is_whitelisted_hostname(Hostname) of
+            case is_allowed_hostname(Hostname) of
                 true -> true;
                 false -> false
             end;
@@ -127,7 +127,7 @@ is_whitelisted(IP) ->
             false
     end.
 
-is_whitelisted_hostname(Hostname) ->
+is_allowed_hostname(Hostname) ->
     Reversed = lists:reverse(string:tokens(Hostname, ".")),
     case Reversed of
         ["com","google","mail-"++_] -> true;
