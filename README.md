@@ -66,7 +66,7 @@ Example:
 
 ### z_email_dnsbl
 
-Check IP addresses for their presence on DNS black- or whitelists.
+Check IP addresses for their presence on DNS block- or allowlists.
 
 
 ### z_email_utils

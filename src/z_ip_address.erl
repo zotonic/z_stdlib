@@ -54,11 +54,11 @@ ip_match(_IP, None) when None =:= none; None =:= "none"; None =:= <<"none">> ->
 ip_match(IP, [IP|_IPs]) ->
     true;
 ip_match(IP, [C|_] = Match) when C >= 32, C =< 127 ->
-    Whitelist = string:tokens(Match, ","),
-    ip_match(IP, Whitelist);
+    Allowlist = string:tokens(Match, ","),
+    ip_match(IP, Allowlist);
 ip_match(IP, Match) when is_binary(Match) ->
-    Whitelist = string:tokens(z_convert:to_list(Match), ","),
-    ip_match(IP, Whitelist);
+    Allowlist = string:tokens(z_convert:to_list(Match), ","),
+    ip_match(IP, Allowlist);
 ip_match(Adr, IPs) ->
     {ok, PeerAdr} = parse_address(Adr),
     ip_match_1(PeerAdr, IPs).

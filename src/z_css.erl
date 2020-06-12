@@ -163,7 +163,7 @@ sanitize_expr({uri, Line, _Uri}) ->
     % No external url references
     {uri, Line, "url()"};
 sanitize_expr({function, {function, _Line, Func} = F, Expr}) ->
-    case func_whitelisted(Func) of
+    case func_allowed(Func) of
         true ->
             {function, F, sanitize_expr(Expr)};
         false ->
@@ -188,20 +188,20 @@ sanitize_string([Quot|S]) when Quot =:= $"; Quot =:= $' ->
     [ $", z_html:escape_check(z_html:strip(unicode:characters_to_binary(S1))), $"].
 
 
-func_whitelisted("attr(") -> true;
-func_whitelisted("calc(") -> true;
-func_whitelisted("cubic-bezier(") -> true;
-func_whitelisted("hsl(") -> true;
-func_whitelisted("hsla(") -> true;
-func_whitelisted("linear-gradient(") -> true;
-func_whitelisted("radial-gradient(") -> true;
-func_whitelisted("repeating-linear-gradient(") -> true;
-func_whitelisted("repeating-radial-gradient(") -> true;
-func_whitelisted("rgb(") -> true;
-func_whitelisted("rgba(") -> true;
-func_whitelisted("var(") -> true;
-func_whitelisted("minmax(") -> true;
-func_whitelisted(_) -> false.
+func_allowed("attr(") -> true;
+func_allowed("calc(") -> true;
+func_allowed("cubic-bezier(") -> true;
+func_allowed("hsl(") -> true;
+func_allowed("hsla(") -> true;
+func_allowed("linear-gradient(") -> true;
+func_allowed("radial-gradient(") -> true;
+func_allowed("repeating-linear-gradient(") -> true;
+func_allowed("repeating-radial-gradient(") -> true;
+func_allowed("rgb(") -> true;
+func_allowed("rgba(") -> true;
+func_allowed("var(") -> true;
+func_allowed("minmax(") -> true;
+func_allowed(_) -> false.
 
 %%% -------------------------------------------------------- 
 %%% Serialize the sanitized parse tree
