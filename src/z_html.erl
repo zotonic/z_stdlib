@@ -50,7 +50,8 @@
 
 -type sanitize_options() :: [ sanitize_option() ].
 -type sanitize_option() :: {elt_extra, list( binary() )}
-                         | {attr_extra, list( binary() )}.
+                         | {attr_extra, list( binary() )}
+                         | {element, function()}.
 
 -export_type([
     text/0,
