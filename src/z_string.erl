@@ -146,8 +146,15 @@ trim_right(L, Char) ->
     trim_right(<<>>, _Char, _WS, Acc) ->
         Acc.
 
-%% @doc Check if the variable is a one dimensional list of bytes, probably a string
--spec is_string(list()) -> boolean().
+%% @doc Check if the variable is a one dimensional list of bytes, or a valid
+%% utf-8 binary.
+-spec is_string(list() | binary()) -> boolean().
+is_string(<<>>) ->
+    true;
+is_string(<<_/utf8, Rest/binary>>) ->
+    is_string(Rest);
+is_string(<<_, _/binary>>) ->
+    false;
 is_string([]) ->
     true;
 is_string([C|Rest]) when
@@ -178,6 +185,7 @@ is_whitespace(_) -> false.
 -spec first_char(binary()|list()) -> pos_integer().
 first_char(<<>>) -> undefined;
 first_char(<<C/utf8, _/binary>>) -> C;
+first_char(<<C, _/binary>>) -> C;   %% illegal UTF-8, do not crash
 first_char([]) -> undefined;
 first_char([C|_]) when is_integer(C), C < 128 ->
     C;
@@ -803,7 +811,7 @@ truncate(B, N, Append) when is_binary(B), is_binary(Append) ->
     truncate(B, N, Append, in_word, <<>>, in_word, <<>>);
 truncate(L, N, Append) ->
     truncate(z_convert:to_binary(L), N, z_convert:to_binary(Append)).
-    
+
 
 truncate(<<>>, _, _Append, _LastState, _Last, _AccState, Acc) ->
     Acc;
@@ -850,7 +858,11 @@ truncate(<<$&,_/binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
         _       -> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
     end;
 truncate(<<C/utf8,Rest/binary>>, N, Append, LastState, Last, _AccState, Acc) ->
-    truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>).
+    truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>);
+
+truncate(<<_, Rest/binary>>, N, Append, LastState, Last, AccState, Acc) ->
+    % Silently drop non-utf-8 characters
+    truncate(Rest, N, Append, LastState, Last, AccState, Acc).
 
 
 get_entity(<<>>, Acc) ->
@@ -899,7 +911,7 @@ iswordsep(_) -> false.
 %% @doc Split the binary into lines. Line separators can be \r, \n or \r\n.
 split_lines(B) when is_binary(B) ->
     split_lines(B, <<>>, []).
-    
+
     split_lines(<<>>, Line, Acc) ->
         lists:reverse([Line|Acc]);
     split_lines(<<13,10,Rest/binary>>, Line, Acc) ->
