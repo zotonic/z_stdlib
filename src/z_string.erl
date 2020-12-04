@@ -833,7 +833,11 @@ truncate(<<$&,_/binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
         _       -> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
     end;
 truncate(<<C/utf8,Rest/binary>>, N, Append, LastState, Last, _AccState, Acc) ->
-    truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>).
+    truncate(Rest, N-1, Append, LastState, Last, in_word, <<Acc/binary,C/utf8>>);
+
+truncate(<<_,Rest/binary>>, N, Append, LastState, Last, AccState, Acc) ->
+    % Silently drop non utf8 data.
+    truncate(Rest, N-1, Append, LastState, Last, AccState, Acc).
 
 
 get_entity(<<>>, Acc) ->
