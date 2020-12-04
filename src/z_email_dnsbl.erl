@@ -124,7 +124,10 @@ is_allowed(IP) ->
                 false -> false
             end;
         {error, nxdomain} ->
-            false
+            false;
+        {error, _} ->
+            % servfail or other errors -- allow for now
+            true
     end.
 
 is_allowed_hostname(Hostname) ->
