@@ -28,7 +28,6 @@ strip_test() ->
     ?assertEqual(<<"Hello">>, z_html:strip(<<"Hello">>)),
     ?assertEqual(<<"">>, z_html:strip(<<"">>)),
     ?assertEqual(<<"">>, z_html:strip("")),
-    ?assertEqual(<<"1234">>, z_html:strip(1234)),
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234</p>\n<p>5678</p>">>)),
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234\n<span>5678</span></p>">>)),
     ?assertEqual(<<"This is a list item.">>, z_html:strip(<<"<ul><li>This is a list item.</li></ul>">>)),
