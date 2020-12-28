@@ -52,7 +52,6 @@ concat_test() ->
     <<"abcdef">> = z_string:concat(<<"abc">>, "def"),
     "abcdef" = z_string:concat("abc", "def"),
     "abcdef" = z_string:concat("abc", <<"def">>),
-    "abcdef" = z_string:concat("abc", def),
     ok.
 
 contains_test() ->
