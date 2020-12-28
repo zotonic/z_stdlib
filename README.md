@@ -1,5 +1,4 @@
-[![Build Status](https://travis-ci.org/zotonic/z_stdlib.svg?branch=master)](https://travis-ci.org/zotonic/z_stdlib)
-
+![Test](https://github.com/zotonic/z_stdlib/workflows/Test/badge.svg)
 
 zotonic_stdlib
 ==============
