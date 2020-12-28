@@ -96,7 +96,7 @@ no_ill_codepoint(B) ->
     andalso binary:match(B, <<239,191,191>>) == nomatch.
 
 %% @doc Generate a codepoint of max Len bytes in length
--spec gen_codepoint(pos_integer(), [proper_types:type(), ...]) ->
+-spec gen_codepoint(pos_integer(), list( proper_types:type() )) ->
     proper_types:type().
 gen_codepoint(4, Acc) ->
     gen_codepoint(3, [{integer(16#10000, 16#10FFFF), 4}|Acc]);

@@ -52,6 +52,12 @@
 
 -type tz() :: string().
 
+-type date() :: { integer(), 1..12, 1..31}.
+-type datetime() :: calendar:datetime()
+                  | {date(), calendar:time()}.
+
+-export_type([datetime/0]).
+
 %
 % Format the current date/time
 %
@@ -69,7 +75,7 @@ format(FormatString, Options) ->
 % This is the format returned by erlang:localtime()
 % and other standard date/time BIFs
 %
--spec format( calendar:datetime() | calendar:date(), string(), list() ) -> binary() | undefined.
+-spec format( datetime() | calendar:date(), string(), list() ) -> binary() | undefined.
 format({{9999,_,_},_}, _FormatString, _Options) ->
     undefined;
 format({{_,_,_} = Date,{_,_,_} = Time}, FormatString, Options) ->
