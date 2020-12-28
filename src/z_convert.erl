@@ -178,7 +178,7 @@ to_bool_strict(_) -> true.
 
 
 %% @doc Convert a local date time to utc
--spec to_utc( calendar:datetime() | undefined ) -> calendar:datetime() | undefined.
+-spec to_utc( z_dateformat:datetime() | undefined ) -> z_dateformat:datetime() | undefined.
 to_utc(undefined) ->
     undefined;
 to_utc({{9999,_,_}, _}) ->
@@ -193,7 +193,7 @@ to_utc(D) ->
 
 
 %% @doc Convert a utc date time to local
--spec to_localtime( calendar:datetime() | undefined ) -> calendar:datetime() | undefined.
+-spec to_localtime( z_dateformat:datetime() | undefined ) -> z_dateformat:datetime() | undefined.
 to_localtime(undefined) ->
     undefined;
 to_localtime({{9999,_,_},_}) ->
@@ -208,7 +208,7 @@ to_localtime(D) ->
 %% to_time/1.  If the input is a string, it is expected to be in iso
 %% 8601 format, although it can also handle timestamps without time
 %% zones. The time component of the datatime is optional.
--spec to_datetime( calendar:datetime() | calendar:date() | binary() | string() | undefined ) -> calendar:datetime() | undefined.
+-spec to_datetime( z_dateformat:datetime() | calendar:date() | binary() | string() | undefined ) -> z_dateformat:datetime() | undefined.
 to_datetime(undefined) -> undefined;
 to_datetime({{_,_,_},{_,_,_}} = DT) -> DT;
 to_datetime({_,_,_} = D) -> {D, {0,0,0}};
@@ -255,7 +255,7 @@ to_datetime(L) when is_list(L) ->
 
 %% @doc Convert an input to a date. Input is expected to be YYYY-MM-DD
 %% or YYYY/MM/DD.
--spec to_date( calendar:date() | binary() | string() | undefined ) -> calendar:date() | undefined.
+-spec to_date( z_dateformat:date() | binary() | string() | undefined ) -> z_dateformat:date() | undefined.
 to_date(undefined) -> undefined;
 to_date({_,_,_} = D) -> D;
 to_date(B) when is_binary(B) ->
@@ -286,7 +286,7 @@ to_time(L) when is_list(L) ->
     {H,I,S}.
 
 %% @doc Convert a datetime (in universal time) to an ISO time string.
--spec to_isotime( calendar:datetime() ) -> binary().
+-spec to_isotime( z_dateformat:datetime() ) -> binary().
 to_isotime(DateTime) ->
     z_dateformat:format(DateTime, "x-m-d\\TH:i:s\\Z", []).
 
