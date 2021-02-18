@@ -68,10 +68,26 @@ p(image, MD) ->
             Ps = case MD#url_metadata.is_index_page of
                     true ->
                         [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
-                         image_nav, image, icon_touch, icon_shortcut, icon_fav];
+                         image_nav, image];
                     false ->
                         [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
-                         image, icon_touch, image_nav, icon_shortcut, icon_fav]
+                         image, image_nav]
+                 end,
+            case p1(Ps, MD) of
+                undefined -> undefined;
+                ImgSrc -> z_url:abs_link(ImgSrc, MD#url_metadata.final_url)
+            end
+    end;
+p(icon, MD) ->
+    case MD#url_metadata.content_type of
+        <<"image/", _/binary>> ->
+            MD#url_metadata.final_url;
+        _ ->
+            Ps = case MD#url_metadata.is_index_page of
+                    true ->
+                        [image_nav, icon_touch, icon_shortcut, icon_fav];
+                    false ->
+                        [icon_touch, image_nav, icon_shortcut, icon_fav]
                  end,
             case p1(Ps, MD) of
                 undefined -> undefined;
