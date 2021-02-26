@@ -31,7 +31,7 @@ is_local({127,_,_,_}) -> true;
 is_local({10,_,_,_}) -> true;
 is_local({192,168,_,_}) -> true;
 is_local({169,254,_,_}) -> true;
-is_local({172,X,_,_})  when X > 63, X < 128 -> true;
+is_local({172,X,_,_})  when X >= 16, X =< 31 -> true;
 is_local({100,64,X,_}) when X < 4 -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fd00, X =< 16#fdff -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fe80, X =< 16#fecf -> true;
