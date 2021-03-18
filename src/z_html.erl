@@ -44,7 +44,12 @@
 ]).
 
 -type text() :: iodata() | {trans, list( {atom(), binary()} )}.
+-type unsafe_text() :: iodata()
+                     | {trans, list( {atom(), iodata()} )}
+                     | {trans, list( {binary(), iodata()} )}
+                     | {trans, map()}.
 -type maybe_text() :: undefined | text().
+-type maybe_unsafe_text() :: undefined | unsafe_text().
 -type maybe_binary() :: undefined | binary().
 -type maybe_iodata() :: undefined | iodata().
 
@@ -55,7 +60,9 @@
 
 -export_type([
     text/0,
+    unsafe_text/0,
     maybe_text/0,
+    maybe_unsafe_text/0,
     maybe_binary/0,
     maybe_iodata/0,
 
@@ -264,7 +271,7 @@ escape_value_check(V) ->
 
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
--spec escape( maybe_text() ) -> maybe_text().
+-spec escape( maybe_unsafe_text() ) -> maybe_text().
 escape({trans, Tr}) when is_list(Tr) ->
     Tr1 = lists:filtermap(
         fun
@@ -318,7 +325,7 @@ escape1(<<C, T/binary>>, Acc) ->
 
 
 %% @doc Ensure that a string is escaped so that it is valid within HTML/ XML.
--spec escape_check( maybe_text() ) -> maybe_text().
+-spec escape_check( maybe_unsafe_text() ) -> maybe_text().
 escape_check({trans, Tr}) when is_list(Tr) ->
     Tr1 = lists:filtermap(
         fun
