@@ -1,8 +1,8 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2020 Marc Worrell
+%% @copyright 2009-2021 Marc Worrell
 %% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
 
-%% Copyright 2009-2020 Marc Worrell
+%% Copyright 2009-2021 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -265,8 +265,29 @@ escape_value_check(V) ->
 
 %% @doc Escape a string so that it is valid within HTML/ XML.
 -spec escape( maybe_text() ) -> maybe_text().
-escape({trans, Tr}) ->
-    {trans, [{Lang, escape(V)} || {Lang,V} <- Tr]};
+escape({trans, Tr}) when is_list(Tr) ->
+    Tr1 = lists:filtermap(
+        fun
+            ({Lang, V}) when is_atom(Lang) ->
+                V1 = z_convert:to_binary(V),
+                {true, {Lang, escape(V1)}};
+            ({Lang, V}) when is_binary(Lang) ->
+                try
+                    Lang1 = binary_to_existing_atom(Lang, utf8),
+                    V1 = z_convert:to_binary(V),
+                    {true, {Lang1, escape(V1)}}
+                catch _:_ ->
+                    false
+                end;
+            (_) ->
+                false
+        end,
+        Tr),
+    {trans, Tr1};
+escape({trans, Tr}) when is_map(Tr) ->
+    escape({trans, maps:to_list(Tr)});
+escape({trans, _}) ->
+    <<>>;
 escape(undefined) ->
     undefined;
 escape(<<>>) ->
@@ -296,10 +317,31 @@ escape1(<<C, T/binary>>, Acc) ->
     escape1(T, <<Acc/binary, C>>).
 
 
-%% @doc Escape a string so that it is valid within HTML/ XML.
+%% @doc Ensure that a string is escaped so that it is valid within HTML/ XML.
 -spec escape_check( maybe_text() ) -> maybe_text().
-escape_check({trans, Tr}) ->
-    {trans, [{Lang, escape_check(V)} || {Lang,V} <- Tr]};
+escape_check({trans, Tr}) when is_list(Tr) ->
+    Tr1 = lists:filtermap(
+        fun
+            ({Lang, V}) when is_atom(Lang) ->
+                V1 = z_convert:to_binary(V),
+                {true, {Lang, escape_check(V1)}};
+            ({Lang, V}) when is_binary(Lang) ->
+                try
+                    Lang1 = binary_to_existing_atom(Lang, utf8),
+                    V1 = z_convert:to_binary(V),
+                    {true, {Lang1, escape_check(V1)}}
+                catch _:_ ->
+                    false
+                end;
+            (_) ->
+                false
+        end,
+        Tr),
+    {trans, Tr1};
+escape_check({trans, Tr}) when is_map(Tr) ->
+    escape_check({trans, maps:to_list(Tr)});
+escape_check({trans, _}) ->
+    <<>>;
 escape_check(undefined) ->
     undefined;
 escape_check(<<>>) ->

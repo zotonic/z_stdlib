@@ -150,6 +150,11 @@ sanitize_test() ->
 
     ok.
 
+sanitize_trans_test() ->
+    Tr = {trans, #{ <<"en">> => <<"<>&gt;">> }},
+    ?assertEqual({trans, [ {en, <<"&lt;&gt;&amp;gt;">>}]}, z_html:escape(Tr)),
+    ?assertEqual({trans, [ {en, <<"&lt;&gt;&gt;">>}]}, z_html:escape_check(Tr)).
+
 
 filter_css_test() ->
     % Remove all <style/> tags
