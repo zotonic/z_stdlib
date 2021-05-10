@@ -508,7 +508,8 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
 
 
 
-%% @doc Transliterate an unicode string to an ascii string with lowercase characters. Skipping Unicode characters.
+%% @doc Transliterate an unicode string to an ascii string with lowercase characters.
+%% Tries to transliterate some characters to a..z
 -spec normalize(iodata() | atom() | {trans, list()}) -> binary().
 normalize(undefined) ->
     <<>>;
@@ -753,11 +754,18 @@ normalize(<<"&lt;",  T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
 normalize(<<"&gt;",  T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
 normalize(<<"&#39;", T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
 normalize(<<"&quot;",T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&nbsp;",T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&mdash;",T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"&ndash;",T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"—"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"–"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
 normalize(<<C/utf8,T/binary>>, Acc) when C >= 32, C =< 126 -> normalize(T, <<Acc/binary, C/utf8>>);
-% Other sequences of characters are mapped to space
-normalize(<<_C/utf8,T/binary>>, Acc) ->
-    normalize(T, <<Acc/binary," ">>).
-
+normalize(<<C/utf8,T/binary>>, Acc) ->
+    % Keep rest as-is
+    normalize(T, <<Acc/binary, C/utf8>>);
+normalize(<<_C,T/binary>>, Acc) ->
+    % Drop non-utf8
+    normalize(T, Acc/binary).
 
 
 
