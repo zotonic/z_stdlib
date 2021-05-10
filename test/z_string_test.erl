@@ -45,6 +45,7 @@ to_name_test() ->
     <<"at">> = z_string:to_name(<<"@">>),
     <<"at">> = z_string:to_name("@"),
     <<"foo_at_bar">> = z_string:to_name("foo@bar"),
+    <<"_">> = z_string:to_name(<<"廣東話"/utf8>>),
     ok.
 
 concat_test() ->
