@@ -50,6 +50,7 @@
     nospaces/1,
     line/1,
     len/1,
+    normalize/1,
     to_rootname/1,
     to_name/1,
     to_slug/1,
@@ -72,18 +73,18 @@
 
 
 %% @doc Remove whitespace at the start and end of the string
--spec trim(binary()|list()) -> binary()|list().
+-spec trim(iodata()) -> binary().
 trim(B) when is_binary(B) ->
     trim_right(trim_left(B));
 trim(L) when is_list(L) ->
-    binary_to_list(trim(iolist_to_binary(L))).
+    trim(iolist_to_binary(L)).
 
 %% @doc Remove all occurences of a character at the start and end of a string.
--spec trim(binary()|list(), integer()) -> binary()|list().
+-spec trim(iodata(), integer()) -> binary().
 trim(B, Char) when is_binary(B) ->
     trim_right(trim_left(B, Char), Char);
 trim(L, Char) when is_list(L) ->
-    binary_to_list(trim(iolist_to_binary(L), Char)).
+    trim(iolist_to_binary(L), Char).
 
 
 %% @doc Remove whitespace at the start the string
@@ -117,38 +118,38 @@ trim_left_func(Other, _F) ->
     Other.
 
 %% @doc Remove whitespace at the end of the string
--spec trim_right(binary()|list()) -> binary()|list().
+-spec trim_right(iodata()) -> binary().
 trim_right(B) when is_binary(B) ->
     trim_right(B, <<>>, <<>>);
 trim_right(L) ->
-    binary_to_list(trim_right(iolist_to_binary(L))).
+    trim_right(iolist_to_binary(L)).
 
-    trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
-        case is_whitespace(C) of
-            true -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
-            false -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
-        end;
-    trim_right(<<>>, _WS, Acc) ->
-        Acc.
+trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
+    case is_whitespace(C) of
+        true -> trim_right(Rest, <<WS/binary, C/utf8>>, Acc);
+        false -> trim_right(Rest, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
+    end;
+trim_right(<<>>, _WS, Acc) ->
+    Acc.
 
 %% @doc Remove all occurences of a char at the end of the string
--spec trim_right(binary()|list(), integer()) -> binary()|list().
+-spec trim_right(iodata(), integer()) -> binary().
 trim_right(B, Char) when is_binary(B) ->
     trim_right(B, Char, <<>>, <<>>);
 trim_right(L, Char) ->
-    binary_to_list(trim_right(iolist_to_binary(L), Char)).
+    trim_right(iolist_to_binary(L), Char).
 
-    trim_right(<<C/utf8, Rest/binary>>, Char, WS, Acc) ->
-        case C of
-            Char -> trim_right(Rest, Char, <<WS/binary, C/utf8>>, Acc);
-            _ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
-        end;
-    trim_right(<<>>, _Char, _WS, Acc) ->
-        Acc.
+trim_right(<<C/utf8, Rest/binary>>, Char, WS, Acc) ->
+    case C of
+        Char -> trim_right(Rest, Char, <<WS/binary, C/utf8>>, Acc);
+        _ -> trim_right(Rest, Char, <<>>, <<Acc/binary, WS/binary, C/utf8>>)
+    end;
+trim_right(<<>>, _Char, _WS, Acc) ->
+    Acc.
 
 %% @doc Check if the variable is a one dimensional list of bytes, or a valid
 %% utf-8 binary.
--spec is_string(list() | binary()) -> boolean().
+-spec is_string(iodata()) -> boolean().
 is_string(<<>>) ->
     true;
 is_string(<<_/utf8, Rest/binary>>) ->
@@ -160,7 +161,7 @@ is_string([]) ->
 is_string([C|Rest]) when
         is_integer(C)
         andalso C =< 255
-        andalso (C >= 32 orelse C == 9 orelse C == 10 orelse C == 12 orelse C == 13) ->
+        andalso (C >= 32 orelse C =:= 9 orelse C =:= 10 orelse C =:= 12 orelse C =:= 13) ->
     is_string(Rest);
 is_string(_) ->
     false.
@@ -204,7 +205,7 @@ last_char(<<_, R/binary>>) -> last_char(R).
 
 
 %% @doc Remove the first and last char if they are double quotes.
--spec unquote( string() | binary() ) -> string() | binary().
+-spec unquote( iodata() ) -> iodata().
 unquote(S) ->
     unquote(S, $").
 
@@ -214,18 +215,18 @@ unquote(S, Q) ->
         [Q|R] -> unquote1(R, [], Q, S);
         _ -> S
     end.
-    
-    unquote1([], _Acc, _Q, S) -> S;
-    unquote1([Q], Acc, Q, _S) -> lists:reverse(Acc);
-    unquote1([H|T], Acc, Q, S) -> unquote1(T, [H|Acc], Q, S);
 
-    unquote1(<<>>, _Acc, _Q, S) -> S;
-    unquote1(<<Q>>, Acc, Q, _S) -> Acc;
-    unquote1(<<C,R/binary>>, Acc, Q, S) -> unquote1(R, <<Acc/binary, C>>, Q, S).
+unquote1([], _Acc, _Q, S) -> S;
+unquote1([Q], Acc, Q, _S) -> lists:reverse(Acc);
+unquote1([H|T], Acc, Q, S) -> unquote1(T, [H|Acc], Q, S);
+
+unquote1(<<>>, _Acc, _Q, S) -> S;
+unquote1(<<Q>>, Acc, Q, _S) -> Acc;
+unquote1(<<C,R/binary>>, Acc, Q, S) -> unquote1(R, <<Acc/binary, C>>, Q, S).
 
 
 %% @doc Remove all spaces and control characters from a string.
--spec nospaces(binary()|string()) -> binary()|string().
+-spec nospaces(iodata()) -> iodata().
 nospaces(B) when is_binary(B) ->
     nospaces_bin(B, <<>>);
 nospaces(L) when is_list(L) ->
@@ -477,9 +478,14 @@ to_slug(Title) ->
 
 
 %% @doc Map a string to a value that can be used as a name or slug. Maps all characters to lowercase and remove non digalpha chars
--spec to_name( string() | binary() | atom() ) -> binary().
+-spec to_name( string() | binary() | atom() | {trans, list()} ) -> binary().
 to_name(V) ->
-    name_cleanup(to_name1(V)).
+    Norm = to_name1(normalize(V), <<>>),
+    Norm1 = name_cleanup(Norm),
+    case trim(Norm1, $_) of
+        <<>> -> <<"_">>;
+        Name -> Name
+    end.
 
 name_cleanup(V) ->
     case binary:replace(V, <<"__">>, <<"_">>, [global]) of
@@ -487,261 +493,282 @@ name_cleanup(V) ->
         V1 -> name_cleanup(V1)
     end.
 
-to_name1({trans, Tr}) ->
+to_name1(<<>>, Acc) ->
+    Acc;
+to_name1(<<V/utf8, Rest/binary>>, Acc) when V >= $a, V =< $z ->
+    to_name1(Rest, <<Acc/binary, V/utf8>>);
+to_name1(<<V/utf8, Rest/binary>>, Acc) when V >= $0, V =< $9 ->
+    to_name1(Rest, <<Acc/binary, V/utf8>>);
+to_name1(<<32, Rest/binary>>, Acc) ->
+    to_name1(Rest, <<Acc/binary, 32>>);
+to_name1(<<"@", Rest/binary>>, Acc) ->
+    to_name1(Rest, <<Acc/binary,$_,$a,$t,$_>>);
+to_name1(<<_/utf8, Rest/binary>>, Acc) ->
+    to_name1(Rest, <<Acc/binary, "_">>).
+
+
+
+%% @doc Transliterate an unicode string to an ascii string with lowercase characters.
+%% Tries to transliterate some characters to a..z
+-spec normalize(iodata() | atom() | {trans, list()}) -> binary().
+normalize(undefined) ->
+    <<>>;
+normalize({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
         undefined ->
             case Tr of
-                [{_,V}|_] -> to_name1(V);
+                [{_,V}|_] -> normalize(V);
                 _ -> <<>>
             end;
         V ->
-            to_name1(V)
+            normalize(V)
     end;
-to_name1(undefined) ->
-    <<$_>>;
-to_name1(Name) when is_atom(Name) ->
-    to_name1(z_convert:to_binary(Name));
-to_name1(Name) when is_list(Name) ->
-    to_name1(iolist_to_binary(Name));
-to_name1(Name) when is_binary(Name) ->
-    to_name(Name, <<>>, 0).
+normalize(Name) when is_atom(Name) ->
+    normalize(atom_to_binary(Name, utf8));
+normalize(T) ->
+    normalize(iolist_to_binary(T), <<>>).
 
-to_name(<<>>, Acc, _I) ->
-    case trim(Acc, $_) of
-        <<>> -> <<"_">>;
-        Name -> Name
-    end;
-to_name(_, Acc, N) when N >= 80 ->
-    to_name(<<>>, Acc, 80);
-to_name(<<C, T/binary>>, Acc, I) when C >= $A andalso C =< $Z ->
-    C1 = C+32,
-    to_name(T, <<Acc/binary,C1>>, I+1);
-to_name(<<C,T/binary>>, Acc, I) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
-    to_name(T, <<Acc/binary,C>>, I+1);
-to_name(<<"ä"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"ë"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"ï"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"ü"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"ö"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"Ä"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"Ë"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"Ï"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"Ü"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"Ö"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"é"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"è"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"É"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"È"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"í"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"ì"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"Í"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"Ì"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"ú"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"ù"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"Ú"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"Ù"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"ó"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"ò"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"Ó"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"Ò"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"ß"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$s>>, I+2);
-to_name(<<"ç"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"Ç"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"ø"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"Ø"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"Å"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"€"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"ÿ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i,$j>>, I+2);
-to_name(<<"@"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_,$a,$t,$_>>, I+4);
+normalize(<<>>, Acc) ->
+    Acc;
+normalize(<<C, T/binary>>, Acc) when C >= $A andalso C =< $Z ->
+    normalize(T, <<Acc/binary,C>>);
+normalize(<<C,T/binary>>, Acc) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
+    normalize(T, <<Acc/binary,C>>);
+normalize(<<"ä"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"ë"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"ï"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"ü"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"ö"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ä"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Ë"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"Ï"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"Ü"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"Ö"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"é"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"è"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"É"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"È"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"í"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"ì"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"Í"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"Ì"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"ú"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"ù"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"Ú"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"Ù"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"ß"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$s>>);
+normalize(<<"ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"Ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"ø"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ø"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
-to_name(<<"А"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"а"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"Б"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
-to_name(<<"б"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
-to_name(<<"В"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
-to_name(<<"в"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
-to_name(<<"Г"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"г"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"Д"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
-to_name(<<"д"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
-to_name(<<"Е"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"е"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"Ё"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$y>>, I+2);
-to_name(<<"ё"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$y>>, I+2);
-to_name(<<"Ж"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$z>>, I+2);
-to_name(<<"ж"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$z>>, I+2);
-to_name(<<"З"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"з"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"И"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"и"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"Й"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
-to_name(<<"й"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
-to_name(<<"К"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
-to_name(<<"к"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
-to_name(<<"Л"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"л"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"М"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
-to_name(<<"м"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
-to_name(<<"Н"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"н"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"О"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"о"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"П"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
-to_name(<<"п"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
-to_name(<<"Р"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
-to_name(<<"р"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
-to_name(<<"С"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"с"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"Т"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"т"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"У"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"у"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"Ф"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
-to_name(<<"ф"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
-to_name(<<"Х"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
-to_name(<<"х"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
-to_name(<<"Ц"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"ц"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"Ч"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$c>>, I+2);
-to_name(<<"ч"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$c>>, I+2);
-to_name(<<"Ш"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$s>>, I+2);
-to_name(<<"ш"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$s>>, I+2);
-to_name(<<"Щ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$h,$s>>, I+3);
-to_name(<<"щ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$h,$s>>, I+3);
-to_name(<<"Ъ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"ъ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"Ы"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
-to_name(<<"ы"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
-to_name(<<"Ь"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"ь"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"Э"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$e>>, I+2);
-to_name(<<"э"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h,$e>>, I+2);
-to_name(<<"Ю"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$y>>, I+2);
-to_name(<<"ю"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$y>>, I+2);
-to_name(<<"Я"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$y>>, I+2);
-to_name(<<"я"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$y>>, I+2);
+normalize(<<"А"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"а"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Б"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$b>>);
+normalize(<<"б"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$b>>);
+normalize(<<"В"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$v>>);
+normalize(<<"в"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$v>>);
+normalize(<<"Г"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"г"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"Д"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
+normalize(<<"д"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
+normalize(<<"Е"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"е"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"Ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o,$y>>);
+normalize(<<"ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o,$y>>);
+normalize(<<"Ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$z>>);
+normalize(<<"ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$z>>);
+normalize(<<"З"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"з"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"И"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"и"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"Й"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$j>>);
+normalize(<<"й"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$j>>);
+normalize(<<"К"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k>>);
+normalize(<<"к"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k>>);
+normalize(<<"Л"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"л"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"М"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$m>>);
+normalize(<<"м"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$m>>);
+normalize(<<"Н"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"н"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"О"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"о"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"П"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$p>>);
+normalize(<<"п"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$p>>);
+normalize(<<"Р"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$r>>);
+normalize(<<"р"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$r>>);
+normalize(<<"С"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"с"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"Т"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"т"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"У"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"у"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"Ф"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$f>>);
+normalize(<<"ф"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$f>>);
+normalize(<<"Х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
+normalize(<<"х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
+normalize(<<"Ц"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"ц"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"Ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$c>>);
+normalize(<<"ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$c>>);
+normalize(<<"Ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$s>>);
+normalize(<<"ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$s>>);
+normalize(<<"Щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$h,$s>>);
+normalize(<<"щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$h,$s>>);
+normalize(<<"Ъ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
+normalize(<<"ъ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
+normalize(<<"Ы"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
+normalize(<<"ы"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
+normalize(<<"Ь"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
+normalize(<<"ь"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
+normalize(<<"Э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$e>>);
+normalize(<<"э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$e>>);
+normalize(<<"Ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$y>>);
+normalize(<<"ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$y>>);
+normalize(<<"Я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$y>>);
+normalize(<<"я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$y>>);
 % Ukrainian support
-to_name(<<"Ґ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"ґ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"Ї"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"ї"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"І"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"і"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"Є"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$y>>, I+2);
-to_name(<<"є"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$y>>, I+2);
+normalize(<<"Ґ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"ґ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"Ї"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"ї"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"І"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"і"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"Є"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e,$y>>);
+normalize(<<"є"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e,$y>>);
 % Polish support
-to_name(<<"Ą"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"ą"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"Ę"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"ę"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"Ć"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"ć"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c>>, I+1);
-to_name(<<"Ł"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"ł"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"Ń"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"ń"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"Ś"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"ś"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"Ź"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"ź"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"Ż"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"ż"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
+normalize(<<"Ą"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"ą"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Ę"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"ę"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"Ć"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"ć"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
+normalize(<<"Ł"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"ł"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"Ń"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"ń"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"Ś"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"ś"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"Ź"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"ź"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"Ż"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"ż"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
 % Turkish support
-to_name(<<"Ş"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"ş"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"Ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"ğ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"İ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"ı"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
+normalize(<<"Ş"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"ş"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"Ğ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"ğ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"İ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"ı"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
 
 % Hebrew support (simplified) https://en.wikipedia.org/wiki/Romanization_of_Hebrew
 % TODO: check this, as it seems quite broken/incomplete
-to_name(<<"א"/utf8,T/binary>>, Acc, I) -> to_name(T, Acc, I);
-to_name(<<"ב"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
-to_name(<<"בּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$b>>, I+1);
-to_name(<<"ג"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"גּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
-to_name(<<"ג׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$j>>, I+1);
-to_name(<<"ד"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
-to_name(<<"דּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d>>, I+1);
-to_name(<<"ד׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$d,$h>>, I+2);
-to_name(<<"ה"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
-to_name(<<"הּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$h>>, I+1);
-to_name(<<"ו"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
-to_name(<<"וּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$v>>, I+1);
-to_name(<<"ז"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"זּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"ז׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z,$h>>, I+2);
-to_name(<<"ח"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c,$h>>, I+1);
-to_name(<<"ט"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"טּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"י"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
-to_name(<<"יּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$y>>, I+1);
-to_name(<<"ךכ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$c,$h>>, I+2);
-to_name(<<"ךּ כּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
-to_name(<<"ל"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"לּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$l>>, I+1);
-to_name(<<"םמ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
-to_name(<<"מּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$m>>, I+1);
-to_name(<<"ןנ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"נּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"ס"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"סּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"ע"/utf8,T/binary>>, Acc, I) -> to_name(T, Acc, I);
-to_name(<<"ףפ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$f>>, I+1);
-to_name(<<"ףּ פּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$p>>, I+1);
-to_name(<<"ץצ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$z>>, I+2);
-to_name(<<"צּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$z>>, I+2);
-to_name(<<"ץ׳צ׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$s,$h>>, I+3);
-to_name(<<"ק"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
-to_name(<<"קּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$k>>, I+1);
-to_name(<<"ר"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
-to_name(<<"רּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$r>>, I+1);
-to_name(<<"ש"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
-to_name(<<"שׁ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
-to_name(<<"שּׁ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s,$h>>, I+2);
-to_name(<<"שׂ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"שּׂ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$s>>, I+1);
-to_name(<<"ת"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"תּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t>>, I+1);
-to_name(<<"ת׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$t,$h>>, I+2);
+normalize(<<"א"/utf8,T/binary>>, Acc) -> normalize(T, Acc);
+normalize(<<"ב"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$v>>);
+normalize(<<"בּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$b>>);
+normalize(<<"ג"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"גּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
+normalize(<<"ג׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$j>>);
+normalize(<<"ד"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
+normalize(<<"דּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
+normalize(<<"ד׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d,$h>>);
+normalize(<<"ה"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
+normalize(<<"הּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
+normalize(<<"ו"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$v>>);
+normalize(<<"וּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$v>>);
+normalize(<<"ז"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"זּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"ז׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z,$h>>);
+normalize(<<"ח"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c,$h>>);
+normalize(<<"ט"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"טּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"י"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
+normalize(<<"יּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
+normalize(<<"ךכ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c,$h>>);
+normalize(<<"ךּ כּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k>>);
+normalize(<<"ל"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"לּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
+normalize(<<"םמ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$m>>);
+normalize(<<"מּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$m>>);
+normalize(<<"ןנ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"נּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"ס"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"סּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"ע"/utf8,T/binary>>, Acc) -> normalize(T, Acc);
+normalize(<<"ףפ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$f>>);
+normalize(<<"ףּ פּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$p>>);
+normalize(<<"ץצ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t,$z>>);
+normalize(<<"צּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t,$z>>);
+normalize(<<"ץ׳צ׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t,$s,$h>>);
+normalize(<<"ק"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k>>);
+normalize(<<"קּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k>>);
+normalize(<<"ר"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$r>>);
+normalize(<<"רּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$r>>);
+normalize(<<"ש"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h>>);
+normalize(<<"שׁ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h>>);
+normalize(<<"שּׁ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h>>);
+normalize(<<"שׂ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"שּׂ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
+normalize(<<"ת"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"תּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
+normalize(<<"ת׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t,$h>>);
 % Hebrew forms used in translitearion from Arabic
-to_name(<<"ח׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$n>>, I+1);
-to_name(<<"ט׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$z>>, I+1);
-to_name(<<"ע׳ר׳"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$g>>, I+1);
+normalize(<<"ח׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"ט׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
+normalize(<<"ע׳ר׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
 % Hebrew vowels
-to_name(<<"צ"/utf8, T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$a>>, I+2);
-to_name(<<"טְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"חֱ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"חֲ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"חֳ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"טִ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$i>>, I+1);
-to_name(<<"טֵ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"טֶ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e>>, I+1);
-to_name(<<"טַ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a>>, I+1);
-to_name(<<"טָ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"טֹ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o>>, I+1);
-to_name(<<"טֻ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"טוּ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u>>, I+1);
-to_name(<<"טֵי"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$i>>, I+2);
-to_name(<<"טֶי"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$e,$i>>, I+2);
-to_name(<<"טַיטַיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$i>>, I+2);
-to_name(<<"טָיטָיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$a,$i>>, I+2);
-to_name(<<"טֹיטֹיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$o,$i>>, I+2);
-to_name(<<"טֻיטֻיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$i>>, I+2);
-to_name(<<"טוּיטוּיְ"/utf8,T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$u,$i>>, I+2);
+normalize(<<"צ"/utf8, T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$a>>);
+normalize(<<"טְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"חֱ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"חֲ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"חֳ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"טִ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
+normalize(<<"טֵ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"טֶ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"טַ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"טָ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"טֹ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"טֻ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"טוּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
+normalize(<<"טֵי"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e,$i>>);
+normalize(<<"טֶי"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e,$i>>);
+normalize(<<"טַיטַיְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$i>>);
+normalize(<<"טָיטָיְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$i>>);
+normalize(<<"טֹיטֹיְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o,$i>>);
+normalize(<<"טֻיטֻיְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$i>>);
+normalize(<<"טוּיטוּיְ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$i>>);
 
 % Some entities - we might want to add generic code here, depends
-% on where to_name/1 is used (can we assume that the input is always html?)
-to_name(<<"&amp;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"&lt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"&gt;",  T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"&#39;", T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-to_name(<<"&quot;",T/binary>>, Acc, I) -> to_name(T, <<Acc/binary,$_>>, I+1);
-% Other sequences of characters are mapped to $_
-to_name(<<_C/utf8,T/binary>>, Acc, I) ->
-    to_name(T, <<Acc/binary,$_>>, I+1).
+% on where normalize/1 is used (can we assume that the input is always html?)
+normalize(<<"&amp;", T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&lt;",  T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&gt;",  T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&#39;", T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&quot;",T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&nbsp;",T/binary>>, Acc) -> normalize(T, <<Acc/binary," ">>);
+normalize(<<"&mdash;",T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"&ndash;",T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"—"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<"–"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
+normalize(<<C/utf8,T/binary>>, Acc) when C >= 32, C =< 126 -> normalize(T, <<Acc/binary, C/utf8>>);
+normalize(<<C/utf8,T/binary>>, Acc) when C =:= 8023 ->
+    % Zero width space
+    normalize(T, Acc);
+normalize(<<C/utf8,T/binary>>, Acc) ->
+    % Keep rest as-is
+    normalize(T, <<Acc/binary, C/utf8>>);
+normalize(<<_C,T/binary>>, Acc) ->
+    % Drop non-utf8
+    normalize(T, Acc).
 
 
 
@@ -909,6 +936,7 @@ iswordsep(_) -> false.
 
 
 %% @doc Split the binary into lines. Line separators can be \r, \n or \r\n.
+-spec split_lines(binary()) -> list(binary()).
 split_lines(B) when is_binary(B) ->
     split_lines(B, <<>>, []).
 
@@ -945,7 +973,7 @@ escape_ical(A) when is_atom(A) ->
     escape_ical(<<C, Rest/binary>>, Acc, N) -> escape_ical(Rest, <<Acc/binary, C>>, N+1).
 
 %% @doc Return true if Start is a prefix of Word
-%% @spec starts_with(String, String) -> bool()
+-spec starts_with(iodata(), iodata()) -> boolean().
 starts_with(Start, B) when is_binary(Start), is_binary(B) ->
     StartSize = size(Start),
     case B of
@@ -957,7 +985,7 @@ starts_with(Start, String) ->
 
 
 %% @doc Return true if Word ends with End
-%% @spec ends_with(String, String) -> bool()
+-spec ends_with(iodata(), iodata()) -> boolean().
 ends_with(End, B) when is_binary(End), is_binary(B) ->
     StartSize = size(B) - size(End),
     case B of
@@ -969,7 +997,7 @@ ends_with(End, String) ->
 
 
 %% @doc Return true if What is found in the string
-%% @spec contains(String, String) -> bool()
+-spec contains(iodata(), iodata()) -> boolean().
 contains(What, B) when is_binary(What), is_binary(B) ->
     contains(What, size(What), B, 0);
 contains(What, String) ->

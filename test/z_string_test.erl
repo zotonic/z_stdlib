@@ -45,6 +45,7 @@ to_name_test() ->
     <<"at">> = z_string:to_name(<<"@">>),
     <<"at">> = z_string:to_name("@"),
     <<"foo_at_bar">> = z_string:to_name("foo@bar"),
+    <<"_">> = z_string:to_name(<<"廣東話"/utf8>>),
     ok.
 
 concat_test() ->
@@ -77,7 +78,7 @@ starts_with_test() ->
     ?assert(z_string:starts_with(["This ", <<"is">>], "This is text.")),
     ?assertNot(z_string:starts_with(["This ", <<"is not">>], "This is text.")),
     ok.
-    
+
 ends_with_test() ->
     ?assert(z_string:ends_with("", "This is text.")),
     ?assert(z_string:ends_with("", "")),
@@ -96,13 +97,18 @@ trim_left_test() ->
     ?assertEqual("foo", z_string:trim_left("......foo", $.)),
     ?assertEqual(<<"foo"/utf8>>, z_string:trim_left(<<"​foo"/utf8>>)), %% zero width space (8203)
     ok.
-    
 
 trim_right_test() ->
-    ?assertEqual("foo", z_string:trim_right("foo ")),
-    ?assertEqual("foo", z_string:trim_right("foo         ")),
-    ?assertEqual("foo", z_string:trim_right("foo.", $.)),
-    ?assertEqual("foo", z_string:trim_right("foo........", $.)),
+    ?assertEqual(<<"foo">>, z_string:trim_right("foo ")),
+    ?assertEqual(<<"foo">>, z_string:trim_right("foo         ")),
+    ?assertEqual(<<"foo">>, z_string:trim_right("foo.", $.)),
+    ?assertEqual(<<"foo">>, z_string:trim_right("foo........", $.)),
     ?assertEqual(<<"foo"/utf8>>, z_string:trim_right(<<"foo​"/utf8>>)), %% zero width space (8203)
     ok.
-    
+
+trim_utf8_list_test() ->
+    A = <<" üçgen "/utf8>>,
+    <<"üçgen"/utf8>> = z_string:trim(A),
+    <<"üçgen"/utf8>> = z_string:trim([A]),
+    ok.
+
