@@ -760,12 +760,15 @@ normalize(<<"&ndash;",T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
 normalize(<<"—"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
 normalize(<<"–"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,"-">>);
 normalize(<<C/utf8,T/binary>>, Acc) when C >= 32, C =< 126 -> normalize(T, <<Acc/binary, C/utf8>>);
+normalize(<<C/utf8,T/binary>>, Acc) when C =:= 8023 ->
+    % Zero width space
+    normalize(T, Acc);
 normalize(<<C/utf8,T/binary>>, Acc) ->
     % Keep rest as-is
     normalize(T, <<Acc/binary, C/utf8>>);
 normalize(<<_C,T/binary>>, Acc) ->
     % Drop non-utf8
-    normalize(T, Acc/binary).
+    normalize(T, Acc).
 
 
 
