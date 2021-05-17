@@ -131,6 +131,16 @@ sanitize_test() ->
     ?assertEqual(<<"<a href=\"\">Click me</a>">>,
         z_html:sanitize(<<"<a href=\"data:text/html;charset=utf8,randomhtmlstuff\">Click me</a>">>)),
 
+    % Script urls
+    ?assertEqual(<<"<a href=\"#script-removed\">Click me</a>">>,
+        z_html:sanitize(<<"<a href=\"javascript:foobar()\">Click me</a>">>)),
+
+    ?assertEqual(<<"<a href=\"#script-removed\">Click me</a>">>,
+        z_html:sanitize(<<"<a href=\"j%41vascript:foobar()\">Click me</a>">>)),
+
+    ?assertEqual(<<"<a href=\"#script-removed\">Click me</a>">>,
+        z_html:sanitize(<<"<a href=\"j%41va scr%20iPt:foobar()\">Click me</a>">>)),
+
     % Spaces after mailto:
     ?assertEqual(<<"<a href=\"mailto:jan@example.com\">a</a>">>, 
         z_html:sanitize(<<"<a href=\"mailto: jan@example.com\">a</a>">>)),

@@ -460,9 +460,9 @@ make_links1(_Offset, [], Text, Acc) ->
 make_links1(Offset, [{Offset, Len}|Rest], Text, Acc) ->
     {Link, Text1} = lists:split(Len, Text),
     NoScript = noscript(Link, true),
-    Link1 = escape(NoScript),
-    Link2 = escape(ensure_protocol(NoScript)),
-    make_links1(Offset+Len, Rest, Text1, [["<a href=\"",Link2,"\" rel=\"nofollow\">",Link1,"</a>"] | Acc]);
+    LinkText = escape(NoScript),
+    LinkUrl = escape(ensure_protocol(NoScript)),
+    make_links1(Offset+Len, Rest, Text1, [["<a href=\"",LinkUrl,"\" rel=\"nofollow noreferrer\">",LinkText,"</a>"] | Acc]);
 make_links1(Offset, [{MatchOffs,_}|_] = Matches, Text, Acc) ->
     {Text1,Text2} = lists:split(MatchOffs-Offset, Text),
     make_links1(MatchOffs, Matches, Text2, [escape(Text1)|Acc]).
@@ -473,25 +473,28 @@ ensure_protocol("/" ++ _ = Link) -> Link;
 ensure_protocol("://" ++ _ = Link) -> ["http", Link];
 ensure_protocol("http://" ++ _ = Link) -> Link;
 ensure_protocol("https://" ++ _ = Link) -> Link;
+ensure_protocol("data:" ++ _ = Link) -> Link;
+ensure_protocol("ftp:" ++ _ = Link) -> Link;
 ensure_protocol("mailto:" ++ Rest) -> "mailto:"++z_string:trim(Rest);
-ensure_protocol("www." ++ Rest) -> ["http://www.", Rest];
+ensure_protocol("www." ++ Rest) -> ["https://www.", Rest];
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
 ensure_protocol(<<"/", _/binary>> = Link) -> Link;
-ensure_protocol(<<"://", _/binary>> = Link) -> ["http", Link];
+ensure_protocol(<<"://", _/binary>> = Link) -> <<"http", Link/binary>>;
 ensure_protocol(<<"http://", _/binary>> = Link) -> Link;
 ensure_protocol(<<"https://", _/binary>> = Link) -> Link;
-ensure_protocol(<<"mailto:", Rest/binary>>) ->
-    <<"mailto:", (z_string:trim(Rest))/binary>>;
-ensure_protocol(<<"www.", _/binary>> = Link) -> <<"http://", Link/binary>>;
+ensure_protocol(<<"data:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"ftp:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"mailto:", Rest/binary>>) -> <<"mailto:", (z_string:trim(Rest))/binary>>;
+ensure_protocol(<<"www.", _/binary>> = Link) -> <<"https://", Link/binary>>;
 ensure_protocol(Link) ->
     B = iolist_to_binary(Link),
     case binary:match(B, <<"://">>) of
         nomatch ->
             [First|_] = binary:split(B, <<"/">>),
             case binary:match(First, <<".">>) of
-                nomatch -> [$/, Link];
-                _Match -> ["http://", Link]
+                nomatch -> <<$/, B/binary>>;
+                _Match -> <<"https://", B/binary>>
             end;
         _ ->
             B
@@ -1003,6 +1006,12 @@ nows(<<>>, Acc) -> Acc;
 nows(<<$:, Rest/binary>>, Acc) -> <<Acc/binary, $:, Rest/binary>>;
 nows(<<$/, Rest/binary>>, Acc) -> <<Acc/binary, $/, Rest/binary>>;
 nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
+nows(<<$%, A, B, Rest/binary>>, Acc) ->
+    V = erlang:binary_to_integer(<<A, B>>, 16),
+    nows(<<V, Rest/binary>>, Acc);
+nows(<<$%, _/binary>>, _Acc) ->
+    % Illegal: not enough characters left for escape sequence
+    <<>>;
 nows(<<C, Rest/binary>>, Acc) when C =< 32 -> nows(Rest, Acc);
 nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z -> nows(Rest, <<Acc/binary, (C+32)>>);
 nows(<<C/utf8, Rest/binary>>, Acc) -> nows(Rest, <<Acc/binary, C/utf8>>).
