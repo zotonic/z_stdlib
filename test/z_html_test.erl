@@ -160,6 +160,10 @@ sanitize_test() ->
 
     ok.
 
+rel_sanitize_test() ->
+    ?assertEqual(<<"<a rel=\"nofollow noopener noreferrer\" target=\"_blank\" href=\"https://example.com\">Click me</a>">>,
+        z_html:sanitize(<<"<a target=\"_blank\" href=\"https://example.com\">Click me</a>">>)).
+
 sanitize_trans_test() ->
     Tr = {trans, #{ <<"en">> => <<"<>&gt;">> }},
     ?assertEqual({trans, [ {en, <<"&lt;&gt;&amp;gt;">>}]}, z_html:escape(Tr)),
