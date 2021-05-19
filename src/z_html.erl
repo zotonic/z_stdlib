@@ -998,17 +998,21 @@ noscript(Url, IsStrict) ->
                 Data1 -> <<"data:", Data1/binary>>
             end;
         <<"mailto:", Rest/binary>> -> <<"mailto:", (z_string:trim(Rest))/binary>>;
+        <<>> -> <<>>;
         _ -> Url
     end.
 
-%% @doc Remove whitespace and make lowercase till we find a colon or slash.
+%% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign.
 nows(<<>>, Acc) -> Acc;
 nows(<<$:, Rest/binary>>, Acc) -> <<Acc/binary, $:, Rest/binary>>;
 nows(<<$/, Rest/binary>>, Acc) -> <<Acc/binary, $/, Rest/binary>>;
+nows(<<$#, Rest/binary>>, Acc) -> <<Acc/binary, $#, Rest/binary>>;
 nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
 nows(<<$%, A, B, Rest/binary>>, Acc) ->
-    V = erlang:binary_to_integer(<<A, B>>, 16),
-    nows(<<V, Rest/binary>>, Acc);
+    case catch erlang:binary_to_integer(<<A, B>>, 16) of
+        V when is_integer(V) -> nows(<<V, Rest/binary>>, Acc);
+        _ -> <<>>
+    end;
 nows(<<$%, _/binary>>, _Acc) ->
     % Illegal: not enough characters left for escape sequence
     <<>>;
