@@ -468,16 +468,6 @@ make_links1(Offset, [{MatchOffs,_}|_] = Matches, Text, Acc) ->
     {Text1,Text2} = lists:split(MatchOffs-Offset, Text),
     make_links1(MatchOffs, Matches, Text2, [escape(Text1)|Acc]).
 
-ensure_protocol([]) -> [];
-ensure_protocol("#" ++ _ = Link) -> Link;
-ensure_protocol("/" ++ _ = Link) -> Link;
-ensure_protocol("://" ++ _ = Link) -> ["http", Link];
-ensure_protocol("http://" ++ _ = Link) -> Link;
-ensure_protocol("https://" ++ _ = Link) -> Link;
-ensure_protocol("data:" ++ _ = Link) -> Link;
-ensure_protocol("ftp:" ++ _ = Link) -> Link;
-ensure_protocol("mailto:" ++ Rest) -> "mailto:"++z_string:trim(Rest);
-ensure_protocol("www." ++ Rest) -> ["https://www.", Rest];
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
 ensure_protocol(<<"/", _/binary>> = Link) -> Link;
@@ -488,17 +478,16 @@ ensure_protocol(<<"data:", _/binary>> = Link) -> Link;
 ensure_protocol(<<"ftp:", _/binary>> = Link) -> Link;
 ensure_protocol(<<"mailto:", Rest/binary>>) -> <<"mailto:", (z_string:trim(Rest))/binary>>;
 ensure_protocol(<<"www.", _/binary>> = Link) -> <<"https://", Link/binary>>;
-ensure_protocol(Link) ->
-    B = iolist_to_binary(Link),
-    case binary:match(B, <<"://">>) of
+ensure_protocol(Link) when is_binary(Link) ->
+    case binary:match(Link, <<"://">>) of
         nomatch ->
-            [First|_] = binary:split(B, <<"/">>),
+            [First|_] = binary:split(Link, <<"/">>),
             case binary:match(First, <<".">>) of
-                nomatch -> <<$/, B/binary>>;
-                _Match -> <<"https://", B/binary>>
+                nomatch -> <<$/, Link/binary>>;
+                _Match -> <<"https://", Link/binary>>
             end;
         _ ->
-            B
+            Link
     end.
 
 %% @doc Ensure that an uri is (quite) harmless by removing any script reference
