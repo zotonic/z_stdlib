@@ -65,7 +65,7 @@ sanitize_element({Elt, Attrs, Enclosed}) ->
         false ->
             {nop, []}
     end;
-sanitize_element(_) -> 
+sanitize_element(_) ->
     <<>>.
 
 %% @doc Flatten the sanitized svg tree to a binary 
@@ -83,7 +83,7 @@ flatten({Elt, Attrs, Enclosed}) ->
     Attrs1 = [ flatten_attr(Attr) || Attr <- Attrs ],
     Attrs2 = iolist_to_binary(prefix(32, Attrs1)),
     <<$<, Elt/binary, Attrs2/binary, $>, EncBin/binary, $<, $/, Elt/binary, $>>>;
-flatten(L) when is_list(L) -> 
+flatten(L) when is_list(L) ->
     iolist_to_binary([ flatten(A) || A <- L ]).
 
 flatten_attr({<<"xmlns">>, Value}) ->
@@ -95,16 +95,18 @@ flatten_attr({Attr, Value}) ->
         true ->
             case binary:split(Attr, <<":">>) of
                 [NS, Attr1] ->
-                    AV = z_html:flatten_attr({Attr1, Value}),
+                    Value1 = z_html:sanitize_attr_value(Attr1, Value),
+                    AV = z_html:flatten_attr({Attr1, Value1}),
                     <<NS/binary, $:, AV/binary>>;
                 [_] ->
-                    z_html:flatten_attr({Attr, Value})
+                    Value1 = z_html:sanitize_attr_value(Attr, Value),
+                    z_html:flatten_attr({Attr, Value1})
             end;
         false ->
             <<Attr/binary, "=\"\"">>
     end.
 
-%% @doc Don't accept SVG attributes referring to an external resource. 
+%% @doc Don't accept SVG attributes referring to an external resource.
 %%      Refuses anything containing urls and/or "url(...)" not referring to local ids.
 is_acceptable_svg(<<C, Rest/binary>>) when C =< 32 ->
     is_acceptable_svg(Rest);

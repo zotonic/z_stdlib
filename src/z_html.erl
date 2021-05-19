@@ -76,6 +76,7 @@
 % @todo: move this to separate erlang module
 -export([
     flatten_attr/1,
+    sanitize_attr_value/2,
     escape_html_text/2,
     escape_html_comment/2
     ]).
@@ -765,7 +766,8 @@ sanitize_element({M, F, A}, Element, Stack, _Options) ->
     erlang:apply(M, F, [Element, Stack|A]).
 
 
-%% @doc Flatten the sanitized html tree to a binary
+%% @doc Flatten the sanitized html tree to a binary - the attributes are already filtered
+%% using the allow_attr/1 whitelist.
 -spec flatten( z_html_parse:html_element() ) -> binary().
 flatten(B) when is_binary(B) ->
     escape_html_text(B, <<>>);
@@ -778,36 +780,76 @@ flatten({sanitized_html, Html}) ->
     Html;
 flatten({Elt, Attrs, Enclosed}) ->
     EncBin = flatten(Enclosed),
-    Attrs1 = [flatten_attr(Attr) || Attr <- Attrs ],
-    Attrs2 = iolist_to_binary(prefix(32, Attrs1)),
+    Attrs1 = sanitize_attrs(Attrs),
+    Attrs2 = [flatten_attr(Attr) || Attr <- Attrs1 ],
+    Attrs3 = iolist_to_binary(prefix(32, Attrs2)),
     case is_selfclosing(Elt) andalso EncBin == <<>> of
-        true ->  <<$<, Elt/binary, Attrs2/binary, 32, $/, $>>>;
-        false -> <<$<, Elt/binary, Attrs2/binary, $>, EncBin/binary, $<, $/, Elt/binary, $>>>
+        true ->  <<$<, Elt/binary, Attrs3/binary, 32, $/, $>>>;
+        false -> <<$<, Elt/binary, Attrs3/binary, $>, EncBin/binary, $<, $/, Elt/binary, $>>>
     end;
-flatten(L) when is_list(L) -> 
+flatten(L) when is_list(L) ->
     iolist_to_binary([ flatten(A) || A <- L ]).
 
 prefix(Sep, List) -> prefix(Sep,List,[]).
 prefix(_Sep, [], Acc) -> lists:reverse(Acc);
 prefix(Sep, [H|T], Acc) -> prefix(Sep, T, [H,Sep|Acc]).
 
-%% @doc Flatten an attribute to a binary, filter urls and css.
-flatten_attr({<<"style">>,Value}) ->
-    Value1 = escape(filter_css(Value)),
-    <<"style=\"", Value1/binary, $">>;
-flatten_attr({<<"class">>,Value}) ->
-    % Remove all do_xxxx widget manager classes
-    Value1 = escape(filter_widget_class(Value)),
-    <<"class=\"", Value1/binary, $">>;
-flatten_attr({Attr,Value}) ->
-    Value1 = case is_url_attr(Attr) of
-                true -> noscript(Value, Attr =:= <<"href">>);
-                false -> Value
-            end,
-    Value2 = escape(Value1),
-    <<Attr/binary, $=, $", Value2/binary, $">>.
 
-%% @doc Escape smaller-than, greater-than, single and double quotes in texts (&amp; is already removed or escaped).
+sanitize_attrs(Attrs) ->
+    Attrs1 = lists:map(
+        fun({Attr, Value}) ->
+            {Attr, sanitize_attr_value(Attr, Value)}
+        end,
+        Attrs),
+    case lists:keymember(<<"target">>, 1, Attrs1) of
+        true ->
+            % Add 'rel="nofollow noopener noreferrer"' to all
+            % elements with a 'target' attribute, where the href
+            % is not a local link.
+            case proplists:get_value(<<"href">>, Attrs1) of
+                <<"#", _/binary>> -> Attrs1;
+                <<"/", _/binary>> -> Attrs1;
+                _ ->
+                    Rel = proplists:get_value(<<"rel">>, Attrs1, <<>>),
+                    Rels = re:split(Rel, <<"\\s">>),
+                    Rels1 = [ R || R <- Rels, R =/= <<>> ],
+                    Rels2 = Rels1 -- [
+                        <<"follow">>,
+                        <<"opener">>,
+                        <<"referrer">>,
+                        <<"nofollow">>,
+                        <<"noopener">>,
+                        <<"noreferrer">>
+                    ],
+                    Rels3 = [ <<"nofollow">>, <<"noopener">>, <<"noreferrer">> | Rels2 ],
+                    Rels4 = iolist_to_binary( lists:join(32, Rels3) ),
+                    [ {<<"rel">>, Rels4} | proplists:delete(<<"rel">>, Attrs1) ]
+            end;
+        false ->
+            Attrs1
+    end.
+
+sanitize_attr_value(<<"style">>, V) ->
+    filter_css(V);
+sanitize_attr_value(<<"class">>, V) ->
+    % Remove all do_xxxx widget manager classes
+    filter_widget_class(V);
+sanitize_attr_value(<<"href">>, V) ->
+    noscript(V, true);
+sanitize_attr_value(Attr, V) ->
+    case is_url_attr(Attr) of
+        true -> noscript(V, false);
+        false -> V
+    end.
+
+%% @doc Flatten an attribute, attributes have been whitelisted and
+%% the values have been sanitized.
+flatten_attr({Attr,Value}) ->
+    Value1 = escape(Value),
+    <<Attr/binary, $=, $", Value1/binary, $">>.
+
+%% @doc Escape smaller-than, greater-than, single and double quotes in texts
+%% (&amp; is already removed or escaped).
 escape_html_text(<<>>, Acc) ->
     Acc;
 escape_html_text(<<$<, T/binary>>, Acc) ->
@@ -986,36 +1028,38 @@ noscript(Url) ->
     noscript(Url, true).
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
-noscript(Url, IsStrict) ->
-    case nows(z_convert:to_binary(Url), <<>>) of
-        <<"script:", _/binary>> -> <<"#script-removed">>;
-        <<"vbscript:", _/binary>> -> <<"#script-removed">>;
-        <<"javascript:", _/binary>> -> <<"#script-removed">>;
-        <<"data:", _/binary>> when IsStrict -> <<>>;
-        <<"data:", Data/binary>> ->
+noscript(Url0, IsStrict) ->
+    Url = z_string:trim( z_convert:to_binary(Url0) ),
+    case nows(Url, <<>>) of
+        {<<"javascript">>, _} -> <<"#script-removed">>;
+        {<<"script">>, _} -> <<"#script-removed">>;
+        {<<"vbscript">>, _} -> <<"#script-removed">>;
+        {<<"data">>, _} when IsStrict -> <<>>;
+        {<<"data">>, Data} ->
             case noscript_data(Data) of
                 <<>> -> <<>>;
                 Data1 -> <<"data:", Data1/binary>>
             end;
-        <<"mailto:", Rest/binary>> -> <<"mailto:", (z_string:trim(Rest))/binary>>;
-        <<>> -> <<>>;
-        _ -> Url
+        {<<"mailto">>, Rest} -> <<"mailto:", (z_string:trim(Rest))/binary>>;
+        {Protocol, Rest} when is_binary(Protocol) -> <<Protocol/binary, $:, Rest/binary>>;
+        {undefined, <<>>} -> <<>>;
+        {undefined, _} -> Url
     end.
 
 %% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign.
-nows(<<>>, Acc) -> Acc;
-nows(<<$:, Rest/binary>>, Acc) -> <<Acc/binary, $:, Rest/binary>>;
+nows(<<>>, Acc) -> {undefined, Acc};
+nows(<<$:, Rest/binary>>, Acc) -> {Acc, Rest};
 nows(<<$/, Rest/binary>>, Acc) -> <<Acc/binary, $/, Rest/binary>>;
 nows(<<$#, Rest/binary>>, Acc) -> <<Acc/binary, $#, Rest/binary>>;
 nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
 nows(<<$%, A, B, Rest/binary>>, Acc) ->
     case catch erlang:binary_to_integer(<<A, B>>, 16) of
         V when is_integer(V) -> nows(<<V, Rest/binary>>, Acc);
-        _ -> <<>>
+        _ -> {undefined, <<>>}
     end;
 nows(<<$%, _/binary>>, _Acc) ->
     % Illegal: not enough characters left for escape sequence
-    <<>>;
+    {undefined, <<>>};
 nows(<<C, Rest/binary>>, Acc) when C =< 32 -> nows(Rest, Acc);
 nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z -> nows(Rest, <<Acc/binary, (C+32)>>);
 nows(<<C/utf8, Rest/binary>>, Acc) -> nows(Rest, <<Acc/binary, C/utf8>>).
