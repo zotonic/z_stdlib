@@ -1017,6 +1017,7 @@ noscript(Url) ->
     noscript(Url, true).
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
+-spec noscript( list()|binary(), boolean() ) -> binary().
 noscript(Url0, IsStrict) ->
     Url = z_string:trim( z_convert:to_binary(Url0) ),
     case nows(Url, <<>>) of
@@ -1036,10 +1037,11 @@ noscript(Url0, IsStrict) ->
     end.
 
 %% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign.
+-spec nows( binary(), binary() ) -> {binary()|undefined, binary()}.
 nows(<<>>, Acc) -> {undefined, Acc};
 nows(<<$:, Rest/binary>>, Acc) -> {Acc, Rest};
-nows(<<$/, Rest/binary>>, Acc) -> <<Acc/binary, $/, Rest/binary>>;
-nows(<<$#, Rest/binary>>, Acc) -> <<Acc/binary, $#, Rest/binary>>;
+nows(<<$/, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $/, Rest/binary>>};
+nows(<<$#, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $#, Rest/binary>>};
 nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
 nows(<<$%, A, B, Rest/binary>>, Acc) ->
     case catch erlang:binary_to_integer(<<A, B>>, 16) of
