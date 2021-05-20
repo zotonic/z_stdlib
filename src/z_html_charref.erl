@@ -291,7 +291,7 @@ entity(_) -> undefined.
 -include_lib("eunit/include/eunit.hrl").
 
 exhaustive_entity_test() ->
-    T = mochiweb_cover:clause_lookup_table(?MODULE, entity),
+    T = z_cover:clause_lookup_table(?MODULE, entity),
     [?assertEqual(V, entity(K)) || {K, V} <- T].
 
 charref_test() ->

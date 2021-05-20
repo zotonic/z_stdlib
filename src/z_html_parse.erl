@@ -169,7 +169,7 @@ escape_attr(S) when is_list(S) ->
 escape_attr(I) when is_integer(I) ->
     escape_attr(integer_to_list(I), []);
 escape_attr(F) when is_float(F) ->
-    escape_attr(mochinum:digits(F), []).
+    escape_attr(z_mochinum:digits(F), []).
 
 to_html(Tree, Acc) ->
     to_html(Tree, Acc, true).
@@ -1464,7 +1464,7 @@ parse_test() ->
     ok.
 
 exhaustive_is_singleton_test() ->
-    T = mochiweb_cover:clause_lookup_table(?MODULE, is_singleton),
+    T = z_cover:clause_lookup_table(?MODULE, is_singleton),
     [?assertEqual(V, is_singleton(K)) || {K, V} <- T].
 
 tokenize_attributes_test() ->
