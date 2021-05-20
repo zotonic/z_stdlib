@@ -48,23 +48,13 @@
 
 %%% URL ENCODE %%%
 
+-spec url_encode( string() | atom() | float() | integer() | binary() ) -> binary().
 url_encode(S) ->
-    %% @todo possible speedups for binaries
-    mochiweb_util:quote_plus(S).
+    cow_qs:urlencode( z_convert:to_binary(S) ).
 
+-spec url_decode( string() | binary() ) -> binary().
 url_decode(S) ->
-    lists:reverse(url_decode(S, [])).
-
-    url_decode([], Acc) ->
-      Acc;
-    url_decode([$%, A, B|Rest], Acc) ->
-      Ch = erlang:list_to_integer([A, B], 16),
-      url_decode(Rest, [Ch|Acc]);
-    url_decode([$+|Rest], Acc) ->
-      url_decode(Rest, [32|Acc]);
-    url_decode([Ch|Rest], Acc) ->
-      url_decode(Rest, [Ch|Acc]).
-
+    cow_qs:urldecode( z_convert:to_binary(S) ).
 
 %%% URL PATH ENCODE %%%
 
@@ -116,6 +106,7 @@ percent_encode([C|Etc], Encoded) ->
 
 
 %% @doc Naive function to remove the protocol from an Url
+-spec remove_protocol( string() | binary() ) -> string() | binary().
 remove_protocol("://" ++ Rest) -> Rest;
 remove_protocol(":" ++ Rest) -> Rest;
 remove_protocol([_|T]) -> remove_protocol(T);
