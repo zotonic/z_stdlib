@@ -499,8 +499,6 @@ to_name1(<<V/utf8, Rest/binary>>, Acc) when V >= $a, V =< $z ->
     to_name1(Rest, <<Acc/binary, V/utf8>>);
 to_name1(<<V/utf8, Rest/binary>>, Acc) when V >= $0, V =< $9 ->
     to_name1(Rest, <<Acc/binary, V/utf8>>);
-to_name1(<<32, Rest/binary>>, Acc) ->
-    to_name1(Rest, <<Acc/binary, 32>>);
 to_name1(<<"@", Rest/binary>>, Acc) ->
     to_name1(Rest, <<Acc/binary,$_,$a,$t,$_>>);
 to_name1(<<_/utf8, Rest/binary>>, Acc) ->
@@ -531,7 +529,7 @@ normalize(T) ->
 normalize(<<>>, Acc) ->
     Acc;
 normalize(<<C, T/binary>>, Acc) when C >= $A andalso C =< $Z ->
-    normalize(T, <<Acc/binary,C>>);
+    normalize(T, <<Acc/binary,(C + 32)>>);
 normalize(<<C,T/binary>>, Acc) when (C >= $a andalso C =< $z) orelse (C >= $0 andalso C =< $9) orelse C =:= $_ ->
     normalize(T, <<Acc/binary,C>>);
 normalize(<<"ä"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
