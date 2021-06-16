@@ -156,7 +156,7 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
                 undefined -> [];
                 Auth -> [ {"Authorization", to_list(Auth)} ]
             end,
-            case fetch_stream(start_stream(Url, Headers, Opts), Max, OutDev) of
+            case fetch_stream(start_stream(Host, Url, Headers, Opts), Max, OutDev) of
                 {ok, Result} ->
                     maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
                 {error, _} = Error ->
@@ -193,7 +193,7 @@ start_stream(Host, Url, Headers, Opts) ->
         true ->
             [ {verify, verify_none} ];
         _ ->
-            tls_certificate_check:options(Host)}
+            tls_certificate_check:options(Host)
     end,
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     HttpOptions = [
@@ -206,7 +206,7 @@ start_stream(Host, Url, Headers, Opts) ->
     try
         httpc:request(get,
                       {Url, Headers},
-                      [],
+                      HttpOptions,
                       [ {sync, false}, {body_format, binary}, {stream, {self, once}} ],
                       profile(Url))
     catch
