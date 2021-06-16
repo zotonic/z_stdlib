@@ -151,7 +151,7 @@ is_link_property(_) -> false.
 content_disp_filename(undefined) ->
     undefined;
 content_disp_filename(Vs) ->
-    {_Disp, Options} = mochiweb_util:parse_header(Vs),
+    {_Disp, Options} = parse_header(Vs),
     case proplists:get_value("filename", Options) of
         undefined -> undefined;
         "" -> undefined;
@@ -163,12 +163,60 @@ basename(<<"data:", _/binary>>) ->
 basename("data:" ++ _) ->
     undefined;
 basename(Url) ->
-    {_Protocol, _Host, Path, _Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
+    #{ path := Path } = uri_string:parse( z_convert:to_binary(Url) ),
     case Path of
-        [] -> undefined;
-        "/" -> undefined;
-        _ -> z_convert:to_binary(lists:last(string:tokens(Path, "/")))
+        <<>> -> undefined;
+        <<"/">> -> undefined;
+        _ ->
+            case lists:last( binary:split(Path, <<"/">>, [ global ]) ) of
+                <<>> -> undefined;
+                Basename -> Basename
+            end
     end.
+
+
+%% ------------------------------------------------ From Mochiweb ------------------------------------------------
+
+%% @author Bob Ippolito <bob@mochimedia.com>
+%% @copyright 2007 Mochi Media, Inc.
+
+%% @spec parse_header(string()) -> {Type, [{K, V}]}
+%% @doc  Parse a Content-Type like header, return the main Content-Type
+%%       and a property list of options.
+parse_header(String) ->
+    %% TODO: This is exactly as broken as Python's cgi module.
+    %%       Should parse properly like mochiweb_cookies.
+    [Type | Parts] = [string:strip(S) || S <- string:tokens(String, ";")],
+    F = fun (S, Acc) ->
+                case lists:splitwith(fun (C) -> C =/= $= end, S) of
+                    {"", _} ->
+                        %% Skip anything with no name
+                        Acc;
+                    {_, ""} ->
+                        %% Skip anything with no value
+                        Acc;
+                    {Name, [$\= | Value]} ->
+                        [{string:to_lower(string:strip(Name)),
+                          unquote_header(string:strip(Value))} | Acc]
+                end
+        end,
+    {string:to_lower(Type),
+     lists:foldr(F, [], Parts)}.
+
+unquote_header("\"" ++ Rest) ->
+    unquote_header(Rest, []);
+unquote_header(S) ->
+    S.
+
+unquote_header("", Acc) ->
+    lists:reverse(Acc);
+unquote_header("\"", Acc) ->
+    lists:reverse(Acc);
+unquote_header([$\\, C | Rest], Acc) ->
+    unquote_header(Rest, [C | Acc]);
+unquote_header([C | Rest], Acc) ->
+    unquote_header(Rest, [C | Acc]).
+
 
 %% -------------------------------------- Analyze fetched data -----------------------------------------
 
@@ -191,19 +239,17 @@ partial_metadata(Url, Hs, Data) ->
     }.
 
 is_index_page(Url) ->
-    {_Protocol, _Host, Path, Qs, _Hash} = mochiweb_util:urlsplit(z_convert:to_list(Url)),
-    case Qs of
-        [] ->
-            case Path of
-                [] -> true;
-                "/" -> true;
-                "index." ++ _ -> true;
-                "default.htm" -> true;
-                "Default.htm" -> true;
-                _ -> false
-            end;
-        _ ->
-            false
+    case uri_string:parse( z_convert:to_binary(Url) ) of
+        #{ query := _ } -> false;
+        #{ path := <<>> } -> true;
+        #{ path := <<"/">> } -> true;
+        #{ path := <<"/index.", _/binary>> } -> true;
+        #{ path := <<"/default.htm">> } -> true;
+        #{ path := <<"/Default.htm">> } -> true;
+        #{ path := <<"index.", _/binary>> } -> true;
+        #{ path := <<"default.htm">> } -> true;
+        #{ path := <<"Default.htm">> } -> true;
+        _ -> false
     end.
 
 html_meta(Data) ->
@@ -437,7 +483,7 @@ content_type(Hs) ->
         undefined ->
             {<<"application/octet-stream">>, []};
         CT ->
-            {Mime, Options} = mochiweb_util:parse_header(CT),
+            {Mime, Options} = parse_header(CT),
             {z_convert:to_binary(Mime), Options}
     end.
 

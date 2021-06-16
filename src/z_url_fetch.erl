@@ -139,7 +139,7 @@ fetch_partial(Url0, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?
     {error, too_many_redirects};
 fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
     httpc_flush(),
-    Url = normalize_url(Url0),
+    Url = to_list( normalize_url(Url0) ),
     Headers = [
         {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
         {"Accept-Encoding", "identity"},
@@ -164,18 +164,24 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
 to_list(B) when is_binary(B) -> binary_to_list(B);
 to_list(L) when is_list(L) -> L.
 
+-spec normalize_url(string() | binary()) -> binary().
 normalize_url(Url) ->
-    {Protocol, Host, Path, Qs, _Frag} = mochiweb_util:urlsplit(Url),
-    lists:flatten([
-            normalize_protocol(Protocol), "://", Host, Path,
-            case Qs of
-                [] -> [];
-                _ -> [ $?, Qs ]
-            end
-        ]).
-
-normalize_protocol("") -> "http";
-normalize_protocol(Protocol) -> Protocol.
+    case uri_string:parse(z_convert:to_binary(Url)) of
+        #{
+            host := Host,
+            path := Path
+        } = Parts ->
+            Scheme = maps:get(scheme, Parts, <<"http">>),
+            Query = case maps:get('query', Parts, <<>>) of
+                <<>> -> <<>>;
+                Q -> <<"?", Q/binary>>
+            end,
+            iolist_to_binary([
+                Scheme, "://", Host, Path, Query
+                ]);
+        _ ->
+            <<>>
+    end.
 
 start_stream(Url, Headers, Opts) ->
     try

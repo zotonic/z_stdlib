@@ -206,15 +206,31 @@ inner_decode(Data, Base) when is_list(Data) ->
 
 -spec split_base_host(string()|binary()) -> {binary(), binary()}.
 split_base_host(Base) ->
-    {Protocol, Host, Path, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Base)),
-    BaseHost = iolist_to_binary([Protocol, "://", Host]),
-    Path1 = lists:reverse(
-              lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
-    Path2 = case Path1 of
-                [$/|_] -> Path1;
-                _ -> [$/, Path1]
+    BaseB = z_convert:to_binary(Base),
+    Parts = uri_string:parse(BaseB),
+    case Parts of
+        #{
+            host := Host,
+            path := Path
+        } ->
+            Path1 = case binary:split(Path, <<"/">>, [ global, trim_all ]) of
+                [] -> <<>>;
+                Ps ->
+                    iolist_to_binary(
+                        lists:map(
+                            fun(P) -> [ P, $/ ] end,
+                            lists:reverse( tl( lists:reverse(Ps) ) ) ))
             end,
-    {BaseHost, iolist_to_binary([BaseHost, Path2])}.
+            Scheme = maps:get(scheme, Parts, <<"http">>),
+            BaseHost = <<Scheme/binary, "://", Host/binary>>,
+            BaseHost1 = case maps:get(port, Parts, none) of
+                none -> BaseHost;
+                N -> <<BaseHost/binary, ":", (integer_to_binary(N))/binary>>
+            end,
+            {BaseHost1, <<BaseHost1/binary, "/", Path1/binary>>};
+        _ ->
+            {<<>>, BaseB}
+    end.
 
 
 %% @doc Given a relative URL and a base URL, calculate the absolute URL.
@@ -238,13 +254,18 @@ make_abs_link(<<"data:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"./", Rest/binary>>, Host, HostDir) ->
     make_abs_link(Rest, Host, HostDir);
 make_abs_link(<<"//", _/binary>> = Url, Host, _HostDir) ->
-    {Proto, _, _, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Host)),
-    [Proto, ":", Url];
-make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) -> [Host, Url];
+    case Host of
+        <<"http:", _/binary>> -> <<"http:", Url/binary>>;
+        <<"https:", _/binary>> -> <<"https:", Url/binary>>;
+        _ -> <<"http:", Url/binary>>
+    end;
+make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) ->
+    [Host, Url];
 make_abs_link(<<"../", Rest/binary>>, Host, HostDir) ->
     HostDirOneUp = re:replace(HostDir, "^(.*//.*/)[^/]+/$", "\\1", [{return, binary}]),
     make_abs_link(Rest, Host, HostDirOneUp);
-make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
+make_abs_link(Url, _Host, HostDir) ->
+    [HostDir, Url].
 
 
 %% @doc Decode a "data:" url to its parts.
