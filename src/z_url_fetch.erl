@@ -21,7 +21,7 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 %% Maximum nmber of bytes fetched for metadata extraction
--define(HTTPC_LENGTH, 32*1024).
+-define(HTTPC_LENGTH, 64*1024).
 -define(HTTPC_MAX_LENGTH, 1024*1024*100).  % Max 100MB
 
 %% Number of redirects followed before giving up
@@ -55,7 +55,8 @@
 -type option() :: {device, pid()}
                 | {timeout, pos_integer()}
                 | {max_length, pos_integer()}
-                | {authorization, binary() | string()}.
+                | {authorization, binary() | string()}
+                | insecure.
 
 -export_type([
     options/0,
@@ -139,50 +140,73 @@ fetch_partial(Url0, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?
     {error, too_many_redirects};
 fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
     httpc_flush(),
-    Url = normalize_url(Url0),
-    Headers = [
-        {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
-        {"Accept-Encoding", "identity"},
-        {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
-        {"Accept-Language", "en,*;q=0"},
-        {"User-Agent", httpc_ua(Url)}
-    ] ++ case Max of
-        undefined -> [];
-        _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
-    end ++ case proplists:get_value(authorization, Opts) of
-        undefined -> [];
-        Auth -> [ {"Authorization", to_list(Auth)} ]
-    end,
-    case fetch_stream(start_stream(Url, Headers, Opts), Max, OutDev) of
-        {ok, Result} ->
-            maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
+    case normalize_url(Url0) of
+        {ok, {Host, UrlBin}} ->
+            Url = to_list(UrlBin),
+            Headers = [
+                {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
+                {"Accept-Encoding", "identity"},
+                {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
+                {"Accept-Language", "en,*;q=0"},
+                {"User-Agent", httpc_ua(Url)}
+            ] ++ case Max of
+                undefined -> [];
+                _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
+            end ++ case proplists:get_value(authorization, Opts) of
+                undefined -> [];
+                Auth -> [ {"Authorization", to_list(Auth)} ]
+            end,
+            case fetch_stream(start_stream(Host, Url, Headers, Opts), Max, OutDev) of
+                {ok, Result} ->
+                    maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
+                {error, _} = Error ->
+                    error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
+                    Error
+            end;
         {error, _} = Error ->
-            error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
             Error
     end.
 
 to_list(B) when is_binary(B) -> binary_to_list(B);
 to_list(L) when is_list(L) -> L.
 
+-spec normalize_url(string() | binary()) -> {ok, {binary(), binary()}} | {error, url}.
 normalize_url(Url) ->
-    {Protocol, Host, Path, Qs, _Frag} = mochiweb_util:urlsplit(Url),
-    lists:flatten([
-            normalize_protocol(Protocol), "://", Host, Path,
-            case Qs of
-                [] -> [];
-                _ -> [ $?, Qs ]
-            end
-        ]).
+    case uri_string:parse(z_convert:to_binary(Url)) of
+        #{
+            host := Host,
+            path := Path
+        } = Parts ->
+            Scheme = maps:get(scheme, Parts, <<"http">>),
+            Query = case maps:get('query', Parts, <<>>) of
+                <<>> -> <<>>;
+                Q -> <<"?", Q/binary>>
+            end,
+            Url1 = iolist_to_binary([ Scheme, "://", Host, Path, Query ]),
+            {ok, {Host, Url1}};
+        _ ->
+            {error, url}
+    end.
 
-normalize_protocol("") -> "http";
-normalize_protocol(Protocol) -> Protocol.
-
-start_stream(Url, Headers, Opts) ->
+start_stream(Host, Url, Headers, Opts) ->
+    SSLOptions = case proplists:get_value(insecure, Opts) of
+        true ->
+            [ {verify, verify_none} ];
+        _ ->
+            tls_certificate_check:options(Host)
+    end,
+    Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
+    HttpOptions = [
+        {autoredirect, false},
+        {relaxed, true},
+        {timeout, Timeout},
+        {connect_timeout, ?HTTPC_TIMEOUT_CONNECT},
+        {ssl, SSLOptions}
+     ],
     try
-        Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
         httpc:request(get,
                       {Url, Headers},
-                      [ {autoredirect, false}, {relaxed, true}, {timeout, Timeout}, {connect_timeout, ?HTTPC_TIMEOUT_CONNECT} ],
+                      HttpOptions,
                       [ {sync, false}, {body_format, binary}, {stream, {self, once}} ],
                       profile(Url))
     catch

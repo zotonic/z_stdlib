@@ -48,23 +48,13 @@
 
 %%% URL ENCODE %%%
 
+-spec url_encode( string() | atom() | float() | integer() | binary() ) -> binary().
 url_encode(S) ->
-    %% @todo possible speedups for binaries
-    mochiweb_util:quote_plus(S).
+    cow_qs:urlencode( z_convert:to_binary(S) ).
 
+-spec url_decode( string() | binary() ) -> binary().
 url_decode(S) ->
-    lists:reverse(url_decode(S, [])).
-
-    url_decode([], Acc) ->
-      Acc;
-    url_decode([$%, A, B|Rest], Acc) ->
-      Ch = erlang:list_to_integer([A, B], 16),
-      url_decode(Rest, [Ch|Acc]);
-    url_decode([$+|Rest], Acc) ->
-      url_decode(Rest, [32|Acc]);
-    url_decode([Ch|Rest], Acc) ->
-      url_decode(Rest, [Ch|Acc]).
-
+    cow_qs:urldecode( z_convert:to_binary(S) ).
 
 %%% URL PATH ENCODE %%%
 
@@ -116,6 +106,7 @@ percent_encode([C|Etc], Encoded) ->
 
 
 %% @doc Naive function to remove the protocol from an Url
+-spec remove_protocol( string() | binary() ) -> string() | binary().
 remove_protocol("://" ++ Rest) -> Rest;
 remove_protocol(":" ++ Rest) -> Rest;
 remove_protocol([_|T]) -> remove_protocol(T);
@@ -215,15 +206,31 @@ inner_decode(Data, Base) when is_list(Data) ->
 
 -spec split_base_host(string()|binary()) -> {binary(), binary()}.
 split_base_host(Base) ->
-    {Protocol, Host, Path, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Base)),
-    BaseHost = iolist_to_binary([Protocol, "://", Host]),
-    Path1 = lists:reverse(
-              lists:dropwhile(fun(C) -> C /= $/ end, lists:reverse(Path))),
-    Path2 = case Path1 of
-                [$/|_] -> Path1;
-                _ -> [$/, Path1]
+    BaseB = z_convert:to_binary(Base),
+    Parts = uri_string:parse(BaseB),
+    case Parts of
+        #{
+            host := Host,
+            path := Path
+        } ->
+            Path1 = case binary:split(Path, <<"/">>, [ global, trim_all ]) of
+                [] -> <<>>;
+                Ps ->
+                    iolist_to_binary(
+                        lists:map(
+                            fun(P) -> [ P, $/ ] end,
+                            lists:reverse( tl( lists:reverse(Ps) ) ) ))
             end,
-    {BaseHost, iolist_to_binary([BaseHost, Path2])}.
+            Scheme = maps:get(scheme, Parts, <<"http">>),
+            BaseHost = <<Scheme/binary, "://", Host/binary>>,
+            BaseHost1 = case maps:get(port, Parts, none) of
+                none -> BaseHost;
+                N -> <<BaseHost/binary, ":", (integer_to_binary(N))/binary>>
+            end,
+            {BaseHost1, <<BaseHost1/binary, "/", Path1/binary>>};
+        _ ->
+            {<<>>, BaseB}
+    end.
 
 
 %% @doc Given a relative URL and a base URL, calculate the absolute URL.
@@ -247,13 +254,18 @@ make_abs_link(<<"data:", _/binary>> = Url, _Host, _HostDir) -> Url;
 make_abs_link(<<"./", Rest/binary>>, Host, HostDir) ->
     make_abs_link(Rest, Host, HostDir);
 make_abs_link(<<"//", _/binary>> = Url, Host, _HostDir) ->
-    {Proto, _, _, _, _} = mochiweb_util:urlsplit(z_convert:to_list(Host)),
-    [Proto, ":", Url];
-make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) -> [Host, Url];
+    case Host of
+        <<"http:", _/binary>> -> <<"http:", Url/binary>>;
+        <<"https:", _/binary>> -> <<"https:", Url/binary>>;
+        _ -> <<"http:", Url/binary>>
+    end;
+make_abs_link(<<"/", _/binary>> = Url, Host, _HostDir) ->
+    [Host, Url];
 make_abs_link(<<"../", Rest/binary>>, Host, HostDir) ->
     HostDirOneUp = re:replace(HostDir, "^(.*//.*/)[^/]+/$", "\\1", [{return, binary}]),
     make_abs_link(Rest, Host, HostDirOneUp);
-make_abs_link(Url, _Host, HostDir) -> [HostDir, Url].
+make_abs_link(Url, _Host, HostDir) ->
+    [HostDir, Url].
 
 
 %% @doc Decode a "data:" url to its parts.

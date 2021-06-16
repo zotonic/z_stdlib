@@ -2,7 +2,7 @@
     {description, "Zotonic standard library"},
     {vsn, "git"},
     {registered, []},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, tls_certificate_check]},
     {env, []},
     {modules, []},
     {maintainers, ["Zotonic Team"]},

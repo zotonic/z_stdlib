@@ -280,7 +280,7 @@ serialize_simpleselector({hash, _Line, V}) -> V;
 serialize_simpleselector({class, {ident, _Line, V}}) -> [ $., V ];
 serialize_simpleselector({attrib, {ident, _Line, V}, AttrOpVal}) -> [ $[, V, serialize_attr_opval(AttrOpVal), $] ];
 serialize_simpleselector({pseudo, {ident, _Line, V}}) -> [ $:, V ];
-serialize_simpleselector({pseudo, {function, {function, _Line, F}, {ident, _Line, V}}}) -> [ $:, F, V, $) ].
+serialize_simpleselector({pseudo, {function, {function, _LineF, F}, {ident, _LineI, V}}}) -> [ $:, F, V, $) ].
 
 serialize_attr_opval(undefined) -> <<>>;
 serialize_attr_opval({'=', AttrVal}) -> [ $=, serialize_attr_val(AttrVal) ];
