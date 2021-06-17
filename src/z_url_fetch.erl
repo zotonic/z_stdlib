@@ -178,11 +178,15 @@ normalize_url(Url) ->
             path := Path
         } = Parts ->
             Scheme = maps:get(scheme, Parts, <<"http">>),
+            Port = case maps:get(port, Parts, undefined) of
+                undefined -> <<>>;
+                P -> <<$:,(integer_to_binary(P))/binary>>
+            end,
             Query = case maps:get('query', Parts, <<>>) of
                 <<>> -> <<>>;
                 Q -> <<"?", Q/binary>>
             end,
-            Url1 = iolist_to_binary([ Scheme, "://", Host, Path, Query ]),
+            Url1 = iolist_to_binary([ Scheme, "://", Host, Port, Path, Query ]),
             {ok, {Host, Url1}};
         _ ->
             {error, url}
