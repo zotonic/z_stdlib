@@ -279,6 +279,10 @@ html([], MD, _P) ->
 html([B|Es], MD, P) when is_binary(B) ->
     html(Es, MD, P);
 html([{comment, _}|Es], MD, P) ->
+    % <!-- ... -->
+    html(Es, MD, P);
+html([{pi, _Xml, _Attrs}|Es], MD, P) ->
+    % <?xml version="1.0" encoding="UTF-8"?>
     html(Es, MD, P);
 html([Tag|Es], MD, P) ->
     {MD1, P1} = tag(Tag, MD, P),
