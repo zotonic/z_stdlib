@@ -112,3 +112,13 @@ trim_utf8_list_test() ->
     <<"üçgen"/utf8>> = z_string:trim([A]),
     ok.
 
+truncate_test() ->
+    ?assertEqual(<<"foox">>, z_string:truncate(<<"foo bar">>, 4, <<"x">>)),
+    ?assertEqual(<<"f&amp;ox">>, z_string:truncate(<<"f&amp;o bar">>, 4, <<"x">>)),
+    ?assertEqual(<<"f<br>ox">>, z_string:truncate(<<"f<br>o bar">>, 4, <<"x">>)).
+
+truncatechars_test() ->
+    ?assertEqual(<<"foo x">>, z_string:truncatechars(<<"foo bar">>, 4, <<"x">>)).
+
+truncatewords_test() ->
+    ?assertEqual(<<"foo bar x">>, z_string:truncatewords(<<"foo bar bla">>, 2, <<"x">>)).
