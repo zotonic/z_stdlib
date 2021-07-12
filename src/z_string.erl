@@ -60,6 +60,8 @@
     sanitize_utf8/1,
     truncate/2,
     truncate/3,
+    truncatechars/2,
+    truncatechars/3,
     truncatewords/2,
     truncatewords/3,
     split_lines/1,
@@ -183,22 +185,22 @@ is_whitespace(65279) -> true;
 is_whitespace(_) -> false.
 
 %% @doc Return the first character of a string.
--spec first_char(binary()|list()) -> pos_integer().
+-spec first_char(binary()|list()) -> non_neg_integer().
 first_char(<<>>) -> undefined;
 first_char(<<C/utf8, _/binary>>) -> C;
 first_char(<<C, _/binary>>) -> C;   %% illegal UTF-8, do not crash
-first_char([]) -> undefined;
-first_char([C|_]) when is_integer(C), C < 128 ->
-    C;
-first_char([H|_] = L) when is_integer(H) ->
-    <<C/utf8, _/binary>> = z_convert:to_binary(truncate(L, 1, <<>>)),
-    C.
+first_char([H|_]) when is_integer(H), H >= 0 -> H;
+first_char(_) -> undefined.
 
 
 %% @doc Return the last character of a string
--spec last_char(binary()|string()) -> pos_integer().
+-spec last_char(binary()|string()) -> non_neg_integer().
 last_char([]) -> undefined;
-last_char(L) when is_list(L) -> last_char(z_convert:to_binary(L));
+last_char(L) when is_list(L) ->
+    case lists:last(L) of
+        C when is_integer(C), C >= 0 -> C;
+        _ -> undefined
+    end;
 last_char(<<>>) -> undefined;
 last_char(<<C/utf8>>) -> C;
 last_char(<<_, R/binary>>) -> last_char(R).
@@ -847,7 +849,7 @@ truncate(_, 0, Append, _, <<>>, _AccState, Acc) ->
 truncate(_, 0, Append, _LastState, Last, _AccState, _Acc) ->
     <<Last/binary, Append/binary>>;
 
-%% HTML element (we only allow self closing elements like <br/> and <hr/>)
+%% HTML element (we only allow self closing elements like <br> and <hr>)
 truncate(<<$>,Rest/binary>>, N, Append, _LastState, Last, in_element, Acc) ->
     truncate(Rest, N, Append, sentence, Last, in_word, <<Acc/binary,$>>>);
 
@@ -877,7 +879,7 @@ truncate(<<C,Rest/binary>>, N, Append, LastState, Last, AccState, Acc)
             _       -> truncate(Rest, N-1, Append, LastState, Last, word, <<Acc/binary,C>>)
         end;
 truncate(<<$&,_/binary>>=Input, N, Append, LastState, Last, AccState, Acc) ->
-    {Rest1,Acc1} = get_entity(Input,Acc),
+    {Rest1, _EntityLen, Acc1} = get_entity(Input, 0, Acc),
     case AccState of
         in_word -> truncate(Rest1, N-1, Append, word, Acc1, word, Acc1);
         _       -> truncate(Rest1, N-1, Append, LastState, Last, word, Acc1)
@@ -890,14 +892,41 @@ truncate(<<_, Rest/binary>>, N, Append, LastState, Last, AccState, Acc) ->
     truncate(Rest, N, Append, LastState, Last, AccState, Acc).
 
 
-get_entity(<<>>, Acc) ->
-    {<<>>, Acc};
-get_entity(<<$;,Rest/binary>>, Acc) ->
-    {Rest,<<Acc/binary,$;>>};
-get_entity(<<C,Rest/binary>>, Acc) ->
-    get_entity(Rest, <<Acc/binary,C>>).
+get_entity(<<>>, N, Acc) ->
+    {<<>>, N, Acc};
+get_entity(<<$;,Rest/binary>>, N, Acc) ->
+    {Rest, N+1, <<Acc/binary,$;>>};
+get_entity(<<C/utf8,Rest/binary>>, N, Acc) ->
+    get_entity(Rest, N+1, <<Acc/binary,C/utf8>>).
 
 
+%% @doc Truncate a string, count all characters. No special handling of entities and tags.
+-spec truncatechars( String :: undefined | string() | binary(), Length :: integer() ) -> undefined | binary().
+truncatechars(undefined, _) ->
+    undefined;
+truncatechars(S, N) ->
+    truncate(S, N, <<>>).
+
+-spec truncatechars( String :: undefined | string() | binary(), Length :: integer(), Append :: binary() | string() ) -> binary().
+truncatechars(_L, N, _Append) when N =< 0 ->
+    <<>>;
+truncatechars(B, N, Append) when is_binary(B), is_binary(Append) ->
+    truncatechars(B, N, Append, <<>>);
+truncatechars(L, N, Append) ->
+    truncatechars(z_convert:to_binary(L), N, z_convert:to_binary(Append)).
+
+truncatechars(<<>>, _, _Append, Acc) ->
+    Acc;
+truncatechars(_, 0, Append, Acc) ->
+    <<Acc/binary, Append/binary>>;
+truncatechars(<<C/utf8,Rest/binary>>, N, Append, Acc) ->
+    truncatechars(Rest, N-1, Append, <<Acc/binary,C/utf8>>);
+truncatechars(<<_, Rest/binary>>, N, Append, Acc) ->
+    % Silently drop non-utf-8 characters
+    truncatechars(Rest, N, Append, Acc).
+
+
+%% @doc Truncate a string, count all words. No special handling of entities and tags.
 truncatewords(undefined, _) ->
     undefined;
 truncatewords(S, Words) ->
