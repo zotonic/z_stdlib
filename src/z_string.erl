@@ -154,7 +154,8 @@ trim_right(<<>>, _Char, _WS, Acc) ->
 -spec is_string(iodata()) -> boolean().
 is_string(<<>>) ->
     true;
-is_string(<<_/utf8, Rest/binary>>) ->
+is_string(<<C/utf8, Rest/binary>>) when
+        C >= 32 orelse C =:= 9 orelse C =:= 10 orelse C =:= 12 orelse C =:= 13 ->
     is_string(Rest);
 is_string(<<_, _/binary>>) ->
     false;
