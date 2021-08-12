@@ -1,8 +1,8 @@
 % @author Marc Worrell
-%% @copyright 2014 Marc Worrell
+%% @copyright 2014-2021 Marc Worrell
 %% @doc Fetch (part of) the data of an Url, including its headers.
 
-%% Copyright 2014 Marc Worrell
+%% Copyright 2014-2021 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@
 %% Some servers handle Twitterbot extra nicely and give it better metadata.
 -define(HTTPC_UA, "Twitterbot").
 
+% Default Accept header
+-define(HTTP_ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8").
 
 -export([
     fetch/2,
@@ -56,6 +58,9 @@
                 | {timeout, pos_integer()}
                 | {max_length, pos_integer()}
                 | {authorization, binary() | string()}
+                | {accept, binary() | string()}
+                | {user_agent, binary() | string()}
+                | {language, atom()}
                 | insecure.
 
 -export_type([
@@ -143,12 +148,15 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
     case normalize_url(Url0) of
         {ok, {Host, UrlBin}} ->
             Url = to_list(UrlBin),
+            Language = z_convert:to_list(proplists:get_value(language, Opts, en)),
+            Accept = z_convert:to_list(proplists:get_value(accept, Opts, ?HTTP_ACCEPT)),
+            UserAgent = z_convert:to_list(proplists:get_value(user_agent, Opts, httpc_ua(Url))),
             Headers = [
-                {"Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
+                {"Accept", Accept},
                 {"Accept-Encoding", "identity"},
                 {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
-                {"Accept-Language", "en,*;q=0"},
-                {"User-Agent", httpc_ua(Url)}
+                {"Accept-Language", Language ++ ",*;q=0"},
+                {"User-Agent", UserAgent}
             ] ++ case Max of
                 undefined -> [];
                 _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
