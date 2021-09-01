@@ -177,8 +177,8 @@ basename(Url) ->
 
 %% ------------------------------------------------ From Mochiweb ------------------------------------------------
 
-%% @author Bob Ippolito <bob@mochimedia.com>
-%% @copyright 2007 Mochi Media, Inc.
+%% author Bob Ippolito <bob@mochimedia.com>
+%% copyright 2007 Mochi Media, Inc.
 
 %% @spec parse_header(string()) -> {Type, [{K, V}]}
 %% @doc  Parse a Content-Type like header, return the main Content-Type
