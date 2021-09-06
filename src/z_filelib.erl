@@ -1,9 +1,9 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2017 Marc Worrell
+%% @copyright 2017-2021 Marc Worrell
 %%
 %% @doc Extra file functions.
 
-%% Copyright 2017 Marc Worrell
+%% Copyright 2017-2021 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 -export([
     ensure_dir/1,
-    os_filename/1
+    os_filename/1,
+    os_escape/1
     ]).
 
 %% @doc Ensure the directory of a file is present. This will still work
@@ -101,3 +102,53 @@ os_filename_bs([$'|Rest], Acc) ->
 os_filename_bs([C|Rest], Acc) ->
     os_filename(Rest, [C,$\\|Acc]).
 
+
+%% @doc Simple escape function for command line arguments
+-spec os_escape(string()|binary()|undefined) -> string().
+os_escape(undefined) ->
+    "";
+os_escape(A) when is_binary(A) ->
+    os_escape(binary_to_list(A));
+os_escape(A) when is_list(A) ->
+    {Family, _} = os:type(),
+    os_escape(Family, lists:flatten(A), []).
+
+os_escape(_, [], Acc) ->
+    lists:reverse(Acc);
+os_escape(unix, [C|Rest], Acc) when
+      (C >= $A andalso C =< $Z)
+      orelse (C >= $a andalso C =< $z)
+      orelse (C >= $0 andalso C =< $9)
+      orelse C == $_
+      orelse C == $.
+      orelse C == $-
+      orelse C == $+
+      orelse C == $/
+      ->
+    os_escape(unix, Rest, [C|Acc]);
+os_escape(unix, [C|Rest], Acc) when
+      C >= 32
+      orelse  C == $\r
+      orelse  C == $\n
+      orelse  C == $\t
+      ->
+    os_escape(unix, Rest, [C,$\\|Acc]);
+
+%% Win32 escaping, see: http://www.microsoft.com/resources/documentation/windows/xp/all/proddocs/en-us/ntcmds_shelloverview.mspx
+os_escape(win32, [C|Rest], Acc) when
+      C == $&
+      orelse C == $|
+      orelse C == $;
+      orelse C == $,
+      orelse C == $%
+      orelse C == $(
+      orelse C == $)
+      orelse C == $"
+      orelse C == $'
+      orelse C == $=
+      orelse C == $^
+      orelse C == 32
+      ->
+    os_escape(win32, Rest, [C,$^|Acc]);
+os_escape(win32, [C|Rest], Acc) ->
+    os_escape(win32, Rest, [C|Acc]).
