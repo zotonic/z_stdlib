@@ -29,10 +29,15 @@
 
 -include("../include/z_url_metadata.hrl").
 
+
+-type z_url_metadata() :: #url_metadata{}.
+
+-export_type([ z_url_metadata/0 ]).
+
 -define(FETCH_LENGTH, 256*1024).
 
 %% @doc Fetch metadata information for the URL
--spec fetch(binary()|string()) -> {ok, #url_metadata{}} | {error, term()}.
+-spec fetch(binary()|string()) -> {ok, z_url_metadata()} | {error, term()}.
 fetch(Url) ->
     case z_url_fetch:fetch_partial(Url, [{max_length, ?FETCH_LENGTH}]) of
         {ok, {FinalUrl, Headers, _Size, Data}} ->
@@ -43,7 +48,7 @@ fetch(Url) ->
 
 
 %% @doc Fetch properties of the fetched metadata
--spec p(atom() | binary() | list( atom() | binary() ), #url_metadata{}) -> list(binary()) | binary() | undefined.
+-spec p(atom() | binary() | list( atom() | binary() ), z_url_metadata()) -> list(binary()) | binary() | undefined.
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(final_url, MD) -> 
