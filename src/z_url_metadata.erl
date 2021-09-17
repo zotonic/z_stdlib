@@ -22,8 +22,10 @@
 
 -export([
     fetch/1,
+    fetch/2,
     html_meta/1,
     p/2,
+    header/2,
     filename/2
     ]).
 
@@ -39,7 +41,16 @@
 %% @doc Fetch metadata information for the URL
 -spec fetch(binary()|string()) -> {ok, z_url_metadata()} | {error, term()}.
 fetch(Url) ->
-    case z_url_fetch:fetch_partial(Url, [{max_length, ?FETCH_LENGTH}]) of
+    fetch(Url, []).
+
+
+-spec fetch(binary()|string(), z_url_fetch:options()) -> {ok, z_url_metadata()} | {error, term()}.
+fetch(Url, Options) ->
+    Options1 = case proplists:is_defined(max_length, Options) of
+        true -> Options;
+        false -> [ {max_length, ?FETCH_LENGTH} | Options ]
+    end,
+    case z_url_fetch:fetch_partial(Url, Options1) of
         {ok, {FinalUrl, Headers, _Size, Data}} ->
             {ok, partial_metadata(FinalUrl, Headers, Data)};
         {error, _} = Error ->
@@ -51,31 +62,31 @@ fetch(Url) ->
 -spec p(atom() | binary() | list( atom() | binary() ), z_url_metadata()) -> list(binary()) | binary() | undefined.
 p(mime, MD) ->
     MD#url_metadata.content_type;
-p(final_url, MD) -> 
+p(final_url, MD) ->
     MD#url_metadata.final_url;
 p(url, MD) ->
     case p1([<<"og:url">>, <<"twitter:url">>, canonical_url, short_url], MD) of
         undefined -> MD#url_metadata.final_url;
         PrefUrl -> z_url:abs_link(PrefUrl, MD#url_metadata.final_url)
     end;
-p(title, MD) -> 
+p(title, MD) ->
     case p1([<<"og:title">>, <<"twitter:title">>, mtitle, h1, title], MD) of
         undefined -> p(filename, MD);
         Title -> Title
     end;
-p(summary, MD) -> 
+p(summary, MD) ->
     p1([<<"og:description">>, <<"twitter:description">>, description], MD);
 p(image, MD) ->
     case MD#url_metadata.content_type of
-        <<"image/", _/binary>> -> 
+        <<"image/", _/binary>> ->
             MD#url_metadata.final_url;
         _ ->
             Ps = case MD#url_metadata.is_index_page of
                     true ->
-                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
+                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>,
                          image_nav, image];
                     false ->
-                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>, 
+                        [<<"twitter:image:src">>, <<"twitter:image">>, <<"og:image">>,
                          image, image_nav]
                  end,
             case p1(Ps, MD) of
@@ -110,14 +121,20 @@ p(tags, MD) ->
     end;
 p(filename, MD) ->
     filename(MD#url_metadata.final_url, MD#url_metadata.headers);
+p(headers, MD) ->
+    MD#url_metadata.headers;
 p(Ks, MD) when is_list(Ks) ->
     p1(Ks, MD);
 p(K, MD) ->
     p1([K], MD).
 
+-spec header( binary() | string(), z_url_metadata() ) -> binary() | undefined.
+header(H, #url_metadata{ headers = Hs }) ->
+    proplists:get_value(z_convert:to_binary(H), Hs).
+
 -spec filename(binary()|string(), list()) -> binary() | undefined.
 filename(Url, Hs) ->
-    case content_disp_filename(proplists:get_value("content-disposition", Hs)) of
+    case content_disp_filename(proplists:get_value(<<"content-disposition">>, Hs)) of
         undefined -> basename(Url);
         FN -> z_convert:to_binary(FN)
     end.
@@ -157,9 +174,9 @@ content_disp_filename(undefined) ->
     undefined;
 content_disp_filename(Vs) ->
     {_Disp, Options} = parse_header(Vs),
-    case proplists:get_value("filename", Options) of
+    case proplists:get_value(<<"filename">>, Options) of
         undefined -> undefined;
-        "" -> undefined;
+        <<>> -> undefined;
         FN -> FN
     end.
 
@@ -185,42 +202,44 @@ basename(Url) ->
 %% author Bob Ippolito <bob@mochimedia.com>
 %% copyright 2007 Mochi Media, Inc.
 
-%% @spec parse_header(string()) -> {Type, [{K, V}]}
 %% @doc  Parse a Content-Type like header, return the main Content-Type
 %%       and a property list of options.
+-spec parse_header( binary() ) -> {binary(), [ {binary(), binary()} ]}.
 parse_header(String) ->
     %% TODO: This is exactly as broken as Python's cgi module.
     %%       Should parse properly like mochiweb_cookies.
-    [Type | Parts] = [string:strip(S) || S <- string:tokens(String, ";")],
+
+    [Type | Parts] = [z_string:trim(S) || S <- binary:split(String, <<";">>, [ global ])],
     F = fun (S, Acc) ->
-                case lists:splitwith(fun (C) -> C =/= $= end, S) of
-                    {"", _} ->
+                case binary:split(S, <<"=">>) of
+                    [<<>>, _] ->
                         %% Skip anything with no name
                         Acc;
-                    {_, ""} ->
+                    [_, <<>>] ->
                         %% Skip anything with no value
                         Acc;
-                    {Name, [$\= | Value]} ->
-                        [{string:to_lower(string:strip(Name)),
-                          unquote_header(string:strip(Value))} | Acc]
+                    [_] ->
+                        Acc;
+                    [Name, <<$=, Value/binary>>] ->
+                        [{z_string:to_lower(z_string:trim(Name)),
+                          unquote_header(z_string:trim(Value))} | Acc]
                 end
         end,
-    {string:to_lower(Type),
-     lists:foldr(F, [], Parts)}.
+    {z_string:to_lower(Type), lists:foldr(F, [], Parts)}.
 
-unquote_header("\"" ++ Rest) ->
-    unquote_header(Rest, []);
+unquote_header(<<"\"", Rest/binary>>) ->
+    unquote_header(Rest, <<>>);
 unquote_header(S) ->
     S.
 
-unquote_header("", Acc) ->
-    lists:reverse(Acc);
-unquote_header("\"", Acc) ->
-    lists:reverse(Acc);
-unquote_header([$\\, C | Rest], Acc) ->
-    unquote_header(Rest, [C | Acc]);
-unquote_header([C | Rest], Acc) ->
-    unquote_header(Rest, [C | Acc]).
+unquote_header(<<>>, Acc) ->
+    Acc;
+unquote_header(<<"\"">>, Acc) ->
+    Acc;
+unquote_header(<<$\\, C, Rest/binary>>, Acc) ->
+    unquote_header(Rest, <<Acc/binary, C>>);
+unquote_header(<<C, Rest/binary>>, Acc) ->
+    unquote_header(Rest, <<Acc/binary, C>>).
 
 
 %% -------------------------------------- Analyze fetched data -----------------------------------------
@@ -228,18 +247,19 @@ unquote_header([C | Rest], Acc) ->
 -record(ps, { in_nav = false }).
 
 partial_metadata(Url, Hs, Data) ->
-    {CT, CTOpts} = content_type(Hs),
+    HsBin = [ {z_convert:to_binary(H), z_convert:to_binary(V)} || {H, V} <- Hs ],
+    {CT, CTOpts} = content_type(HsBin),
     IsText = is_text(CT, Data),
     IsHTML = IsText andalso is_html(CT),
-    Data1 = maybe_convert_utf8(IsText, IsHTML, proplists:get_value("charset", CTOpts), Data),
+    Data1 = maybe_convert_utf8(IsText, IsHTML, proplists:get_value(<<"charset">>, CTOpts), Data),
     #url_metadata{
         final_url = z_convert:to_binary(Url),
         content_type = CT,
         content_type_options = CTOpts,
-        content_length = content_length(Hs),
+        content_length = content_length(HsBin),
         metadata = html_meta(IsHTML, Data1),
         is_index_page = is_index_page(Url),
-        headers = Hs,
+        headers = HsBin,
         partial_data = Data
     }.
 
@@ -326,7 +346,7 @@ tag({<<"link">>, As, _}, MD, P) ->
     {meta_link(Name, Content, As, MD), P};
 tag({<<"img">>, As, _}, MD, P) ->
     case proplists:get_value(<<"src">>, As, <<>>) of
-        <<>> -> 
+        <<>> ->
             {MD, P};
         Src ->
             case P#ps.in_nav of
@@ -409,9 +429,9 @@ is_ad_class(_) -> false.
 
 fetch_text(B, Acc) when is_binary(B) ->
     <<Acc/binary, B/binary>>;
-fetch_text({comment, _}, Acc) -> 
+fetch_text({comment, _}, Acc) ->
     Acc;
-fetch_text({_Tag, _As, Es}, Acc) -> 
+fetch_text({_Tag, _As, Es}, Acc) ->
     fetch_text(Es, Acc);
 fetch_text([], Acc) ->
     Acc;
@@ -452,7 +472,7 @@ maybe_convert_utf8(true, IsHtml, Charset, Html) ->
         false ->
             try
                 case iconv:open(CS1, "UTF-8") of
-                    {ok, C} -> 
+                    {ok, C} ->
                         case iconv:conv(C, Html) of
                             {ok, Html1} ->
                                 iconv:close(C),
@@ -488,7 +508,7 @@ meta_charset(Ch, Html) ->
     end.
 
 content_type(Hs) ->
-    case proplists:get_value("content-type", Hs) of
+    case proplists:get_value(<<"content-type">>, Hs) of
         undefined ->
             {<<"application/octet-stream">>, []};
         CT ->
@@ -498,17 +518,17 @@ content_type(Hs) ->
 
 content_length(Hs) ->
     try
-        case proplists:get_value("content-range", Hs) of
+        case proplists:get_value(<<"content-range">>, Hs) of
             undefined ->
-                case proplists:get_value("content-length", Hs) of
+                case proplists:get_value(<<"content-length">>, Hs) of
                     undefined -> undefined;
-                    N -> list_to_integer(N)
+                    N -> binary_to_integer(N)
                 end;
-            "bytes "++Range ->
-                Ts = string:tokens(Range, "/"),
-                list_to_integer(lists:last(Ts))
+            <<"bytes ", Range/binary>> ->
+                Ts = binary:split(Range, <<"/">>, [global]),
+                binary_to_integer(lists:last(Ts))
         end
-    catch 
+    catch
         _:_ -> undefined
     end.
 
@@ -526,18 +546,18 @@ simple_partial_metadata_test() ->
     Data = <<"<html><head><title>Example</title><body></body></html>">>,
 
     MD = partial_metadata(Url, Headers, Data),
-    
+
     ?assertEqual(<<"http://example.org">>, MD#url_metadata.final_url),
     ?assertEqual(<<"text/html">>, MD#url_metadata.content_type),
     ?assertEqual([{title, <<"Example">>}], MD#url_metadata.metadata),
-    
+
     ok.
-    
+
 simple_html_meta_test() ->
     Data = <<"<html><head><title>Example</title><body></body></html>">>,
     ?assertEqual([{title, <<"Example">>}], html_meta(Data)),
     ok.
-    
+
 partial_unbalanced_tags_html_meta_test() ->
     Data = <<"<head><meta name=\"description\" content=\"Example Content\"><title>Example</title>">>,
     ?assertEqual([{description, <<"Example Content">>},
@@ -549,7 +569,7 @@ partial_no_surrounding_tags_html_meta_test() ->
     ?assertEqual([{description, <<"Example Content">>},
         {title, <<"Example">>}], html_meta(Data)),
     ok.
-    
+
 partial_ampersant_in_html_meta_test() ->
     Data = <<"<meta name=\"description\" content=\"Example & Stuff\"><title>Foo &amp; Co</title>">>,
     ?assertEqual([{description, <<"Example & Stuff">>},
