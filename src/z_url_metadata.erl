@@ -62,6 +62,8 @@ fetch(Url, Options) ->
 -spec p(atom() | binary() | list( atom() | binary() ), z_url_metadata()) -> list(binary()) | binary() | undefined.
 p(mime, MD) ->
     MD#url_metadata.content_type;
+p(mime_options, MD) ->
+    MD#url_metadata.content_type_options;
 p(final_url, MD) ->
     MD#url_metadata.final_url;
 p(url, MD) ->
@@ -71,8 +73,6 @@ p(url, MD) ->
     end;
 p(content_length, MD) ->
     MD#url_metadata.content_length;
-p(content_type, MD) ->
-    MD#url_metadata.content_type;
 p(headers, MD) ->
     MD#url_metadata.headers;
 p(title, MD) ->
