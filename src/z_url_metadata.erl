@@ -69,6 +69,12 @@ p(url, MD) ->
         undefined -> MD#url_metadata.final_url;
         PrefUrl -> z_url:abs_link(PrefUrl, MD#url_metadata.final_url)
     end;
+p(content_length, MD) ->
+    MD#url_metadata.content_length;
+p(content_type, MD) ->
+    MD#url_metadata.content_type;
+p(headers, MD) ->
+    MD#url_metadata.headers;
 p(title, MD) ->
     case p1([<<"og:title">>, <<"twitter:title">>, mtitle, h1, title], MD) of
         undefined -> p(filename, MD);
@@ -121,8 +127,6 @@ p(tags, MD) ->
     end;
 p(filename, MD) ->
     filename(MD#url_metadata.final_url, MD#url_metadata.headers);
-p(headers, MD) ->
-    MD#url_metadata.headers;
 p(Ks, MD) when is_list(Ks) ->
     p1(Ks, MD);
 p(K, MD) ->
@@ -220,7 +224,7 @@ parse_header(String) ->
                         Acc;
                     [_] ->
                         Acc;
-                    [Name, <<$=, Value/binary>>] ->
+                    [Name, Value] ->
                         [{z_string:to_lower(z_string:trim(Name)),
                           unquote_header(z_string:trim(Value))} | Acc]
                 end
