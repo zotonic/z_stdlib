@@ -5,6 +5,10 @@
     {applications, [kernel, stdlib, tls_certificate_check]},
     {env, []},
     {modules, []},
+    {exclude_files, [
+        "src/z_css_parser.erl",
+        "src/z_css_lexer.erl"
+    ]},
     {doc, "doc"},
     {licenses, ["Apache-2.0"]},
     {links, [{"GitHub", "https://github.com/zotonic/z_stdlib"}]}
