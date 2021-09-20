@@ -63,24 +63,26 @@
                 | {language, atom()}
                 | insecure.
 
+-type fetch_result() :: {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
+
 -export_type([
     options/0,
     option/0
 ]).
 
 %% @doc Fetch the data and headers from an url
--spec fetch(string()|binary(), options()) -> {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
+-spec fetch(string()|binary(), options()) -> fetch_result().
 fetch(Url, Options) ->
     fetch_partial(Url, Options).
 
 
 %% @doc Fetch the first kilobytes of data and headers from an url
--spec fetch_partial(string()|binary()) -> {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
+-spec fetch_partial(string()|binary()) -> fetch_result().
 fetch_partial(Url) ->
     fetch_partial(Url, [{max_length, ?HTTPC_LENGTH}]).
 
 %% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
--spec fetch_partial(string()|binary(), options()) -> {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
+-spec fetch_partial(string()|binary(), options()) -> fetch_result().
 fetch_partial("data:" ++ _ = DataUrl, Options) ->
     fetch_data_url(DataUrl, Options);
 fetch_partial(<<"data:", _/binary>> = DataUrl, Options) ->

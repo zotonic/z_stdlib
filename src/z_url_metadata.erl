@@ -32,19 +32,19 @@
 -include("../include/z_url_metadata.hrl").
 
 
--type z_url_metadata() :: #url_metadata{}.
+-type metadata() :: #url_metadata{}.
 
--export_type([ z_url_metadata/0 ]).
+-export_type([ metadata/0 ]).
 
 -define(FETCH_LENGTH, 256*1024).
 
 %% @doc Fetch metadata information for the URL
--spec fetch(binary()|string()) -> {ok, z_url_metadata()} | {error, term()}.
+-spec fetch(binary()|string()) -> {ok, metadata()} | {error, term()}.
 fetch(Url) ->
     fetch(Url, []).
 
 
--spec fetch(binary()|string(), z_url_fetch:options()) -> {ok, z_url_metadata()} | {error, term()}.
+-spec fetch(binary()|string(), z_url_fetch:options()) -> {ok, metadata()} | {error, term()}.
 fetch(Url, Options) ->
     Options1 = case proplists:is_defined(max_length, Options) of
         true -> Options;
@@ -59,7 +59,7 @@ fetch(Url, Options) ->
 
 
 %% @doc Fetch properties of the fetched metadata
--spec p(atom() | binary() | list( atom() | binary() ), z_url_metadata()) -> list(binary()) | binary() | undefined.
+-spec p(atom() | binary() | list( atom() | binary() ), metadata()) -> list(binary()) | binary() | undefined.
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
@@ -132,7 +132,7 @@ p(Ks, MD) when is_list(Ks) ->
 p(K, MD) ->
     p1([K], MD).
 
--spec header( binary() | string(), z_url_metadata() ) -> binary() | undefined.
+-spec header( binary() | string(), metadata() ) -> binary() | undefined.
 header(H, #url_metadata{ headers = Hs }) ->
     proplists:get_value(z_convert:to_binary(H), Hs).
 
