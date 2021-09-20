@@ -63,7 +63,7 @@
                 | {language, atom()}
                 | insecure.
 
--type fetch_result() :: {ok, {string(), list(), pos_integer(), binary()}} | {error, term()}.
+-type fetch_result() :: {ok, {string(), list({string(), string()}), pos_integer(), binary()}} | {error, term()}.
 
 -export_type([
     options/0,

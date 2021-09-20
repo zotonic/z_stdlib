@@ -164,11 +164,13 @@ to_bool_strict(0) -> false;
 to_bool_strict(0.0) -> false;
 to_bool_strict(<<>>) -> false;
 to_bool_strict(<<0>>) -> false;
-to_bool_strict("") -> false;
+to_bool_strict([]) -> false;
 to_bool_strict({rsc_list, []}) -> false;
 to_bool_strict({trans, []}) -> false;
 to_bool_strict("0") -> false;
 to_bool_strict(<<"0">>) -> false;
+to_bool_strict(M) when is_map(M) ->
+    maps:size(M) =/= 0;
 to_bool_strict({{9999,M,D},{H,I,S}}) % ?ST_JUTTEMIS
     when is_integer(M), is_integer(D),
          is_integer(H), is_integer(I), is_integer(S),
