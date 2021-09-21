@@ -118,6 +118,8 @@ escape_props1(<<"blocks">>, V, Options) when is_list(V) ->
     [ escape_props(L, Options) || L <- V ];
 escape_props1(<<"website">>, V, _Options) ->
     escape_value(sanitize_uri(V));
+escape_props1(<<"is_a", _/binary>>, V, Options) ->
+    sanitize_list(V, Options);
 escape_props1(<<"is_", _/binary>>, V, _Options) ->
     z_convert:to_bool(V);
 escape_props1(_K, V, Options) when is_map(V) ->
@@ -218,6 +220,10 @@ escape_props_check1(<<"blocks">>, V, Options) when is_list(V) ->
     [ escape_props_check(L, Options) || L <- V ];
 escape_props_check1(<<"website">>, V, _Options) ->
     escape_value(sanitize_uri(unescape(V)));
+escape_props_check1(<<"is_a">>, L, Options) when is_list(L) ->
+    sanitize_list_check(L, Options);
+escape_props_check1(<<"is_", _/binary>>, V, _Options) ->
+    z_convert:to_bool(V);
 escape_props_check1(_K, V, Options) when is_map(V) ->
     escape_props_check(V, Options);
 escape_props_check1(K, V, Options) ->
