@@ -96,10 +96,12 @@ escape_props(Props, Options) when is_list(Props) ->
         end,
         Props);
 escape_props(Props, Options) when is_map(Props) ->
-    maps:map(
-        fun(K, V) ->
-            escape_props1(z_convert:to_binary(K), V, Options)
+    maps:fold(
+        fun(K, V, Acc) ->
+            K1 = z_convert:to_binary(K),
+            Acc#{ K1 => escape_props1(K1, V, Options)}
         end,
+        #{},
         Props).
 
 escape_props1(_K, null, _Options) ->
@@ -124,8 +126,6 @@ escape_props1(<<"is_a", _/binary>>, V, Options) ->
     sanitize_list(V, Options);
 escape_props1(<<"is_", _/binary>>, V, _Options) ->
     z_convert:to_bool(V);
-escape_props1(_K, V, Options) when is_map(V) ->
-    escape_props(V, Options);
 escape_props1(K, V, Options) ->
     Type = lists:last(binary:split(K, <<"_">>, [global])),
     sanitize_type(Type, V, Options).
@@ -137,6 +137,7 @@ sanitize_type(<<"list">>, V, Options) -> sanitize_list(V, Options);
 sanitize_type(<<"int">>, V, _Options) -> sanitize_int(V);
 sanitize_type(<<"unsafe">>, V, _Options) -> V;
 sanitize_type(_, V, Options) when is_map(V) -> escape_props(V, Options);
+sanitize_type(_, V, Options) when is_list(V) -> sanitize_list(V, Options);
 sanitize_type(_, V, _Options) -> escape_value(V).
 
 sanitize_list(L, Options) when is_list(L) ->
@@ -146,6 +147,8 @@ sanitize_list(L, Options) when is_list(L) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
                 {P1, V1};
+            (V) when is_list(V); is_map(V)->
+                escape_props(V, Options);
             (V) ->
                 escape_value(V)
         end,
@@ -229,8 +232,6 @@ escape_props_check1(<<"is_a">>, L, Options) when is_list(L) ->
     sanitize_list_check(L, Options);
 escape_props_check1(<<"is_", _/binary>>, V, _Options) ->
     z_convert:to_bool(V);
-escape_props_check1(_K, V, Options) when is_map(V) ->
-    escape_props_check(V, Options);
 escape_props_check1(K, V, Options) ->
     Type = lists:last(binary:split(K, <<"_">>, [global])),
     sanitize_type_check(Type, V, Options).
@@ -242,6 +243,7 @@ sanitize_type_check(<<"list">>, V, Options) -> sanitize_list_check(V, Options);
 sanitize_type_check(<<"int">>, V, _Options) -> sanitize_int(V);
 sanitize_type_check(<<"unsafe">>, V, _Options) -> V;
 sanitize_type_check(_, V, Options) when is_map(V) -> escape_props_check(V, Options);
+sanitize_type_check(_, V, Options) when is_list(V) -> escape_props_check(V, Options);
 sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 
 
@@ -252,6 +254,8 @@ sanitize_list_check(L, Options) when is_list(L) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props_check1(P1, V, Options),
                 {P1, V1};
+            (V) when is_list(V); is_map(V)->
+                escape_props_check(V, Options);
             (V) ->
                 escape_value_check(V)
         end,
