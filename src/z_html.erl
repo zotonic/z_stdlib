@@ -118,6 +118,8 @@ escape_props1(<<"blocks">>, V, Options) when is_list(V) ->
     [ escape_props(L, Options) || L <- V ];
 escape_props1(<<"website">>, V, _Options) ->
     escape_value(sanitize_uri(V));
+escape_props1(<<"@id">>, V, _Options) ->
+    escape_value(sanitize_uri(V));
 escape_props1(<<"is_a", _/binary>>, V, Options) ->
     sanitize_list(V, Options);
 escape_props1(<<"is_", _/binary>>, V, _Options) ->
@@ -134,6 +136,7 @@ sanitize_type(<<"url">>, V, _Options) -> escape_value(sanitize_uri(V));
 sanitize_type(<<"list">>, V, Options) -> sanitize_list(V, Options);
 sanitize_type(<<"int">>, V, _Options) -> sanitize_int(V);
 sanitize_type(<<"unsafe">>, V, _Options) -> V;
+sanitize_type(_, V, Options) when is_map(V) -> escape_props(V, Options);
 sanitize_type(_, V, _Options) -> escape_value(V).
 
 sanitize_list(L, Options) when is_list(L) ->
@@ -220,6 +223,8 @@ escape_props_check1(<<"blocks">>, V, Options) when is_list(V) ->
     [ escape_props_check(L, Options) || L <- V ];
 escape_props_check1(<<"website">>, V, _Options) ->
     escape_value(sanitize_uri(unescape(V)));
+escape_props_check1(<<"@id">>, V, _Options) ->
+    escape_value(sanitize_uri(unescape(V)));
 escape_props_check1(<<"is_a">>, L, Options) when is_list(L) ->
     sanitize_list_check(L, Options);
 escape_props_check1(<<"is_", _/binary>>, V, _Options) ->
@@ -236,6 +241,7 @@ sanitize_type_check(<<"url">>, V, _Options) -> escape_value(sanitize_uri(unescap
 sanitize_type_check(<<"list">>, V, Options) -> sanitize_list_check(V, Options);
 sanitize_type_check(<<"int">>, V, _Options) -> sanitize_int(V);
 sanitize_type_check(<<"unsafe">>, V, _Options) -> V;
+sanitize_type_check(_, V, Options) when is_map(V) -> escape_props_check(V, Options);
 sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 
 
@@ -454,7 +460,10 @@ escape_link(<<>>) ->
 escape_link([]) ->
     <<>>;
 escape_link(Text) ->
-    case re:run(Text, "\\b(([\\w-]+://?|www[.])[^\\s()<>]+(?:\\([\\w\\d]+\\)|([^[:punct:]\\s]|/)))", [{capture, first, index}, global]) of
+    case re:run(Text,
+            "\\b(([\\w-]+://?|www[.])[^\\s()<>]+(?:\\([\\w\\d]+\\)|([^[:punct:]\\s]|/)))",
+            [{capture, first, index}, global])
+    of
         {match, Matches} ->
             Matches1 = [ hd(M) || M <- Matches ],
             nl2br(iolist_to_binary(make_links1(0, Matches1, z_convert:to_list(Text), [])));
@@ -476,17 +485,21 @@ make_links1(Offset, [{MatchOffs,_}|_] = Matches, Text, Acc) ->
 
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
+ensure_protocol(<<"?", _/binary>> = Link) -> Link;
 ensure_protocol(<<"/", _/binary>> = Link) -> Link;
 ensure_protocol(<<"://", _/binary>> = Link) -> <<"http", Link/binary>>;
-ensure_protocol(<<"http://", _/binary>> = Link) -> Link;
-ensure_protocol(<<"https://", _/binary>> = Link) -> Link;
+ensure_protocol(<<"http:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"https:", _/binary>> = Link) -> Link;
 ensure_protocol(<<"data:", _/binary>> = Link) -> Link;
+ensure_protocol(<<"urn:", _/binary>> = Link) -> Link;
 ensure_protocol(<<"ftp:", _/binary>> = Link) -> Link;
 ensure_protocol(<<"mailto:", Rest/binary>>) -> <<"mailto:", (z_string:trim(Rest))/binary>>;
 ensure_protocol(<<"www.", _/binary>> = Link) -> <<"https://", Link/binary>>;
 ensure_protocol(Link) when is_binary(Link) ->
-    case binary:match(Link, <<"://">>) of
+    case binary:match(Link, <<":">>) of
         nomatch ->
+            % If the first path element looks like a domain name then
+            % make it a https: link. Otherwise add a '/' in front.
             [First|_] = binary:split(Link, <<"/">>),
             case binary:match(First, <<".">>) of
                 nomatch -> <<$/, Link/binary>>;
