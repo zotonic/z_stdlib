@@ -199,7 +199,7 @@ escape_props_check(Props, Options) when is_list(Props) ->
                 V1 = escape_props_check1(z_convert:to_binary(P), V, Options),
                 {P, V1};
             (P) when is_atom(P) ->
-                {P, true}
+                escape_value_check(P)
         end,
         Props);
 escape_props_check(Props, Options) when is_map(Props) ->
