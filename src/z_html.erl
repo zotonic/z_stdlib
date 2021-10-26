@@ -111,7 +111,11 @@ escape_props1(_K, undefined, _Options) ->
 escape_props1(_K, V, _Options) when is_number(V); is_boolean(V) ->
     V;
 escape_props1(K, V, Options) when is_atom(V) ->
-    escape_props1(K, atom_to_binary(V, utf8), Options);
+    V1 = atom_to_binary(V, utf8),
+    case escape_props1(K, V1, Options) of
+        V1 -> V;
+        _ -> undefined
+    end;
 escape_props1(<<"body", _/binary>>, V, Options) ->
     sanitize(V, Options);
 escape_props1(<<"summary">>, Summary, _Options) ->
@@ -172,7 +176,11 @@ escape_value(null) -> null;
 escape_value(V) when is_boolean(V) -> V;
 escape_value(V) when is_number(V) -> V;
 escape_value(V) when is_atom(V) ->
-    escape( atom_to_binary(V, utf8) );
+    V1 = atom_to_binary(V, utf8),
+    case escape_value(V1) of
+        V1 -> V;
+        _ -> undefined
+    end;
 escape_value({trans, _Ts} = Tr) ->
     escape(Tr);
 escape_value(V) when is_list(V) ->
@@ -219,7 +227,11 @@ escape_props_check1(_K, undefined, _Options) ->
 escape_props_check1(_K, V, _Options) when is_number(V); is_boolean(V) ->
     V;
 escape_props_check1(K, V, Options) when is_atom(V) ->
-    escape_props_check1(K, atom_to_binary(V, utf8), Options);
+    V1 = atom_to_binary(V, utf8),
+    case escape_props_check1(K, V1, Options) of
+        V1 -> V;
+        _ -> undefined
+    end;
 escape_props_check1(<<"body", _/binary>>, V, Options) ->
     sanitize(V, Options);
 escape_props_check1(<<"summary">>, Summary, _Options) ->
@@ -275,7 +287,11 @@ escape_value_check(null) -> null;
 escape_value_check(V) when is_boolean(V) -> V;
 escape_value_check(V) when is_number(V) -> V;
 escape_value_check(V) when is_atom(V) ->
-    escape_check( atom_to_binary(V, utf8) );
+    V1 = atom_to_binary(V, utf8),
+    case escape_check(V1) of
+        V1 -> V;
+        _ -> undefined
+    end;
 escape_value_check({trans, _Ts} = Tr) ->
     escape_check(Tr);
 escape_value_check(V) when is_list(V) ->
