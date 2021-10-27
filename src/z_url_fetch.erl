@@ -166,7 +166,7 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
                 undefined -> [];
                 Auth -> [ {"Authorization", to_list(Auth)} ]
             end,
-            case fetch_stream(start_stream(Host, Url, Headers, Opts), Max, OutDev) of
+            case fetch_stream(start_stream(Host, Url, Headers, Opts), Max, OutDev, Opts) of
                 {ok, Result} ->
                     maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
                 {error, _} = Error ->
@@ -229,25 +229,27 @@ start_stream(Host, Url, Headers, Opts) ->
     end.
 
 
-fetch_stream({ok, ReqId}, Max, OutDev) ->
+fetch_stream({ok, ReqId}, Max, OutDev, Opts) ->
+    Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     receive
         {http, {ReqId, stream_end, Hs}} ->
             {ok, {200, Hs, 0, <<>>}};
         {http, {ReqId, stream_start, Hs, HandlerPid}} ->
             httpc:stream_next(HandlerPid),
-            fetch_stream_data(ReqId, HandlerPid, Hs, <<>>, 0, Max, OutDev);
+            fetch_stream_data(ReqId, HandlerPid, Hs, <<>>, 0, Max, OutDev, Opts);
         {http, {ReqId, {error, _} = Error}} ->
             Error;
         {http, {_ReqId, {{_V, Code, _Msg}, Hs, Data}}} ->
             {ok, {Code, Hs, 0, Data}}
-    after ?HTTPC_TIMEOUT ->
+    after Timeout ->
         httpc:cancel_request(ReqId),
         {error, timeout}
     end;
-fetch_stream({error, _} = Error, _Max, _OutDev) ->
+fetch_stream({error, _} = Error, _Max, _OutDev, _Opts) ->
     Error.
 
-fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev) when N =< Max ->
+fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev, Opts) when N =< Max ->
+    Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     receive
         {http, {ReqId, stream_end, EndHs}} ->
             {ok, {200, EndHs++Hs, N, Data}};
@@ -258,7 +260,7 @@ fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev) when N =< Max ->
                     case N1 =< Max of
                         true ->
                             httpc:stream_next(HandlerPid),
-                            fetch_stream_data(ReqId, HandlerPid, Hs, Data1, N1, Max, OutDev);
+                            fetch_stream_data(ReqId, HandlerPid, Hs, Data1, N1, Max, OutDev, Opts);
                         false ->
                             httpc:cancel_request(ReqId),
                             {ok, {200, Hs, N, Data1}}
@@ -275,11 +277,11 @@ fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev) when N =< Max ->
             {ok, {200, Hs, N, Data}};
         {http, {ReqId, {error, _} = Error}} ->
             Error
-    after ?HTTPC_TIMEOUT ->
+    after Timeout ->
         httpc:cancel_request(ReqId),
         {error, timeout}
     end;
-fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile) ->
+fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile, _Opts) ->
     receive
         {http, {ReqId, stream_end, EndHs}} ->
             {ok, {200, EndHs++Hs, N, Data}};
