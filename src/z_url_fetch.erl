@@ -36,8 +36,10 @@
 %% Some url shorteners return HTML+Javascript, except for simple text-only browsers
 -define(CURL_UA, "curl/7.21.4 (universal-apple-darwin11.0) libcurl/7.21.4 OpenSSL/0.9.8r zlib/1.2.5").
 
-%% Some servers handle Twitterbot extra nicely and give it better metadata.
--define(HTTPC_UA, "Twitterbot").
+%% Use our own user agent string. Sites sometimes handle well known user agents like 
+%% twitterbot or apple messages badly. Using our own user agent string works better.
+%% Picky websites to test this on: asos.com, hm.com.
+-define(HTTPC_UA, "ZStdLib/1.0").
 
 % Default Accept header
 -define(HTTP_ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8").
