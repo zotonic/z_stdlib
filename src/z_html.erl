@@ -28,6 +28,7 @@
     escape_check/1,
     unescape/1,
     strip/1,
+    strip/2,
     truncate/2,
     truncate/3,
     sanitize/1,
@@ -562,68 +563,96 @@ cleanup_uri_chars(<<C, B/binary>>, Acc) ->
             cleanup_uri_chars(B, <<Acc/binary, C>>)
     end.
 
-%% @doc Strip all html elements from the text. Simple parsing is applied to find the elements. Does not escape the end result.
--spec strip( maybe_text() ) -> maybe_text().
-strip({trans, Tr}) ->
-    {trans, [{Lang, strip(V)} || {Lang,V} <- Tr]};
-strip(undefined) ->
-    <<>>;
-strip(<<>>) ->
-    <<>>;
-strip([]) ->
-    <<>>;
-strip(Html) when is_binary(Html) ->
-    strip(Html, in_text, <<>>);
-strip(L) when is_list(L) ->
-    strip(list_to_binary(L));
-strip(N) when is_integer(N) ->
-    strip(integer_to_list(N)).
+%% @doc Strip all html elements from the text. Simple parsing is applied to find the elements.
+%%      Does not escape the end result.
+-spec strip( maybe_text() ) -> binary().
+strip(Text) ->
+    strip(Text, nolimit).
 
-strip(<<>>, _, Acc) -> 
+%% @doc Strip all html elements from the text. Simple parsing is applied to find the elements.
+%%      Does not escape the end result. Limit the length of the result string to N characters.
+-spec strip( maybe_text(), integer() | nolimit ) -> binary().
+strip(undefined, _N) ->
+    <<>>;
+strip(<<>>, _N) ->
+    <<>>;
+strip("", _N) ->
+    <<>>;
+strip({trans, Tr}, N) ->
+    {trans, [{Lang, strip(V, N)} || {Lang,V} <- Tr]};
+strip(Html, N) when is_binary(Html) ->
+    strip(Html, <<>>, N);
+strip(L, N) when is_list(L) ->
+    strip(iolist_to_binary(L), N);
+strip(V, N) ->
+    strip(z_convert:to_binary(V), N).
+
+strip(_, Acc, N) when is_integer(N), N =< 0 ->
     Acc;
-strip(<<$<,T/binary>>, in_text, Acc) ->
-    strip(T, in_tag, Acc);
-strip(<<$>,T/binary>>, in_tag, <<>>) ->
-    strip(T, in_text, <<>>);
-strip(<<$>>>, in_tag, Acc) -> 
+strip(<<>>, Acc, _N) ->
     Acc;
-strip(<<$>, WS, T/binary>>, in_tag, Acc) when WS =< 32 ->
-    strip(T, in_text, <<Acc/binary, WS>>);
-strip(<<$>, T/binary>>, in_tag, Acc) ->
+strip(<<"<wbr>",T/binary>>, Acc, N) ->
+    strip(T, Acc, N);
+strip(<<"</span>",T/binary>>, Acc, N) ->
+    strip(T, Acc, N);
+strip(<<"</a>",T/binary>>, Acc, N) ->
+    strip(T, Acc, N);
+strip(<<"<",T/binary>>, Acc, N) ->
+    strip_tag(T, Acc, N);
+strip(<<H/utf8,T/binary>>, Acc, N) ->
+    strip(T, <<Acc/binary, H/utf8>>, sub1(N));
+strip(<<_,T/binary>>, Acc, N) ->
+    % Drop non-utf8 data
+    strip(T, Acc, N).
+
+strip_tag(<<>>, Acc, _N) ->
+    Acc;
+strip_tag(<<">">>, Acc, _N) ->
+    Acc;
+strip_tag(<<">", WS, T/binary>>, Acc, N) when WS =< 32 ->
+    strip(T, <<Acc/binary, WS>>, sub1(N));
+strip_tag(<<">", T/binary>>, <<>>, N) ->
+    strip(T, <<>>, N);
+strip_tag(<<">", T/binary>>, Acc, N) ->
     case T of
-        <<$<, $/, _/binary>> ->
-            strip(T, in_text, Acc);
+        <<"</", _/binary>> ->
+            strip(T, Acc, N);
         _ ->
-            strip(T, in_text, maybe_add_space(Acc))
+            case binary:last(Acc) of
+                C when C =< 32 ->
+                    strip(T, Acc, N);
+                _ ->
+                    strip(T, <<Acc/binary, " ">>, sub1(N))
+            end
     end;
-strip(<<$>,T/binary>>, State, Acc) ->
-    strip(T, State, Acc);
-strip(<<$<,T/binary>>, State, Acc) ->
-    strip(T, State, Acc);
-strip(<<$\\,_,T/binary>>, in_dstring, Acc) ->
-    strip(T, in_dstring, Acc);
-strip(<<$\\,_,T/binary>>, in_sstring, Acc) ->
-    strip(T, in_sstring, Acc);
-strip(<<$",T/binary>>, in_tag, Acc) ->
-    strip(T, in_dstring, Acc);
-strip(<<$",T/binary>>, in_dstring, Acc) ->
-    strip(T, in_tag, Acc);
-strip(<<$',T/binary>>, in_tag, Acc) ->
-    strip(T, in_sstring, Acc);
-strip(<<$',T/binary>>, in_sstring, Acc) ->
-    strip(T, in_tag, Acc);
-strip(<<H,T/binary>>, in_text, Acc) ->
-    strip(T, in_text, <<Acc/binary, H>>);
-strip(<<_,T/binary>>, State, Acc) ->
-    strip(T, State, Acc).
+strip_tag(<<$",T/binary>>, Acc, N) ->
+    strip_dstring(T, Acc, N);
+strip_tag(<<$',T/binary>>, Acc, N) ->
+    strip_sstring(T, Acc, N);
+strip_tag(<<_, T/binary>>, Acc, N) ->
+    strip_tag(T, Acc, N).
 
-maybe_add_space(Bin) ->
-    case binary:last(Bin) of
-        C when C =< 32 ->
-            Bin;
-        _ ->
-            <<Bin/binary, 32>>
-    end.
+strip_dstring(<<>>, Acc, _) ->
+    Acc;
+strip_dstring(<<$\\, _, T/binary>>, Acc, N) ->
+    strip_dstring(T, Acc, N);
+strip_dstring(<<$",T/binary>>, Acc, N) ->
+    strip_tag(T, Acc, N);
+strip_dstring(<<_,T/binary>>, Acc, N) ->
+    strip_dstring(T, Acc, N).
+
+strip_sstring(<<>>, Acc, _) ->
+    Acc;
+strip_sstring(<<$\\, _, T/binary>>, Acc, N) ->
+    strip_sstring(T, Acc, N);
+strip_sstring(<<$',T/binary>>, Acc, N) ->
+    strip_tag(T, Acc, N);
+strip_sstring(<<_,T/binary>>, Acc, N) ->
+    strip_sstring(T, Acc, N).
+
+sub1(nolimit) -> nolimit;
+sub1(N) -> N-1.
+
 
 %% @doc Truncate a previously sanitized HTML string.
 -spec truncate( maybe_text(), integer() ) -> maybe_text().
@@ -910,6 +939,7 @@ allow_once(<<"a">>) -> true;
 allow_once(<<"abbr">>) -> true;
 allow_once(<<"area">>) -> true;
 allow_once(<<"article">>) -> true;
+allow_once(<<"aside">>) -> true;
 allow_once(<<"b">>) -> true;
 allow_once(<<"bdo">>) -> true;
 allow_once(<<"big">>) -> true;
@@ -922,11 +952,13 @@ allow_once(<<"em">>) -> true;
 allow_once(<<"hr">>) -> true;
 allow_once(<<"i">>) -> true;
 allow_once(<<"ins">>) -> true;
+allow_once(<<"kbd">>) -> true;
 allow_once(<<"nav">>) -> true;
 allow_once(<<"p">>) -> true;
 allow_once(<<"pre">>) -> true;
 allow_once(<<"q">>) -> true;
 allow_once(<<"s">>) -> true;
+allow_once(<<"samp">>) -> true;
 allow_once(<<"small">>) -> true;
 allow_once(<<"sub">>) -> true;
 allow_once(<<"sup">>) -> true;
@@ -952,6 +984,8 @@ allow_elt(<<"dd">>) -> true;
 allow_elt(<<"dl">>) -> true;
 allow_elt(<<"dt">>) -> true;
 allow_elt(<<"div">>) -> true;
+allow_elt(<<"figcaption">>) -> true;
+allow_elt(<<"figure">>) -> true;
 allow_elt(<<"h1">>) -> true;
 allow_elt(<<"h2">>) -> true;
 allow_elt(<<"h3">>) -> true;
@@ -960,14 +994,16 @@ allow_elt(<<"h5">>) -> true;
 allow_elt(<<"h6">>) -> true;
 allow_elt(<<"header">>) -> true;
 allow_elt(<<"img">>) -> true;
-allow_elt(<<"li">>) -> true;
 allow_elt(<<"legend">>) -> true;
+allow_elt(<<"li">>) -> true;
 allow_elt(<<"map">>) -> true;
 allow_elt(<<"ol">>) -> true;
+allow_elt(<<"picture">>) -> true;
 allow_elt(<<"samp">>) -> true;
 allow_elt(<<"section">>) -> true;
 allow_elt(<<"source">>) -> true;
 allow_elt(<<"span">>) -> true;
+allow_elt(<<"time">>) -> true;
 allow_elt(<<"table">>) -> true;
 allow_elt(<<"tbody">>) -> true;
 allow_elt(<<"tfoot">>) -> true;
@@ -977,6 +1013,7 @@ allow_elt(<<"th">>) -> true;
 allow_elt(<<"tr">>) -> true;
 allow_elt(<<"ul">>) -> true;
 allow_elt(<<"video">>) -> true;
+allow_elt(<<"wbr">>) -> true;
 allow_elt(_) -> false.
 
 %% @doc Allowed attributes
@@ -1020,10 +1057,11 @@ is_url_attr(<<"href">>) -> true;
 is_url_attr(<<"poster">>) -> true;
 is_url_attr(_) -> false.
 
-%% @doc Elements that shouldn't use a open and close tag.
+%% @doc Elements that shouldn't use an open and close tag.
 is_selfclosing(<<"br">>) -> true;
 is_selfclosing(<<"hr">>) -> true;
 is_selfclosing(<<"img">>) -> true;
+is_selfclosing(<<"wbr">>) -> true;
 is_selfclosing(_) -> false.
 
 %% @doc Disallowed elements whose contents should be skipped
