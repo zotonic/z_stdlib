@@ -13,13 +13,25 @@
     escape/1, escape_attr/1,
     to_html/1, to_html/2]).
 
-
--type html_node()    :: {binary(), [html_attr()], [ html_element() ]}.
--type html_attr()    :: {binary(), binary()}.
+-type html_node()    :: {html_tag(), [html_attr()], [ html_element() ]}.
+-type html_attr()    :: {html_attr_name(), html_attr_value()}.
+-type html_tag() :: binary()
+                  | string()
+                  | atom().
+-type html_attr_name() :: binary()
+                        | string()
+                        | atom().
+-type html_attr_value() :: binary()
+                         | string()
+                         | atom()
+                         | number().
 -type html_element() :: html_node()
                       | html_comment()
                       | html_nop()
                       | pi_tag()
+                      | inline_html()
+                      | {html_tag()}
+                      | {html_tag(), [ html_element() ]}
                       | binary().
 -type html_comment() :: {comment, Comment::binary()}.
 -type html_nop()     :: {nop, [ html_element() ]}.      % Special node used by sanitizer for unwanted elements
@@ -40,6 +52,14 @@
                     | html_comment()
                     | html_doctype().
 
+-type html_tree() :: html_doctype()
+                   | html_node()
+                   | html_comment()
+                   | inline_html()
+                   | {html_tag()}
+                   | {html_tag(), [ html_element() ]}
+                   | pi_tag().
+
 -type options() :: #{
         mode => xml | html,
         escape => boolean(),
@@ -47,6 +67,7 @@
     }.
 
 -export_type([
+    html_tree/0,
     html_node/0,
     html_element/0,
     html_attr/0,
@@ -55,7 +76,10 @@
     html_doctype/0,
     start_tag/0,
     end_tag/0,
-    html_token/0
+    html_token/0,
+    html_tag/0,
+    html_attr_name/0,
+    html_attr_value/0
     ]).
 
 %% This is a macro to placate syntax highlighters..
@@ -127,7 +151,7 @@ parse_to_map(Input, Options) ->
     Options1 = opts(Options),
     case parse(Input, Options1) of
         {ok, Tree} ->
-            tree_to_map(Tree, #{});
+            {ok, tree_to_map(Tree, #{})};
         {error, _} = Error ->
             Error
     end.
@@ -177,11 +201,11 @@ tokens(Input, Options) ->
     tokens(iolist_to_binary(Input), #decoder{}, [], Options).
 
 %% @doc Convert a html_node() tree to a list of tokens.
--spec to_tokens( html_node() ) -> [ html_token() ].
+-spec to_tokens( html_tree() ) -> [ html_token() ].
 to_tokens(HtmlNode) ->
     to_tokens(HtmlNode, #{ mode => html, escape => true }).
 
--spec to_tokens( html_node(), options() ) -> [ html_token() ].
+-spec to_tokens( html_tree(), options() ) -> [ html_token() ].
 to_tokens({Tag0}, Options) ->
     to_tokens({Tag0, [], []}, Options);
 to_tokens(T={'=', _}, _Options) ->
@@ -206,11 +230,11 @@ to_tokens({Tag0, Attrs, Acc}, Options) ->
     end.
 
 %% @doc Convert a list of html_token() to a HTML document.
--spec to_html([ html_token() ] | html_node() ) -> iodata().
+-spec to_html([ html_token() ] | html_tree() ) -> iodata().
 to_html(Node) ->
     to_html(Node, #{ mode => html, escape => true }).
 
--spec to_html([ html_token() ] | html_node(), options() ) -> iodata().
+-spec to_html([ html_token() ] | html_tree(), options() ) -> iodata().
 to_html(Node, Options) when is_tuple(Node) ->
     Options1 = opts(Options),
     to_html(to_tokens(Node, Options1), Options1);
@@ -1661,7 +1685,7 @@ to_tokens_test() ->
     ?assertEqual(
        [{start_tag, <<"p">>, [{class, 1}], false},
         {end_tag, <<"p">>}],
-       to_tokens({p, [{class, 1}], []})),
+       to_tokens({<<"p">>, [{class, 1}], []})),
     ?assertEqual(
        [{start_tag, <<"p">>, [], false},
         {end_tag, <<"p">>}],
@@ -2206,8 +2230,8 @@ parse_to_map_test() ->
       [#{<<"@attributes">> => [{<<"c">>,<<"1">>}],
          <<"br">> => []}]},
 
-    ?assertEqual(T, parse_to_map(D, #{ mode => xml, lowercase => false })),
-    ?assertEqual(T1, parse_to_map(D, #{ mode => xml, lowercase => true })),
+    ?assertEqual({ok, T}, ?MODULE:parse_to_map(D, #{ mode => xml, lowercase => false })),
+    ?assertEqual({ok, T1}, ?MODULE:parse_to_map(D, #{ mode => xml, lowercase => true })),
     ok.
 
 
