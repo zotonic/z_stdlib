@@ -1,11 +1,11 @@
 %% @author Rusty Klophaus
-%% @copyright Copyright (c) 2008-2009 Rusty Klophaus, Copyright (c) 2009 Marc Worrell
+%% @copyright Copyright (c) 2008-2009 Rusty Klophaus, Copyright (c) 2009-2021 Marc Worrell
 %%
 %% @doc Conversion functions for all kinds of data types. Changes to
 %% Rusty's version: added date conversion, undefined handling and more
 %% to_bool cases.
 
-%% Copyright 2009-2012 Marc Worrell
+%% Copyright 2009-2021 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,19 +89,28 @@ to_flatlist(L) ->
 to_atom(<<>>) -> undefined;
 to_atom("") -> undefined;
 to_atom(A) when is_atom(A) -> A;
-to_atom(B) when is_binary(B) -> to_atom(binary_to_list(B));
-to_atom(I) when is_integer(I) -> to_atom(integer_to_list(I));
+to_atom(B) when is_binary(B) -> binary_to_atom(B, utf8);
+to_atom(I) when is_integer(I) -> list_to_atom(integer_to_list(I));
 to_atom(L) when is_list(L) -> list_to_atom(binary_to_list(iolist_to_binary(L))).
 
 
 %% @doc Convert (almost) any value to an atom.
 -spec to_binary(term()) -> binary().
 to_binary(undefined) -> <<>>;
-to_binary(A) when is_atom(A) -> to_binary(atom_to_list(A));
+to_binary(A) when is_atom(A) -> atom_to_binary(A, utf8);
 to_binary(B) when is_binary(B) -> B;
-to_binary(I) when is_integer(I) -> to_binary(integer_to_list(I));
+to_binary(I) when is_integer(I) -> integer_to_binary(I);
 to_binary(F) when is_float(F) -> to_binary(to_list(F));
-to_binary(L) when is_list(L) -> iolist_to_binary(L).
+to_binary(L) when is_list(L) -> iolist_to_binary(L);
+to_binary({trans, [ {_, B} | _ ] = Tr}) when is_binary(B) ->
+    case proplists:get_value(en, Tr) of
+        undefined -> B;
+        V -> to_binary(V)
+    end;
+to_binary({{_, _, _}, {_, _, _}} = DT) ->
+    to_binary(z_dateformat:format(DT, "Y-m-d H:i:s", []));
+to_binary({trans, []}) ->
+    <<>>.
 
 %% Specific Zotonic callback, please keep here.
 to_binary({trans, _} = Tr, Context) -> to_binary(z_trans:lookup_fallback(Tr, Context));
@@ -167,6 +176,10 @@ to_bool_strict(<<0>>) -> false;
 to_bool_strict([]) -> false;
 to_bool_strict({rsc_list, []}) -> false;
 to_bool_strict({trans, []}) -> false;
+to_bool_strict({trans, Tr}) ->
+    lists:any(
+        fun({_, V}) -> V =/= <<>> end,
+        Tr);
 to_bool_strict("0") -> false;
 to_bool_strict(<<"0">>) -> false;
 to_bool_strict(M) when is_map(M) ->
