@@ -1,12 +1,17 @@
 %% @author Bob Ippolito <bob@mochimedia.com>
-%% @copyright 2007 Mochi Media, Inc.; copyright 2018-2020 Maas-Maarten Zeeman
+%% @copyright 2007 Mochi Media, Inc.; copyright 2018-2021 Maas-Maarten Zeeman
 
-%% @doc Loosely tokenizes and generates parse trees for HTML 4.
-%%      Adapted by Maas-Maarten Zeeman
+%% @doc Loosely tokenizes and generates parse trees for (X)HTML and XML.
+%% Adapted by Maas-Maarten Zeeman
+%% Extended for basic XML parsing by Marc Worrell
 
 -module(z_html_parse).
--export([tokens/1, parse/1, parse_tokens/1, to_tokens/1, escape/1,
-         escape_attr/1, to_html/1]).
+-export([
+    tokens/1, tokens/2, parse/1, parse/2,
+    parse_to_map/1, parse_to_map/2,
+    parse_tokens/1, to_tokens/1, to_tokens/2,
+    escape/1, escape_attr/1,
+    to_html/1, to_html/2]).
 
 
 -type html_node()    :: {binary(), [html_attr()], [ html_element() ]}.
@@ -35,6 +40,12 @@
                     | html_comment()
                     | html_doctype().
 
+-type options() :: #{
+        mode => xml | html,
+        escape => boolean(),
+        lowercase => boolean()
+    }.
+
 -export_type([
     html_node/0,
     html_element/0,
@@ -56,10 +67,10 @@
 -define(INC_COL(S),
         S#decoder{column=1+S#decoder.column,
                   offset=1+S#decoder.offset}).
--define(INC_LINE(S),
-        S#decoder{column=1,
-                  line=1+S#decoder.line,
-                  offset=1+S#decoder.offset}).
+% -define(INC_LINE(S),
+%         S#decoder{column=1,
+%                   line=1+S#decoder.line,
+%                   offset=1+S#decoder.offset}).
 -define(INC_CHAR(S, C),
         case C of
             $\n ->
@@ -82,9 +93,9 @@
 -define(PROBABLE_CLOSE(C),
         (C =:= $> orelse ?IS_WHITESPACE(C))).
 
--record(decoder, {line=1,
-                  column=1,
-                  offset=0}).
+-record(decoder, {line = 1,
+                  column = 1,
+                  offset = 0}).
 
 
 %% External API.
@@ -92,15 +103,54 @@
 %% @doc tokenize and then transform the token stream into a HTML tree.
 -spec parse( iodata() ) -> {ok, html_node()} | {error, nohtml}.
 parse(Input) ->
-    parse_tokens(tokens(Input)).
+    parse(Input, #{ mode => html, escape => true }).
+
+-spec parse( iodata(), options() ) -> {ok, html_node()} | {error, nohtml}.
+parse(Input, Options) ->
+    Options1 = opts(Options),
+    parse_tokens(tokens(Input, Options1), Options1).
+
+%% @doc Parse an HTML/XML document to a JSON compatible map. Attributes will be added
+%% as keys in an <tt>@attributes</tt> key. Elements will be mapped to keys with value lists.
+%% all keys are lowercased.
+-spec parse_to_map( Input :: iodata() | {binary, list(), list()} ) -> {ok, map()} | {error, term()}.
+parse_to_map(Input) ->
+    parse_to_map(Input, #{ mode => html, escape => true }).
+
+%% @doc Parse an HTML/XML document to a JSON compatible map. Attributes will be added
+%% as keys in an <tt>@attributes</tt> key. Elements will be mapped to keys with value lists.
+%% all keys are lowercased.
+-spec parse_to_map( Input :: iodata() | {binary, list(), list()}, options() ) -> {ok, map()} | {error, term()}.
+parse_to_map({_, _, _} = Tree, _Options) ->
+    {ok, tree_to_map(Tree, #{})};
+parse_to_map(Input, Options) ->
+    Options1 = opts(Options),
+    case parse(Input, Options1) of
+        {ok, Tree} ->
+            tree_to_map(Tree, #{});
+        {error, _} = Error ->
+            Error
+    end.
+
+opts(Options) ->
+    Options#{
+        mode => maps:get(mode, Options, html),
+        escape => maps:get(escape, Options, true)
+    }.
 
 %% @doc Transform the output of tokens(Doc) into a HTML tree.
 -spec parse_tokens( [ html_token() ] ) -> {ok, html_node()} | {error, nohtml}.
-parse_tokens(Tokens) when is_list(Tokens) ->
+parse_tokens(Tokens) ->
+    parse_tokens(Tokens, #{ mode => html, escape => true }).
+
+-spec parse_tokens( [ html_token() ], options() ) -> {ok, html_node()} | {error, nohtml}.
+parse_tokens(Tokens, #{ mode := Mode } = Options) when is_list(Tokens) ->
     %% Skip over doctype, processing instructions
     F = fun (X) ->
                 case X of
                     {start_tag, _, _, false} ->
+                        false;
+                    {start_tag, _, _, true} when Mode =:= xml ->
                         false;
                     _ ->
                         true
@@ -108,45 +158,65 @@ parse_tokens(Tokens) when is_list(Tokens) ->
         end,
     case lists:dropwhile(F, Tokens) of
         [{start_tag, Tag, Attrs, false} | Rest] ->
-            {Tree, _} = tree(Rest, [norm({Tag, Attrs})]),
+            {Tree, _} = tree(Rest, [ norm({Tag, Attrs}, Options) ], Options),
+            {ok, Tree};
+        [{start_tag, Tag, Attrs, true} ] when Mode =:= xml ->
+            {Tree, _} = tree([], [ norm({Tag, Attrs}, Options) ], Options),
             {ok, Tree};
         [] ->
             {error, nohtml}
     end.
 
-%% @spec tokens(StringOrBinary) -> [html_token()]
 %% @doc Transform the input UTF-8 HTML into a token stream.
+-spec tokens( iodata() ) -> [ html_token() ].
 tokens(Input) ->
-    tokens(iolist_to_binary(Input), #decoder{}, []).
+    tokens(Input, #{ mode => html, escape => true }).
 
-%% @spec to_tokens(html_node()) -> [html_token()]
+-spec tokens( iodata(), options() ) -> [ html_token() ].
+tokens(Input, Options) ->
+    tokens(iolist_to_binary(Input), #decoder{}, [], Options).
+
 %% @doc Convert a html_node() tree to a list of tokens.
-to_tokens({Tag0}) ->
-    to_tokens({Tag0, [], []});
-to_tokens(T={'=', _}) ->
+-spec to_tokens( html_node() ) -> [ html_token() ].
+to_tokens(HtmlNode) ->
+    to_tokens(HtmlNode, #{ mode => html, escape => true }).
+
+-spec to_tokens( html_node(), options() ) -> [ html_token() ].
+to_tokens({Tag0}, Options) ->
+    to_tokens({Tag0, [], []}, Options);
+to_tokens(T={'=', _}, _Options) ->
     [T];
-to_tokens(T={doctype, _}) ->
+to_tokens(T={doctype, _}, _Options) ->
     [T];
-to_tokens(T={comment, _}) ->
+to_tokens(T={comment, _}, _Options) ->
     [T];
-to_tokens({Tag0, Acc}) ->
+to_tokens({Tag0, Acc}, Options) ->
     %% This is only allowed in sub-tags: {p, [{"class", "foo"}]}
-    to_tokens({Tag0, [], Acc});
-to_tokens({Tag0, Attrs, Acc}) ->
-    Tag = to_tag(Tag0),
-    case is_singleton(Tag) of
+    to_tokens({Tag0, [], Acc}, Options);
+to_tokens({Tag0, Attrs, []}, #{ mode := xml } = Options) ->
+    Tag = to_tag(Tag0, Options),
+    to_tokens_1([], [{start_tag, Tag, Attrs, true}], Options);
+to_tokens({Tag0, Attrs, Acc}, Options) ->
+    Tag = to_tag(Tag0, Options),
+    case is_singleton(Tag, Options) of
         true ->
-            to_tokens([], [{start_tag, Tag, Attrs, true}]);
+            to_tokens_1([], [{start_tag, Tag, Attrs, true}], Options);
         false ->
-            to_tokens([{Tag, Acc}], [{start_tag, Tag, Attrs, false}])
+            to_tokens_1([{Tag, Acc}], [{start_tag, Tag, Attrs, false}], Options)
     end.
 
-%% @spec to_html([html_token()] | html_node()) -> iolist()
 %% @doc Convert a list of html_token() to a HTML document.
-to_html(Node) when is_tuple(Node) ->
-    to_html(to_tokens(Node));
-to_html(Tokens) when is_list(Tokens) ->
-    to_html(Tokens, []).
+-spec to_html([ html_token() ] | html_node() ) -> iodata().
+to_html(Node) ->
+    to_html(Node, #{ mode => html, escape => true }).
+
+-spec to_html([ html_token() ] | html_node(), options() ) -> iodata().
+to_html(Node, Options) when is_tuple(Node) ->
+    Options1 = opts(Options),
+    to_html(to_tokens(Node, Options1), Options1);
+to_html(Tokens, Options) when is_list(Tokens) ->
+    Options1 = opts(Options),
+    to_html_1(Tokens, [], Options1).
 
 %% @spec escape(string() | atom() | binary()) -> binary()
 %% @doc Escape a string such that it's safe for HTML (amp; lt; gt;).
@@ -171,35 +241,32 @@ escape_attr(I) when is_integer(I) ->
 escape_attr(F) when is_float(F) ->
     escape_attr(z_mochinum:digits(F), []).
 
-to_html(Tree, Acc) ->
-    to_html(Tree, Acc, true).
-
-to_html([], Acc, _Escape) ->
+to_html_1([], Acc, _Options) ->
     lists:reverse(Acc);
-to_html([{'=', Content} | Rest], Acc, Escape) ->
-    to_html(Rest, [Content | Acc], Escape);
-to_html([{pi, Bin} | Rest], Acc, Escape) ->
+to_html_1([{'=', Content} | Rest], Acc, Options) ->
+    to_html_1(Rest, [Content | Acc], Options);
+to_html_1([{pi, Bin} | Rest], Acc, Options) ->
     Open = [<<"<?">>,
             Bin,
             <<"?>">>],
-    to_html(Rest, [Open | Acc], Escape);
-to_html([{pi, Tag, Attrs} | Rest], Acc, Escape) ->
+    to_html_1(Rest, [Open | Acc], Options);
+to_html_1([{pi, Tag, Attrs} | Rest], Acc, Options) ->
     Open = [<<"<?">>,
             Tag,
             attrs_to_html(Attrs, []),
             <<"?>">>],
-    to_html(Rest, [Open | Acc], Escape);
-to_html([{comment, Comment} | Rest], Acc, Escape) ->
-    to_html(Rest, [[<<"<!--">>, Comment, <<"-->">>] | Acc], Escape);
-to_html([{doctype, Parts} | Rest], Acc, Escape) ->
+    to_html_1(Rest, [Open | Acc], Options);
+to_html_1([{comment, Comment} | Rest], Acc, Options) ->
+    to_html_1(Rest, [[<<"<!--">>, Comment, <<"-->">>] | Acc], Options);
+to_html_1([{doctype, Parts} | Rest], Acc, Options) ->
     Inside = doctype_to_html(Parts, Acc),
-    to_html(Rest, [[<<"<!DOCTYPE">>, Inside, <<">">>] | Acc], Escape);
-to_html([{data, Data, _Whitespace} | Rest], Acc, true) ->
-    to_html(Rest, [escape(Data) | Acc], true);
-to_html([{data, Data, _Whitespace} | Rest], Acc, false) ->
-    to_html(Rest, [Data | Acc], false);
-to_html([{start_tag, Tag, Attrs, Singleton} | Rest], Acc, _Escape) ->
-    EscapeData = case Tag of 
+    to_html_1(Rest, [[<<"<!DOCTYPE">>, Inside, <<">">>] | Acc], Options);
+to_html_1([{data, Data, _Whitespace} | Rest], Acc, #{ escape := true } = Options) ->
+    to_html_1(Rest, [escape(Data) | Acc], Options);
+to_html_1([{data, Data, _Whitespace} | Rest], Acc, #{ escape := false } = Options) ->
+    to_html_1(Rest, [Data | Acc], Options);
+to_html_1([{start_tag, Tag, Attrs, Singleton} | Rest], Acc, #{ mode := html } = Options) ->
+    EscapeData = case Tag of
                      <<"script">> -> false;
                      _ -> true
                  end,
@@ -210,9 +277,18 @@ to_html([{start_tag, Tag, Attrs, Singleton} | Rest], Acc, _Escape) ->
                 true -> <<" />">>;
                 false -> <<">">>
             end],
-    to_html(Rest, [Open | Acc], EscapeData);
-to_html([{end_tag, Tag} | Rest], Acc, _Escape) ->
-    to_html(Rest, [[<<"</">>, Tag, <<">">>] | Acc], false).
+    to_html_1(Rest, [Open | Acc], Options#{ escape := EscapeData });
+to_html_1([{start_tag, Tag, Attrs, Singleton} | Rest], Acc, #{ mode := xml } = Options) ->
+    Open = [<<"<">>,
+            Tag,
+            attrs_to_html(Attrs, []),
+            case Singleton of
+                true -> <<" />">>;
+                false -> <<">">>
+            end],
+    to_html_1(Rest, [Open | Acc], Options#{ escape := true });
+to_html_1([{end_tag, Tag} | Rest], Acc, Options) ->
+    to_html_1(Rest, [[<<"</">>, Tag, <<">">>] | Acc], Options#{ escape => false }).
 
 doctype_to_html([], Acc) ->
     lists:reverse(Acc);
@@ -260,78 +336,90 @@ escape_attr([16#c2, 16#a0] ++ Rest, Acc) ->
 escape_attr([C | Rest], Acc) ->
     escape_attr(Rest, [C | Acc]).
 
-to_tag(A) when is_atom(A) ->
-    norm(atom_to_list(A));
-to_tag(L) ->
-    norm(L).
+to_tag(A, Options) when is_atom(A) ->
+    norm(atom_to_binary(A, utf8), Options);
+to_tag(L, Options) ->
+    norm(L, Options).
 
-to_tokens([], Acc) ->
+to_tokens_1([], Acc, _Options) ->
     lists:reverse(Acc);
-to_tokens([{Tag, []} | Rest], Acc) ->
-    to_tokens(Rest, [{end_tag, to_tag(Tag)} | Acc]);
-to_tokens([{Tag0, [{T0} | R1]} | Rest], Acc) ->
+to_tokens_1([{Tag, []} | Rest], Acc, Options) ->
+    to_tokens_1(Rest, [{end_tag, to_tag(Tag, Options)} | Acc], Options);
+to_tokens_1([{Tag0, [{T0} | R1]} | Rest], Acc, Options) ->
     %% Allow {br}
-    to_tokens([{Tag0, [{T0, [], []} | R1]} | Rest], Acc);
-to_tokens([{Tag0, [T0={'=', _C0} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, [{T0, [], []} | R1]} | Rest], Acc, Options);
+to_tokens_1([{Tag0, [T0={'=', _C0} | R1]} | Rest], Acc, Options) ->
     %% Allow {'=', iolist()}
-    to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
-to_tokens([{Tag0, [T0={comment, _C0} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, R1} | Rest], [T0 | Acc], Options);
+to_tokens_1([{Tag0, [T0={comment, _C0} | R1]} | Rest], Acc, Options) ->
     %% Allow {comment, iolist()}
-    to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
-to_tokens([{Tag0, [T0={pi, _S0} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, R1} | Rest], [T0 | Acc], Options);
+to_tokens_1([{Tag0, [T0={pi, _S0} | R1]} | Rest], Acc, Options) ->
     %% Allow {pi, binary()}
-    to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
-to_tokens([{Tag0, [T0={pi, _S0, _A0} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, R1} | Rest], [T0 | Acc], Options);
+to_tokens_1([{Tag0, [T0={pi, _S0, _A0} | R1]} | Rest], Acc, Options) ->
     %% Allow {pi, binary(), list()}
-    to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
-to_tokens([{Tag0, [{T0, A0=[{_, _} | _]} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, R1} | Rest], [T0 | Acc], Options);
+to_tokens_1([{Tag0, [{T0, A0=[{_, _} | _]} | R1]} | Rest], Acc, Options) ->
     %% Allow {p, [{"class", "foo"}]}
-    to_tokens([{Tag0, [{T0, A0, []} | R1]} | Rest], Acc);
-to_tokens([{Tag0, [{T0, C0} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, [{T0, A0, []} | R1]} | Rest], Acc, Options);
+to_tokens_1([{Tag0, [{T0, C0} | R1]} | Rest], Acc, Options) ->
     %% Allow {p, "content"} and {p, <<"content">>}
-    to_tokens([{Tag0, [{T0, [], C0} | R1]} | Rest], Acc);
-to_tokens([{Tag0, [{T0, A1, C0} | R1]} | Rest], Acc) when is_binary(C0) ->
+    to_tokens_1([{Tag0, [{T0, [], C0} | R1]} | Rest], Acc, Options);
+to_tokens_1([{Tag0, [{T0, A1, C0} | R1]} | Rest], Acc, Options) when is_binary(C0) ->
     %% Allow {"p", [{"class", "foo"}], <<"content">>}
-    to_tokens([{Tag0, [{T0, A1, binary_to_list(C0)} | R1]} | Rest], Acc);
-to_tokens([{Tag0, [{T0, A1, C0=[C | _]} | R1]} | Rest], Acc)
+    to_tokens_1([{Tag0, [{T0, A1, binary_to_list(C0)} | R1]} | Rest], Acc, Options);
+to_tokens_1([{Tag0, [{T0, A1, C0=[C | _]} | R1]} | Rest], Acc, Options)
   when is_integer(C) ->
     %% Allow {"p", [{"class", "foo"}], "content"}
-    to_tokens([{Tag0, [{T0, A1, [C0]} | R1]} | Rest], Acc);
-to_tokens([{Tag0, [{T0, A1, C1} | R1]} | Rest], Acc) ->
+    to_tokens_1([{Tag0, [{T0, A1, [C0]} | R1]} | Rest], Acc, Options);
+to_tokens_1([{Tag0, [{T0, A1, []} | R1]} | Rest], Acc, #{ mode := xml } = Options) ->
+    Tag = to_tag(Tag0, Options),
+    T1 = to_tag(T0, Options),
+    to_tokens_1([{Tag, R1} | Rest],
+                [{start_tag, T1, A1, true} | Acc],
+                Options);
+to_tokens_1([{Tag0, [{T0, A1, C1} | R1]} | Rest], Acc, Options) ->
     %% Native {"p", [{"class", "foo"}], ["content"]}
-    Tag = to_tag(Tag0),
-    T1 = to_tag(T0),
-    case is_singleton(norm(T1)) of
+    Tag = to_tag(Tag0, Options),
+    T1 = to_tag(T0, Options),
+    case is_singleton(norm(T1, Options), Options) of
         true ->
-            to_tokens([{Tag, R1} | Rest], [{start_tag, T1, A1, true} | Acc]);
+            to_tokens_1([{Tag, R1} | Rest],
+                        [{start_tag, T1, A1, true} | Acc],
+                        Options);
         false ->
-            to_tokens([{T1, C1}, {Tag, R1} | Rest],
-                      [{start_tag, T1, A1, false} | Acc])
+            to_tokens_1([{T1, C1}, {Tag, R1} | Rest],
+                        [{start_tag, T1, A1, false} | Acc],
+                        Options)
     end;
-to_tokens([{Tag0, [L | R1]} | Rest], Acc) when is_list(L) ->
+to_tokens_1([{Tag0, [L | R1]} | Rest], Acc, Options) when is_list(L) ->
     %% List text
-    Tag = to_tag(Tag0),
-    to_tokens([{Tag, R1} | Rest], [{data, iolist_to_binary(L), false} | Acc]);
-to_tokens([{Tag0, [B | R1]} | Rest], Acc) when is_binary(B) ->
+    Tag = to_tag(Tag0, Options),
+    to_tokens_1([{Tag, R1} | Rest], [{data, iolist_to_binary(L), false} | Acc], Options);
+to_tokens_1([{Tag0, [B | R1]} | Rest], Acc, Options) when is_binary(B) ->
     %% Binary text
-    Tag = to_tag(Tag0),
-    to_tokens([{Tag, R1} | Rest], [{data, B, false} | Acc]).
+    Tag = to_tag(Tag0, Options),
+    to_tokens_1([{Tag, R1} | Rest], [{data, B, false} | Acc], Options).
 
-tokens(B, S=#decoder{offset=O}, Acc) ->
+tokens(B, S=#decoder{offset=O}, Acc, #{ mode := Mode } = Options) ->
     case B of
         <<_:O/binary>> ->
             lists:reverse(Acc);
-        _ ->
-            {Tag, S1} = tokenize(B, S),
+        _ when Mode =:= xml ->
+            {Tag, S1} = tokenize(B, S, Options),
+            tokens(B, S1, [Tag | Acc], Options);
+        _ when Mode =:= html ->
+            {Tag, S1} = tokenize(B, S, Options),
             case parse_flag(Tag) of
                 script ->
                     {Tag2, S2} = tokenize_script(B, S1),
-                    tokens(B, S2, [Tag2, Tag | Acc]);
+                    tokens(B, S2, [Tag2, Tag | Acc], Options);
                 textarea ->
                     {Tag2, S2} = tokenize_textarea(B, S1),
-                    tokens(B, S2, [Tag2, Tag | Acc]);
+                    tokens(B, S2, [Tag2, Tag | Acc], Options);
                 none ->
-                    tokens(B, S1, [Tag | Acc])
+                    tokens(B, S1, [Tag | Acc], Options)
             end
     end.
 
@@ -347,40 +435,40 @@ parse_flag({start_tag, B, _, false}) ->
 parse_flag(_) ->
     none.
 
-tokenize(B, S=#decoder{offset=O}) ->
+tokenize(B, S=#decoder{offset=O}, Options) ->
     case B of
         <<_:O/binary, "<!--", _/binary>> ->
             tokenize_comment(B, ?ADV_COL(S, 4));
         <<_:O/binary, "<!DOCTYPE", _/binary>> ->
-            tokenize_doctype(B, ?ADV_COL(S, 10));
+            tokenize_doctype(B, ?ADV_COL(S, 10), Options);
         <<_:O/binary, "<!doctype", _/binary>> ->
-            tokenize_doctype(B, ?ADV_COL(S, 10));
+            tokenize_doctype(B, ?ADV_COL(S, 10), Options);
         <<_:O/binary, "<![CDATA[", _/binary>> ->
             tokenize_cdata(B, ?ADV_COL(S, 9));
         <<_:O/binary, "<?php", _/binary>> ->
             {Body, S1} = raw_qgt(B, ?ADV_COL(S, 2)),
             {{pi, Body}, S1};
         <<_:O/binary, "<?", _/binary>> ->
-            {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2), tag),
-            {Attrs, S2} = tokenize_attributes(B, S1),
+            {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2), tag, Options),
+            {Attrs, S2} = tokenize_attributes(B, S1, Options),
             S3 = find_qgt(B, S2),
             {{pi, Tag, Attrs}, S3};
         <<_:O/binary, "&", _/binary>> ->
             tokenize_charref(B, ?INC_COL(S));
         <<_:O/binary, "</", _/binary>> ->
-            {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2), tag),
+            {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2), tag, Options),
             {S2, _} = find_gt(B, S1),
             {{end_tag, Tag}, S2};
-        <<_:O/binary, "<", C, _/binary>> 
+        <<_:O/binary, "<", C, _/binary>>
                 when ?IS_WHITESPACE(C); not ?IS_START_LITERAL_SAFE(C) ->
             %% This isn't really strict HTML
             {{data, Data, _Whitespace}, S1} = tokenize_data(B, ?INC_COL(S)),
             {{data, <<$<, Data/binary>>, false}, S1};
         <<_:O/binary, "<", _/binary>> ->
-            {Tag, S1} = tokenize_literal(B, ?INC_COL(S), tag),
-            {Attrs, S2} = tokenize_attributes(B, S1),
+            {Tag, S1} = tokenize_literal(B, ?INC_COL(S), tag, Options),
+            {Attrs, S2} = tokenize_attributes(B, S1, Options),
             {S3, HasSlash} = find_gt(B, S2),
-            Singleton = HasSlash orelse is_singleton(Tag),
+            Singleton = HasSlash orelse is_singleton(Tag, Options),
             {{start_tag, Tag, Attrs, Singleton}, S3};
         _ ->
             tokenize_data(B, S, false)
@@ -391,63 +479,77 @@ tree_data([{data, Data, Whitespace} | Rest], AllWhitespace, Acc) ->
 tree_data(Rest, AllWhitespace, Acc) ->
     {iolist_to_binary(lists:reverse(Acc)), AllWhitespace, Rest}.
 
-tree([], Stack) ->
+tree([], Stack, _Options) ->
     {destack(Stack), []};
-tree([{end_tag, Tag} | Rest], Stack) ->
-    case destack(norm(Tag), Stack) of
+tree([{end_tag, Tag} | Rest], Stack, Options) ->
+    case destack(norm(Tag, Options), Stack, Options) of
         S when is_list(S) ->
-            tree(Rest, S);
+            tree(Rest, S, Options);
         Result ->
             {Result, []}
     end;
-tree([{start_tag, Tag, Attrs, true} | Rest], S) ->
-    tree(Rest, append_stack_child(norm({Tag, Attrs}), S));
-tree([{start_tag, Tag, Attrs, false} | Rest], S) ->
-    tree(Rest, stack(norm({Tag, Attrs}), S));
-tree([T={pi, _Raw} | Rest], S) ->
-    tree(Rest, append_stack_child(T, S));
-tree([T={pi, _Tag, _Attrs} | Rest], S) ->
-    tree(Rest, append_stack_child(T, S));
-tree([T={comment, _Comment} | Rest], S) ->
-    tree(Rest, append_stack_child(T, S));
-tree(L=[{data, _Data, _Whitespace} | _], S) ->
+tree([{start_tag, Tag, Attrs, true} | Rest], S, Options) ->
+    tree(Rest, append_stack_child(norm({Tag, Attrs}, Options), S), Options);
+tree([{start_tag, Tag, Attrs, false} | Rest], S, Options) ->
+    tree(Rest, stack(norm({Tag, Attrs}, Options), S, Options), Options);
+tree([T={pi, _Raw} | Rest], S, Options) ->
+    tree(Rest, append_stack_child(T, S), Options);
+tree([T={pi, _Tag, _Attrs} | Rest], S, Options) ->
+    tree(Rest, append_stack_child(T, S), Options);
+tree([T={comment, _Comment} | Rest], S, Options) ->
+    tree(Rest, append_stack_child(T, S), Options);
+tree(L=[{data, _Data, _Whitespace} | _], S, Options) ->
     case tree_data(L, true, []) of
         {_, true, Rest} ->
-            tree(Rest, S);
+            tree(Rest, S, Options);
         {Data, false, Rest} ->
-            tree(Rest, append_stack_child(Data, S))
+            tree(Rest, append_stack_child(Data, S), Options)
     end;
-tree([{doctype, _} | Rest], Stack) ->
-    tree(Rest, Stack).
+tree([{doctype, _} | Rest], Stack, Options) ->
+    tree(Rest, Stack, Options).
 
-norm({Tag, Attrs}) ->
-    {norm(Tag), [{norm(K), iolist_to_binary(V)} || {K, V} <- Attrs], []};
-norm(Tag) when is_binary(Tag) ->
+norm({Tag, Attrs}, #{ mode := xml }) ->
+    {iolist_to_binary(Tag), [{iolist_to_binary(K), iolist_to_binary(V)} || {K, V} <- Attrs], []};
+norm(Tag, #{ lowercase := true }) when is_binary(Tag); is_list(Tag) ->
+    z_string:to_lower(iolist_to_binary(Tag));
+norm(Tag, #{ mode := xml }) ->
+    iolist_to_binary(Tag);
+norm({Tag, Attrs}, Options) ->
+    {norm(Tag, Options), [{norm(K, Options), iolist_to_binary(V)} || {K, V} <- Attrs], []};
+norm(Tag, _Options) when is_binary(Tag) ->
     Tag;
-norm(Tag) ->
-    BTag = list_to_binary(Tag),
+norm(Tag, _Options) ->
+    BTag = iolist_to_binary(Tag),
     LTag = z_string:to_lower(BTag),
-    case is_html_tag(LTag) of 
+    case is_html_tag(LTag) of
         true -> LTag;
         false -> BTag
     end.
 
-stack(T1={TN, _, _}, Stack=[{TN, _, _} | _Rest])
-  when TN =:= <<"li">> orelse TN =:= <<"option">> ->
-    [T1 | destack(TN, Stack)];
-stack(T1={TN, _, _}, Stack) when TN =:= <<"td">> orelse TN =:= <<"th">> ->
+stack(T1, Stack, #{ mode := xml }) ->
+    [T1 | Stack];
+stack(T1={TN, _, _}, Stack=[{TN, _, _} | _Rest], Options)
+    when       TN =:= <<"li">>
+        orelse TN =:= <<"option">> ->
+    [T1 | destack(TN, Stack, Options)];
+stack(T1={TN, _, _}, Stack, Options) when TN =:= <<"td">> orelse TN =:= <<"th">> ->
     case find_in_stack([<<"td">>, <<"th">>], <<"table">>, Stack) of
         none -> Stack;
         undefined -> [T1 | Stack];
-        Tag -> [T1 | destack(Tag, Stack)]
+        Tag -> [T1 | destack(Tag, Stack, Options)]
     end;
-stack(T1={TN, _, _}, Stack) when TN =:= <<"tr">> ->
+stack(T1={TN, _, _}, Stack, Options)
+    when TN =:= <<"tr">> ->
     case find_in_stack([<<"tr">>], <<"table">>, Stack) of
         none -> Stack;
         undefined -> [T1 | Stack];
-        Tag -> [T1 | destack(Tag, Stack)]
+        Tag -> [T1 | destack(Tag, Stack, Options)]
     end;
-stack(T1={TN, _, _}, Stack) when TN =:= <<"tbody">> orelse TN =:= <<"thead">> orelse TN =:= <<"tfoot">> orelse TN =:= <<"colgroup">> ->
+stack(T1={TN, _, _}, Stack, Options)
+    when       TN =:= <<"tbody">>
+        orelse TN =:= <<"thead">>
+        orelse TN =:= <<"tfoot">>
+        orelse TN =:= <<"colgroup">> ->
     case find_in_stack([<<"tbody">>, <<"thead">>, <<"tfoot">>, <<"colgroup">>], <<"table">>, Stack) of
         none -> Stack;
         undefined ->
@@ -455,18 +557,18 @@ stack(T1={TN, _, _}, Stack) when TN =:= <<"tbody">> orelse TN =:= <<"thead">> or
             case find_in_stack([<<"tr">>], <<"table">>, Stack) of
                 %% none case is not possible.
                 undefined -> [T1 | Stack];
-                <<"tr">> -> [T1 | destack(<<"tr">>, Stack)]
+                <<"tr">> -> [T1 | destack(<<"tr">>, Stack, Options)]
             end;
-        Tag -> [T1 | destack(Tag, Stack)]
+        Tag -> [T1 | destack(Tag, Stack, Options)]
     end;
-stack(T1={TN0, _, _}, Stack=[{TN1, _, _} | _Rest])
+stack(T1={TN0, _, _}, Stack=[{TN1, _, _} | _Rest], Options)
   when (TN0 =:= <<"dd">> orelse TN0 =:= <<"dt">>) andalso
        (TN1 =:= <<"dd">> orelse TN1 =:= <<"dt">>) ->
-    [T1 | destack(TN1, Stack)];
-stack(T1, Stack) ->
+    [T1 | destack(TN1, Stack, Options)];
+stack(T1, Stack, _Options) ->
     [T1 | Stack].
 
-find_in_stack(_CanClose, _Until, []) -> 
+find_in_stack(_CanClose, _Until, []) ->
     none;
 find_in_stack(_CanClose, Until, [{Until, _,_}|_Rest]) ->
     undefined;
@@ -481,25 +583,21 @@ find_in_stack(CanClose, Until, [_|Rest]) ->
 append_stack_child(StartTag, [{Name, Attrs, Acc} | Stack]) ->
     [{Name, Attrs, [StartTag | Acc]} | Stack].
 
-destack(<<"br">>, Stack) ->
+destack(<<"br">>, Stack, #{ mode := html }) ->
     %% This is an ugly hack to make dumb_br_test() pass,
     %% this makes it such that br can never have children.
     Stack;
-destack(TagName, Stack) when is_list(Stack) ->
-    F = fun (X) ->
-                case X of
-                    {TagName, _, _} ->
-                        false;
-                    _ ->
-                        true
-                end
+destack(TagName, Stack, Options) when is_list(Stack) ->
+    F = fun
+            ({X, _, _}) when X =:= TagName -> false;
+            (_) -> true
         end,
     case lists:splitwith(F, Stack) of
         {_, []} ->
             %% If we're parsing something like XML we might find
             %% a <link>tag</link> that is normally a singleton
             %% in HTML but isn't here
-            case {is_singleton(TagName), Stack} of
+            case {is_singleton(TagName, Options), Stack} of
                 {true, [{T0, A0, Acc0} | Post0]} ->
                     case lists:splitwith(F, Acc0) of
                         {_, []} ->
@@ -526,20 +624,21 @@ destack([{Tag, Attrs, Acc}]) ->
 destack([{T1, A1, Acc1}, {T0, A0, Acc0} | Rest]) ->
     destack([{T0, A0, [{T1, A1, lists:reverse(Acc1)} | Acc0]} | Rest]).
 
-is_singleton(<<"area">>) -> true;
-is_singleton(<<"base">>) -> true;
-is_singleton(<<"br">>) -> true;
-is_singleton(<<"col">>) -> true;
-is_singleton(<<"embed">>) -> true;
-is_singleton(<<"hr">>) -> true;
-is_singleton(<<"img">>) -> true;
-is_singleton(<<"input">>) -> true;
-is_singleton(<<"link">>) -> true;
-is_singleton(<<"meta">>) -> true;
-is_singleton(<<"param">>) -> true;
-is_singleton(<<"source">>) -> true;
-is_singleton(<<"wbr">>) -> true;
-is_singleton(_) -> false.
+is_singleton(_, #{ mode := xml }) -> false;
+is_singleton(<<"area">>, _Options) -> true;
+is_singleton(<<"base">>, _Options) -> true;
+is_singleton(<<"br">>, _Options) -> true;
+is_singleton(<<"col">>, _Options) -> true;
+is_singleton(<<"embed">>, _Options) -> true;
+is_singleton(<<"hr">>, _Options) -> true;
+is_singleton(<<"img">>, _Options) -> true;
+is_singleton(<<"input">>, _Options) -> true;
+is_singleton(<<"link">>, _Options) -> true;
+is_singleton(<<"meta">>, _Options) -> true;
+is_singleton(<<"param">>, _Options) -> true;
+is_singleton(<<"source">>, _Options) -> true;
+is_singleton(<<"wbr">>, _Options) -> true;
+is_singleton(_, _Options) -> false.
 
 tokenize_data(B, S=#decoder{offset=O}) ->
     tokenize_data(B, S, O, true).
@@ -558,10 +657,10 @@ tokenize_data(B, S=#decoder{offset=O}, Start, Whitespace) ->
             {{data, Data, Whitespace}, S}
     end.
 
-tokenize_attributes(B, S) ->
-    tokenize_attributes(B, S, []).
+tokenize_attributes(B, S, Options) ->
+    tokenize_attributes(B, S, [], Options).
 
-tokenize_attributes(B, S=#decoder{offset=O}, Acc) ->
+tokenize_attributes(B, S=#decoder{offset=O}, Acc, Options) ->
     case B of
         <<_:O/binary>> ->
             {lists:reverse(Acc), S};
@@ -570,11 +669,11 @@ tokenize_attributes(B, S=#decoder{offset=O}, Acc) ->
         <<_:O/binary, "?>", _/binary>> ->
             {lists:reverse(Acc), S};
         <<_:O/binary, C, _/binary>> when ?IS_WHITESPACE(C) ->
-            tokenize_attributes(B, ?INC_CHAR(S, C), Acc);
+            tokenize_attributes(B, ?INC_CHAR(S, C), Acc, Options);
         _ ->
-            {Attr, S1} = tokenize_literal(B, S, attribute),
+            {Attr, S1} = tokenize_literal(B, S, attribute, Options),
             {Value, S2} = tokenize_attr_value(Attr, B, S1),
-            tokenize_attributes(B, S2, [{Attr, Value} | Acc])
+            tokenize_attributes(B, S2, [{Attr, Value} | Acc], Options)
     end.
 
 tokenize_attr_value(Attr, B, S) ->
@@ -635,7 +734,7 @@ skip_whitespace(B, S=#decoder{offset=O}) ->
             S
     end.
 
-tokenize_literal(Bin, S=#decoder{offset=O}, Type) ->
+tokenize_literal(Bin, S=#decoder{offset=O}, Type, Options) ->
     case Bin of
         <<_:O/binary, C, _/binary>> when C =:= $>
                                     orelse C =:= $/
@@ -644,41 +743,49 @@ tokenize_literal(Bin, S=#decoder{offset=O}, Type) ->
             %% 0 chars. http://github.com/mochi/mochiweb/pull/13
             {[C], ?INC_COL(S)};
         _ ->
-            tokenize_literal(Bin, S, Type, <<>>)
+            tokenize_literal(Bin, S, Type, <<>>, Options)
     end.
 
-tokenize_literal(Bin, S=#decoder{offset=O}, Type, Acc) ->
+tokenize_literal(Bin, S=#decoder{offset=O}, Type, Acc, Options) ->
     case Bin of
         <<_:O/binary, $&, _/binary>> ->
             {{data, Data, false}, S1} = tokenize_charref(Bin, ?INC_COL(S)),
-            tokenize_literal(Bin, S1, Type, <<Acc/binary, Data/binary>>);
+            tokenize_literal(Bin, S1, Type, <<Acc/binary, Data/binary>>, Options);
         <<_:O/binary, C, _/binary>> when not (?IS_WHITESPACE(C)
                                               orelse C =:= $>
                                               orelse C =:= $/
                                               orelse C =:= $=) ->
-            tokenize_literal(Bin, ?INC_COL(S), Type, <<Acc/binary, C>>);
+            tokenize_literal(Bin, ?INC_COL(S), Type, <<Acc/binary, C>>, Options);
         _ ->
             Acc1 = case Type of
                 tag ->
-                    tokenize_tag(Acc);
+                    tokenize_tag(Acc, Options);
                 attribute ->
-                    tokenize_attribute_name(Acc)
-            end,  
+                    tokenize_attribute_name(Acc, Options)
+            end,
             {Acc1, S}
     end.
 
-tokenize_tag(Tag) ->
+tokenize_tag(Tag, #{ lowercase := true }) ->
+    z_string:to_lower(Tag);
+tokenize_tag(Tag, #{ mode := xml }) ->
+    Tag;
+tokenize_tag(Tag, _Options) ->
     LTag = z_string:to_lower(Tag),
     case is_html_tag(LTag) of
         true -> LTag;
-        false -> Tag 
+        false -> Tag
     end.
-    
-tokenize_attribute_name(Name) ->
+
+tokenize_attribute_name(Name, #{ lowercase := true }) ->
+    z_string:to_lower(Name);
+tokenize_attribute_name(Name, #{ mode := xml }) ->
+    Name;
+tokenize_attribute_name(Name, _Options) ->
     LName = z_string:to_lower(Name),
     case is_html_attr(LName) of
         true -> LName;
-        false -> Name 
+        false -> Name
     end.
 
 raw_qgt(Bin, S=#decoder{offset=O}) ->
@@ -781,10 +888,10 @@ codepoint_to_bytes(Unichars) when is_list(Unichars) ->
     end.
 
 
-tokenize_doctype(Bin, S) ->
-    tokenize_doctype(Bin, S, []).
+tokenize_doctype(Bin, S, Options) ->
+    tokenize_doctype(Bin, S, [], Options).
 
-tokenize_doctype(Bin, S=#decoder{offset=O}, Acc) ->
+tokenize_doctype(Bin, S=#decoder{offset=O}, Acc, Options) ->
     case Bin of
         <<_:O/binary>> ->
             {{doctype, lists:reverse(Acc)}, S};
@@ -793,17 +900,17 @@ tokenize_doctype(Bin, S=#decoder{offset=O}, Acc) ->
         <<_:O/binary, C, _/binary>> when ?IS_WHITESPACE(C) ->
             tokenize_doctype(Bin, ?INC_CHAR(S, C), Acc);
         _ ->
-            {Word, S1} = tokenize_word_or_literal(Bin, S),
-            tokenize_doctype(Bin, S1, [Word | Acc])
+            {Word, S1} = tokenize_word_or_literal(Bin, S, Options),
+            tokenize_doctype(Bin, S1, [Word | Acc], Options)
     end.
 
-tokenize_word_or_literal(Bin, S=#decoder{offset=O}) ->
+tokenize_word_or_literal(Bin, S=#decoder{offset=O}, Options) ->
     case Bin of
         <<_:O/binary, C, _/binary>> when C =:= ?QUOTE orelse C =:= ?SQUOTE ->
             tokenize_word(Bin, ?INC_COL(S), C);
         <<_:O/binary, C, _/binary>> when not ?IS_WHITESPACE(C) ->
             %% Sanity check for whitespace
-            tokenize_literal(Bin, S, tag)
+            tokenize_literal(Bin, S, tag, Options)
     end.
 
 tokenize_word(Bin, S, Quote) ->
@@ -900,6 +1007,61 @@ tokenize_textarea(Bin, S=#decoder{offset=O}, Start) ->
         <<_:Start/binary, Raw/binary>> ->
             {{data, Raw, false}, S}
     end.
+
+
+tree_to_map({Tag, [], Elts}, TagMap) when is_list(Elts) ->
+    case lists:any(fun is_element/1, Elts) of
+        true ->
+            EltMap = lists:foldr(
+                fun tree_to_map/2,
+                #{},
+                Elts),
+            TagMap#{
+                Tag => [ EltMap | maps:get(Tag, TagMap, []) ]
+            };
+        false ->
+            % Leave node, sub elements are values
+            Vs = map_values(Elts),
+            TagMap#{
+                Tag => lists:flatten([ Vs | maps:get(Tag, TagMap, []) ])
+            }
+    end;
+tree_to_map({Tag, Attrs, Elts}, TagMap) when is_list(Elts) ->
+    case lists:any(fun is_element/1, Elts) of
+        true ->
+            EltMap = lists:foldr(
+                fun tree_to_map/2,
+                #{},
+                Elts),
+            EltMap1 = EltMap#{
+                <<"@attributes">> => Attrs
+            },
+            TagMap#{
+                Tag => [ EltMap1 | maps:get(Tag, TagMap, []) ]
+            };
+        false ->
+            % Leave node, but with attributes
+            V = #{
+                <<"@attributes">> => Attrs,
+                <<"value">> => map_values(Elts)
+            },
+            TagMap#{
+                Tag => [ V | maps:get(Tag, TagMap, []) ]
+            }
+    end;
+tree_to_map(_, TagMap) ->
+    TagMap.
+
+map_values(Vs) ->
+    lists:filtermap(fun map_value/1, Vs).
+
+map_value(B) when is_binary(B) -> {true, B};
+map_value(_) -> false.
+
+is_element({Tag, Attrs, Elts}) when is_binary(Tag), is_list(Attrs), is_list(Elts) ->
+    true;
+is_element(_) ->
+    false.
 
 
 % @doc Return true when Tag is a html tag.
@@ -1465,7 +1627,7 @@ parse_test() ->
 
 exhaustive_is_singleton_test() ->
     T = z_cover:clause_lookup_table(?MODULE, is_singleton),
-    [?assertEqual(V, is_singleton(K)) || {K, V} <- T].
+    [?assertEqual(V, is_singleton(K, #{ mode => html })) || {K, V} <- T].
 
 tokenize_attributes_test() ->
     ?assertEqual(
@@ -1612,18 +1774,24 @@ parse_tokens_test() ->
     ok.
 
 destack_test() ->
+    Options = #{
+        mode => html,
+        escape => true
+    },
     {<<"a">>, [], []} =
         destack([{<<"a">>, [], []}]),
     {<<"a">>, [], [{<<"b">>, [], []}]} =
         destack([{<<"b">>, [], []}, {<<"a">>, [], []}]),
     {<<"a">>, [], [{<<"b">>, [], [{<<"c">>, [], []}]}]} =
-     destack([{<<"c">>, [], []}, {<<"b">>, [], []}, {<<"a">>, [], []}]),
+        destack([{<<"c">>, [], []}, {<<"b">>, [], []}, {<<"a">>, [], []}]),
     [{<<"a">>, [], [{<<"b">>, [], [{<<"c">>, [], []}]}]}] =
-     destack(<<"b">>,
-             [{<<"c">>, [], []}, {<<"b">>, [], []}, {<<"a">>, [], []}]),
+        destack(<<"b">>,
+                [{<<"c">>, [], []}, {<<"b">>, [], []}, {<<"a">>, [], []}],
+                Options),
     [{<<"b">>, [], [{<<"c">>, [], []}]}, {<<"a">>, [], []}] =
-     destack(<<"c">>,
-             [{<<"c">>, [], []}, {<<"b">>, [], []},{<<"a">>, [], []}]),
+        destack(<<"c">>,
+                [{<<"c">>, [], []}, {<<"b">>, [], []},{<<"a">>, [], []}],
+                Options),
     ok.
 
 doctype_test() ->
@@ -2028,5 +2196,19 @@ nested_table_test() ->
     ?assertEqual({ok, T}, ?MODULE:parse(D1)),
 
     ok.
+
+parse_to_map_test() ->
+    D = <<"<A c=1>hal<BR/>lo</A>">>,
+    T = #{<<"A">> =>
+      [#{<<"@attributes">> => [{<<"c">>,<<"1">>}],
+         <<"BR">> => []}]},
+    T1 = #{<<"a">> =>
+      [#{<<"@attributes">> => [{<<"c">>,<<"1">>}],
+         <<"br">> => []}]},
+
+    ?assertEqual(T, parse_to_map(D, #{ mode => xml, lowercase => false })),
+    ?assertEqual(T1, parse_to_map(D, #{ mode => xml, lowercase => true })),
+    ok.
+
 
 -endif.
