@@ -162,7 +162,7 @@ sanitize_list(Ks, L, Options) when is_list(L) ->
                 {P1, V1};
             (V) when is_list(V), Ks =:= [] ->
                 escape_props(V, Options);
-            (V) when is_map(V)->
+            (V) when is_map(V) ->
                 escape_props(V, Options);
             (V) when Ks =:= [] ->
                 escape_value(V);
