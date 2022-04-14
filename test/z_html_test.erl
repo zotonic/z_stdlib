@@ -19,6 +19,30 @@ escape_props_test() ->
                  z_html:escape_props([{body, <<"Foo & bar">>}])),
     ok.
 
+escape_props_1_test() ->
+    Ps1 = #{
+        <<"foo_int_list">> => [ <<"1">>, <<"2">> ]
+    },
+    Ps1Out = #{
+        <<"foo_int_list">> => [ 1, 2 ]
+    },
+    ?assertEqual(Ps1Out, z_html:escape_props(Ps1)),
+    Ps2 = #{
+        <<"foo_id_list">> => [ <<"1">>, <<"2">>, <<"foo&bar">>, <<>> ]
+    },
+    Ps2Out = #{
+        <<"foo_id_list">> => [ 1, 2, <<"foo&amp;bar">>, undefined ]
+    },
+    ?assertEqual(Ps2Out, z_html:escape_props(Ps2)),
+    Ps3 = #{
+        <<"foo_id_list_list">> => [ [ <<"1">>, <<"2">> ], [ <<"foo&bar">>, <<>> ] ]
+    },
+    Ps3Out = #{
+        <<"foo_id_list_list">> => [ [ 1, 2 ], [ <<"foo&amp;bar">>, undefined ] ]
+    },
+    ?assertEqual(Ps3Out, z_html:escape_props(Ps3)),
+    ok.
+
 ensure_check_test() ->
 	?assertEqual(<<"&#1234; &lt;&gt;;">>, z_html:escape_check(<<"&#1234; <>;">>)),
 	ok.
