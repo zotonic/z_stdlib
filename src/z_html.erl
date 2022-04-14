@@ -128,24 +128,32 @@ escape_props1(<<"website">>, V, _Options) ->
 escape_props1(<<"@id">>, V, _Options) ->
     escape_value(sanitize_uri(V));
 escape_props1(<<"is_a", _/binary>>, V, Options) ->
-    sanitize_list(V, Options);
+    sanitize_list([], V, Options);
 escape_props1(<<"is_", _/binary>>, V, _Options) ->
     z_convert:to_bool(V);
 escape_props1(K, V, Options) ->
-    Type = lists:last(binary:split(K, <<"_">>, [global])),
-    sanitize_type(Type, V, Options).
+    [Type|Ks] = lists:reverse(binary:split(K, <<"_">>, [global])),
+    sanitize_type(Type, Ks, V, Options).
 
-sanitize_type(<<"html">>, V, Options) -> sanitize(V, Options);
-sanitize_type(<<"uri">>, V, _Options) -> escape_value(sanitize_uri(V));
-sanitize_type(<<"url">>, V, _Options) -> escape_value(sanitize_uri(V));
-sanitize_type(<<"list">>, V, Options) -> sanitize_list(V, Options);
-sanitize_type(<<"int">>, V, _Options) -> sanitize_int(V);
-sanitize_type(<<"unsafe">>, V, _Options) -> V;
-sanitize_type(_, V, Options) when is_map(V) -> escape_props(V, Options);
-sanitize_type(_, V, Options) when is_list(V) -> sanitize_list(V, Options);
-sanitize_type(_, V, _Options) -> escape_value(V).
+sanitize_type(<<"html">>, _Ks, V, Options) -> sanitize(V, Options);
+sanitize_type(<<"uri">>, _Ks, V, _Options) -> escape_value(sanitize_uri(V));
+sanitize_type(<<"url">>, _Ks, V, _Options) -> escape_value(sanitize_uri(V));
+sanitize_type(<<"list">>, Ks, V, Options) -> sanitize_list(Ks, V, Options);
+sanitize_type(<<"int">>, _Ks, V, _Options) -> sanitize_int(V);
+sanitize_type(<<"id">>, _Ks, undefined, _Options) -> undefined;
+sanitize_type(<<"id">>, _Ks, <<>>, _Options) -> undefined;
+sanitize_type(<<"id">>, _Ks, V, _Options) when V =/= undefined ->
+    try
+        z_convert:to_integer(V)
+    catch
+        _:_ -> escape_value(V)
+    end;
+sanitize_type(<<"unsafe">>, _Ks, V, _Options) -> V;
+sanitize_type(_, _Ks, V, Options) when is_map(V) -> escape_props(V, Options);
+sanitize_type(_, Ks, V, Options) when is_list(V) -> sanitize_list(Ks, V, Options);
+sanitize_type(_, _Ks, V, _Options) -> escape_value(V).
 
-sanitize_list(L, Options) when is_list(L) ->
+sanitize_list(Ks, L, Options) when is_list(L) ->
     lists:map(
         fun
             ({P, V}) ->
@@ -154,16 +162,19 @@ sanitize_list(L, Options) when is_list(L) ->
                 {P1, V1};
             (V) when is_list(V); is_map(V)->
                 escape_props(V, Options);
+            (V) when Ks =:= [] ->
+                escape_value(V);
             (V) ->
-                escape_value(V)
+                [Type|Ks1] = Ks,
+                sanitize_type(Type, Ks1, V, Options)
         end,
         L);
-sanitize_list(Map, Options) when is_map(Map) ->
-    sanitize_list(maps:to_list(Map), Options);
-sanitize_list(undefined, _Options) ->
+sanitize_list(Ks, Map, Options) when is_map(Map) ->
+    sanitize_list(Ks, maps:to_list(Map), Options);
+sanitize_list(_Ks, undefined, _Options) ->
     undefined;
-sanitize_list(V, Options) ->
-    sanitize_list([V], Options).
+sanitize_list(Ks, V, Options) ->
+    sanitize_list(Ks, [V], Options).
 
 sanitize_int(V) ->
     try
