@@ -160,7 +160,9 @@ sanitize_list(Ks, L, Options) when is_list(L) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
                 {P1, V1};
-            (V) when is_list(V); is_map(V)->
+            (V) when is_list(V), Ks =:= [] ->
+                escape_props(V, Options);
+            (V) when is_map(V)->
                 escape_props(V, Options);
             (V) when Ks =:= [] ->
                 escape_value(V);
