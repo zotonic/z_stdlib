@@ -101,7 +101,7 @@ to_binary(A) when is_atom(A) -> atom_to_binary(A, utf8);
 to_binary(B) when is_binary(B) -> B;
 to_binary(I) when is_integer(I) -> integer_to_binary(I);
 to_binary(F) when is_float(F) -> to_binary(to_list(F));
-to_binary(L) when is_list(L) -> iolist_to_binary(L);
+to_binary(L) when is_list(L) -> L1 = ensure_all_binary(L), iolist_to_binary(L1);
 to_binary({trans, [ {_, B} | _ ] = Tr}) when is_binary(B) ->
     case proplists:get_value(en, Tr) of
         undefined -> B;
@@ -111,6 +111,11 @@ to_binary({{_, _, _}, {_, _, _}} = DT) ->
     to_binary(z_dateformat:format(DT, "Y-m-d H:i:s", []));
 to_binary({trans, []}) ->
     <<>>.
+
+ensure_all_binary([H|_B] = L) when is_integer(H) ->
+    iolist_to_binary(L);
+ensure_all_binary(L) when is_list(L) ->
+    [to_binary(X) || X <- L].
 
 %% Specific Zotonic callback, please keep here.
 to_binary({trans, _} = Tr, Context) -> to_binary(z_trans:lookup_fallback(Tr, Context));
