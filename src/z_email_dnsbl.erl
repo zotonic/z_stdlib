@@ -41,12 +41,12 @@
 is_blocked(IP) ->
     is_blocked(IP, dns_blocklist(), dns_allowlist()).
 
-%% @doc Check if the IP address is on one of the givem blocklists.
+%% @doc Check if the IP address is on one of the given blocklists.
 -spec is_blocked(inet:ip_address(), list(string())) -> boolean().
 is_blocked(IP, RTBLs) ->
     is_blocked(IP, RTBLs, dns_allowlist()).
 
-%% @doc Check if the IP address is on one of the givem blocklists and not on one of the white lists.
+%% @doc Check if the IP address is on one of the given blocklists and not on one of the white lists.
 %%      If an IP address is white listen then this routine always return true.
 -spec is_blocked(inet:ip_address(), list(string()), list(string())) -> boolean().
 is_blocked(IP, RTBLs, WLs) ->

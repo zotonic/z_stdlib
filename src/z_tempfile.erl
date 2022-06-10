@@ -61,12 +61,12 @@ new(Extension) ->
     {ok, {_Pid, Filename}} = monitored_new(Extension),
     Filename.
 
-%% @doc Like new/0 but also return yhe Pid of the monitoring process.
+%% @doc Like new/0 but also return the Pid of the monitoring process.
 -spec monitored_new() -> {ok, {pid(), file:filename_all()}}.
 monitored_new() ->
     monitored_new(<<>>).
 
-%% @doc Like new/1 but also return yhe Pid of the monitoring process.
+%% @doc Like new/1 but also return the Pid of the monitoring process.
 -spec monitored_new( string()|binary() ) -> {ok, {pid(), file:filename_all()}}.
 monitored_new(Extension) ->
     Filename = tempfile(Extension),

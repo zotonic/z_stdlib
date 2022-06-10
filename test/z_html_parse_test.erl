@@ -631,7 +631,7 @@ parse_charref_test() ->
        {ok, {<<"div">>, [], [<<"& &">>]}},
        z_html_parse:parse(D1)),
 
-    %% Missing semicolon on the last enitity
+    %% Missing semicolon on the last entity
     D2 = <<"<div>&amp &amp</div>">>,
     ?assertEqual(
        {ok, {<<"div">>, [], [<<"& &">>]}},

@@ -70,7 +70,7 @@ Check IP addresses for their presence on DNS block- or allowlists.
 
 ### z_email_utils
 
-Test if an email address is syntactically valid. Extract email addresss from a text.
+Test if an email address is syntactically valid. Extract email address from a text.
 
 
 ### z_filelib
