@@ -85,7 +85,7 @@
     ]).
 
 
-%% @doc Tokenize a CSS string ot binary, returns a list of tokens.
+%% @doc Tokenize a CSS string to binary, returns a list of tokens.
 -spec scan( string()|binary() ) -> {ok, tokens()}.
 scan(Bs) when is_binary(Bs) ->
     scan(unicode:characters_to_list(Bs));

@@ -81,7 +81,7 @@ trim(B) when is_binary(B) ->
 trim(L) when is_list(L) ->
     trim(iolist_to_binary(L)).
 
-%% @doc Remove all occurences of a character at the start and end of a string.
+%% @doc Remove all occurrences of a character at the start and end of a string.
 -spec trim(iodata(), integer()) -> binary().
 trim(B, Char) when is_binary(B) ->
     trim_right(trim_left(B, Char), Char);
@@ -94,7 +94,7 @@ trim(L, Char) when is_list(L) ->
 trim_left(S) ->
     trim_left_func(S, fun is_whitespace/1).
 
-%% @doc Remove all occurences of a char at the start of a string
+%% @doc Remove all occurrences of a char at the start of a string
 -spec trim_left(binary()|list(), integer()) -> binary()|list().
 trim_left(S, Char) ->
     trim_left_func(S, fun(C) -> C == Char end).
@@ -134,7 +134,7 @@ trim_right(<<C/utf8, Rest/binary>>, WS, Acc) ->
 trim_right(<<>>, _WS, Acc) ->
     Acc.
 
-%% @doc Remove all occurences of a char at the end of the string
+%% @doc Remove all occurrences of a char at the end of the string
 -spec trim_right(iodata(), integer()) -> binary().
 trim_right(B, Char) when is_binary(B) ->
     trim_right(B, Char, <<>>, <<>>);
