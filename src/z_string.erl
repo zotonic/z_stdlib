@@ -906,7 +906,7 @@ get_entity(<<C/utf8,Rest/binary>>, N, Acc) ->
 truncatechars(undefined, _) ->
     undefined;
 truncatechars(S, N) ->
-    truncate(S, N, <<>>).
+    truncatechars(S, N, <<>>).
 
 -spec truncatechars( String :: undefined | string() | binary(), Length :: integer(), Append :: binary() | string() ) -> binary().
 truncatechars(_L, N, _Append) when N =< 0 ->
