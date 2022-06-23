@@ -118,7 +118,8 @@ truncate_test() ->
     ?assertEqual(<<"f<br>ox">>, z_string:truncate(<<"f<br>o bar">>, 4, <<"x">>)).
 
 truncatechars_test() ->
-    ?assertEqual(<<"foo x">>, z_string:truncatechars(<<"foo bar">>, 4, <<"x">>)).
+    ?assertEqual(<<"foo b">>, z_string:truncatechars(<<"foo bar">>, 5)),
+    ?assertEqual(<<"foo bx">>, z_string:truncatechars(<<"foo bar">>, 5, <<"x">>)).
 
 truncatewords_test() ->
     ?assertEqual(<<"foo bar x">>, z_string:truncatewords(<<"foo bar bla">>, 2, <<"x">>)).
