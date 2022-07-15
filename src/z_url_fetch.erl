@@ -75,6 +75,8 @@
     option/0
 ]).
 
+-define(is_method(M), (M =:= get orelse M =:= post orelse M =:= delete orelse M =:= put orelse M =:= patch)).
+
 %% @doc Fetch the data and headers from an url
 -spec fetch(Url, Options) -> fetch_result() when
     Url :: string() | binary(),
@@ -88,7 +90,7 @@ fetch(Url, Options) ->
     Url :: string()|binary(),
     Payload :: binary(),
     Options :: options().
-fetch(Method, Url, Payload, Options) ->
+fetch(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     fetch_partial(Method, Url, Payload, Options).
 
 
@@ -111,11 +113,11 @@ fetch_partial(Url, Options) ->
 
 %% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
 -spec fetch_partial(Method, Url, Payload, Options) -> fetch_result() when
-    Method :: get | post | put | delete | patch,
+    Method :: get | post | delete | put | patch,
     Url :: string()|binary(),
     Payload :: binary(),
     Options :: options().
-fetch_partial(Method, Url, Payload, Options) ->
+fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     OutDevice = proplists:get_value(device, Options),
     MaxLength = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
     fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options).
