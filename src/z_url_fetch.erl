@@ -173,7 +173,7 @@ fetch_data_url(DataUrl, Options) when is_binary(DataUrl) ->
 fetch_partial(_Method, Url0, _Payload, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?HTTPC_REDIRECT_COUNT ->
     error_logger:warning_msg("Error fetching url, too many redirects ~p", [Url0]),
     {error, too_many_redirects};
-fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) ->
+fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_binary(Payload) ->
     httpc_flush(),
     case normalize_url(Url0) of
         {ok, {Host, UrlBin}} ->
