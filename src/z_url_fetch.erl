@@ -1,8 +1,8 @@
 % @author Marc Worrell
-%% @copyright 2014-2021 Marc Worrell
+%% @copyright 2014-2022 Marc Worrell
 %% @doc Fetch (part of) the data of an Url, including its headers.
 
-%% Copyright 2014-2021 Marc Worrell
+%% Copyright 2014-2022 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,8 +46,10 @@
 
 -export([
     fetch/2,
+    fetch/4,
     fetch_partial/1,
     fetch_partial/2,
+    fetch_partial/4,
 
     profile/1,
     ensure_profiles/0,
@@ -63,6 +65,7 @@
                 | {accept, binary() | string()}
                 | {user_agent, binary() | string()}
                 | {language, atom()}
+                | {content_type, binary() | string()}
                 | insecure.
 
 -type fetch_result() :: {ok, {string(), list({string(), string()}), pos_integer(), binary()}} | {error, term()}.
@@ -72,27 +75,52 @@
     option/0
 ]).
 
+-define(is_method(M), (M =:= get orelse M =:= post orelse M =:= delete orelse M =:= put orelse M =:= patch)).
+
 %% @doc Fetch the data and headers from an url
--spec fetch(string()|binary(), options()) -> fetch_result().
+-spec fetch(Url, Options) -> fetch_result() when
+    Url :: string() | binary(),
+    Options :: options().
 fetch(Url, Options) ->
-    fetch_partial(Url, Options).
+    fetch_partial(get, Url, <<>>, Options).
+
+%% @doc Fetch the data and headers from an url
+-spec fetch(Method, Url, Payload, Options) -> fetch_result() when
+    Method :: get | post | put | delete | patch,
+    Url :: string()|binary(),
+    Payload :: binary(),
+    Options :: options().
+fetch(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
+    fetch_partial(Method, Url, Payload, Options).
 
 
 %% @doc Fetch the first kilobytes of data and headers from an url
--spec fetch_partial(string()|binary()) -> fetch_result().
+-spec fetch_partial(Url) -> fetch_result() when
+    Url :: string() | binary().
 fetch_partial(Url) ->
-    fetch_partial(Url, [{max_length, ?HTTPC_LENGTH}]).
+    fetch_partial(get, Url, <<>>, [{max_length, ?HTTPC_LENGTH}]).
 
 %% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
--spec fetch_partial(string()|binary(), options()) -> fetch_result().
+-spec fetch_partial(Url, Options) -> fetch_result() when
+    Url :: string() | binary(),
+    Options :: options().
 fetch_partial("data:" ++ _ = DataUrl, Options) ->
     fetch_data_url(DataUrl, Options);
 fetch_partial(<<"data:", _/binary>> = DataUrl, Options) ->
     fetch_data_url(DataUrl, Options);
 fetch_partial(Url, Options) ->
+    fetch_partial(get, Url, <<>>, Options).
+
+%% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
+-spec fetch_partial(Method, Url, Payload, Options) -> fetch_result() when
+    Method :: get | post | delete | put | patch,
+    Url :: string()|binary(),
+    Payload :: binary(),
+    Options :: options().
+fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     OutDevice = proplists:get_value(device, Options),
-    Length = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
-    fetch_partial(z_convert:to_list(Url), 0, Length, OutDevice, Options).
+    MaxLength = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
+    fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options).
 
 
 -spec ensure_profiles() -> ok.
@@ -144,10 +172,10 @@ fetch_data_url(DataUrl, Options) when is_binary(DataUrl) ->
             Error
     end.
 
-fetch_partial(Url0, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?HTTPC_REDIRECT_COUNT ->
+fetch_partial(_Method, Url0, _Payload, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?HTTPC_REDIRECT_COUNT ->
     error_logger:warning_msg("Error fetching url, too many redirects ~p", [Url0]),
     {error, too_many_redirects};
-fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
+fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_binary(Payload) ->
     httpc_flush(),
     case normalize_url(Url0) of
         {ok, {Host, UrlBin}} ->
@@ -155,6 +183,10 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
             Language = z_convert:to_list(proplists:get_value(language, Opts, en)),
             Accept = z_convert:to_list(proplists:get_value(accept, Opts, ?HTTP_ACCEPT)),
             UserAgent = z_convert:to_list(proplists:get_value(user_agent, Opts, httpc_ua(Url))),
+            ContentType = case proplists:get_value(content_type, Opts) of
+                undefined -> "application/octet-stream";
+                CT -> to_list(CT)
+            end,
             Headers = [
                 {"Accept", Accept},
                 {"Accept-Encoding", "identity"},
@@ -168,9 +200,17 @@ fetch_partial(Url0, RedirectCount, Max, OutDev, Opts) ->
                 undefined -> [];
                 Auth -> [ {"Authorization", to_list(Auth)} ]
             end,
-            case fetch_stream(start_stream(Host, Url, Headers, Opts), Max, OutDev, Opts) of
+            Request = case Method of
+                get -> {Url, Headers};
+                delete when Payload =:= <<>> -> {Url, Headers};
+                delete -> {Url, Headers, ContentType, Payload};
+                post -> {Url, Headers, ContentType, Payload};
+                put -> {Url, Headers, ContentType, Payload};
+                patch -> {Url, Headers, ContentType, Payload}
+            end,
+            case fetch_stream(start_stream(Host, Method, Url, Request, Opts), Max, OutDev, Opts) of
                 {ok, Result} ->
-                    maybe_redirect(Result, Url, RedirectCount, Max, OutDev, Opts);
+                    maybe_redirect(Result, Method, Url, Payload, RedirectCount, Max, OutDev, Opts);
                 {error, _} = Error ->
                     error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
                     Error
@@ -204,7 +244,7 @@ normalize_url(Url) ->
             {error, url}
     end.
 
-start_stream(Host, Url, Headers, Opts) ->
+start_stream(Host, Method, Url, Request, Opts) ->
     SSLOptions = case proplists:get_value(insecure, Opts) of
         true ->
             [ {verify, verify_none} ];
@@ -220,8 +260,8 @@ start_stream(Host, Url, Headers, Opts) ->
         {ssl, SSLOptions}
      ],
     try
-        httpc:request(get,
-                      {Url, Headers},
+        httpc:request(Method,
+                      Request,
                       HttpOptions,
                       [ {sync, false}, {body_format, binary}, {stream, {self, once}} ],
                       profile(Url))
@@ -265,7 +305,7 @@ fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev, Opts) when N =< M
                             fetch_stream_data(ReqId, HandlerPid, Hs, Data1, N1, Max, OutDev, Opts);
                         false ->
                             httpc:cancel_request(ReqId),
-                            {ok, {200, Hs, N, Data1}}
+                            {ok, {200, Hs, N1, Data1}}
                     end;
                 {error, _} = Error ->
                     httpc:cancel_request(ReqId),
@@ -295,20 +335,21 @@ fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile, _Opts) ->
         {ok, {200, Hs, N, Data}}
     end.
 
-maybe_redirect({200, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
+maybe_redirect({Code, Hs, Size, Data}, _Method, Url, _Payload, _RedirectCount, _Max, _OutDev, _Opts)
+    when Code >= 200, Code =< 299 ->
     {ok, {Url, Hs, Size, Data}};
-maybe_redirect({416, _Hs, _Size, _Data}, Url, RedirectCount, _Max, OutDev, Opts) ->
-    fetch_partial(Url, RedirectCount+1, undefined, OutDev, Opts);
-maybe_redirect({Code, Hs, _Size, _Data}, BaseUrl, RedirectCount, Max, OutDev, Opts)
+maybe_redirect({416, _Hs, _Size, _Data}, Method, Url, Payload, RedirectCount, _Max, OutDev, Opts) ->
+    fetch_partial(Method, Url, Payload, RedirectCount+1, undefined, OutDev, Opts);
+maybe_redirect({Code, Hs, _Size, _Data}, Method, BaseUrl, Payload, RedirectCount, Max, OutDev, Opts)
     when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307 ->
     case proplists:get_value("location", Hs) of
         undefined ->
             {error, no_location_header};
         Location ->
             NewUrl = z_convert:to_list(z_url:abs_link(Location, BaseUrl)),
-            fetch_partial(NewUrl, RedirectCount+1, Max, OutDev, Opts)
+            fetch_partial(Method, NewUrl, Payload, RedirectCount+1, Max, OutDev, Opts)
     end;
-maybe_redirect({Code, Hs, Size, Data}, Url, _RedirectCount, _Max, _OutDev, _Opts) ->
+maybe_redirect({Code, Hs, Size, Data}, _Method, Url, _Payload, _RedirectCount, _Max, _OutDev, _Opts) ->
     {error, {Code, Url, Hs, Size, Data}}.
 
 append_data(Data, Part, undefined) ->
