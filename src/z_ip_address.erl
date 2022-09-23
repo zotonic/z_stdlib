@@ -1,8 +1,9 @@
 %% @author Marc Worrell
-%% @copyright 2012-2019 Marc Worrell
+%% @copyright 2012-2022 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
+%% @end
 
-%% Copyright 2012-2019 Marc Worrell
+%% Copyright 2012-2022 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,18 +22,39 @@
 -author("Marc Worrell <marc@worrell.nl>").
 
 -export([
+    is_local_name/1,
     is_local/1,
     ip_match/2
     ]).
 
+%% @doc Check if the host name resolves to a local IP address.
+-spec is_local_name( string() | binary() ) -> boolean().
+is_local_name(Name) when is_binary(Name) ->
+    is_local_name(unicode:characters_to_list(Name, utf8));
+is_local_name(Name) ->
+    case inet:getaddr(Name, inet) of
+        {ok, IP} ->
+            is_local(IP);
+        {error, nxdomain} ->
+            case inet:getaddr(Name, inet6) of
+                {ok, IP} ->
+                    is_local(IP);
+                {error, _} ->
+                    false
+            end;
+        {error, _} ->
+            false
+    end.
 
 %% @doc An IP address is local if it matches "127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,169.254.0.0/16,::1,fd00::/8,fe80::/10,100.64.0.0/10"
+-spec is_local( inet:ip_address() ) -> boolean().
 is_local({127,_,_,_}) -> true;
 is_local({10,_,_,_}) -> true;
 is_local({192,168,_,_}) -> true;
 is_local({169,254,_,_}) -> true;
 is_local({172,X,_,_})  when X >= 16, X =< 31 -> true;
 is_local({100,64,X,_}) when X < 4 -> true;
+is_local({0,0,0,0,0,0,0,1}) -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fd00, X =< 16#fdff -> true;
 is_local({X,_,_,_,_,_,_,_}) when X >= 16#fe80, X =< 16#fecf -> true;
 is_local(_) -> false.
