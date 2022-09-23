@@ -1,4 +1,6 @@
 ![Test](https://github.com/zotonic/z_stdlib/workflows/Test/badge.svg)
+[![Hex.pm Version](https://img.shields.io/hexpm/v/zotonic_stdlib.svg)](https://hex.pm/packages/zotonic_stdlib)
+[![Hex.pm Downloads](https://img.shields.io/hexpm/dt/zotonic_stdlib.svg)](https://hex.pm/packages/zotonic_stdlib)
 
 zotonic_stdlib
 ==============
