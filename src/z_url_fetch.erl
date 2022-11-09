@@ -72,7 +72,8 @@
 
 -export_type([
     options/0,
-    option/0
+    option/0,
+    fetch_result/0
 ]).
 
 -define(is_method(M), (M =:= get orelse M =:= post orelse M =:= delete orelse M =:= put orelse M =:= patch)).
