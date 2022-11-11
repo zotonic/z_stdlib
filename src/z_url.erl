@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2012 Marc Worrell
+%% @copyright 2012-2022 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
 
-%% Copyright 2012 Marc Worrell
+%% Copyright 2012-2022 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
     percent_encode/1,
     percent_encode/2,
     hex_encode/1,
+    hex_encode_lc/1,
     hex_decode/1,
     remove_protocol/1,
     location/1,
@@ -48,65 +49,75 @@
 
 %%% URL ENCODE %%%
 
--spec url_encode( string() | atom() | float() | integer() | binary() ) -> binary().
+-spec url_encode( string() | atom() | float() | integer() | binary() | iodata() ) -> binary().
 url_encode(S) ->
-    cow_qs:urlencode( z_convert:to_binary(S) ).
+    Encoded = cow_qs:urlencode( z_convert:to_binary(S) ),
+    case binary:match(Encoded, <<"+">>) of
+        nomatch -> Encoded;
+        _ -> binary:replace(Encoded, <<"+">>, <<"%20">>, [global])
+    end.
 
--spec url_decode( string() | binary() ) -> binary().
+-spec url_decode( string() | binary() | iodata() ) -> binary().
 url_decode(S) ->
     cow_qs:urldecode( z_convert:to_binary(S) ).
 
 %%% URL PATH ENCODE %%%
 
 %% url spec for path part
+-spec url_path_encode( iodata() ) -> binary().
 url_path_encode(L) when is_list(L) ->
-    url_path_encode(L, []);
-url_path_encode(L) ->
-    url_path_encode(z_convert:to_list(L)).
+    url_path_encode(iolist_to_binary(L), <<>>);
+url_path_encode(S) when is_binary(S) ->
+    url_path_encode(S, <<>>).
 
-url_path_encode([], Acc) ->
-    lists:reverse(Acc);
-url_path_encode([$/|[$/|_]=R], Acc) ->
-    url_path_encode(R, Acc);
-url_path_encode([$/|R], Acc) ->
-    url_path_encode(R, [$/|Acc]);
-url_path_encode([C|R], Acc) when C=:=$&; C=:=$=; C=:=$+; C=:=$$; C=:=$,; C=:=$; ->
-    url_path_encode(R, [C|Acc]);
-url_path_encode([C|R], Acc)->
-    case url_unreserved_char(C) of
-        true ->
-            url_path_encode(R, [C|Acc]);
-        false ->
-            <<Hi:4, Lo:4>> = <<C>>,
-            url_path_encode(R, [hexdigit(Lo), hexdigit(Hi), $% | Acc])
-    end.
+url_path_encode(<<>>, Acc) ->
+    Acc;
+url_path_encode(<<$/, $/, R/binary>>, Acc) ->
+    url_path_encode(<<$/, R/binary>>, Acc);
+url_path_encode(<<$/, R/binary>>, Acc) ->
+    url_path_encode(R, <<Acc/binary, $/>>);
+url_path_encode(<<C, R/binary>>, Acc) when C =:= $&; C =:= $=; C =:= $$; C =:= $,; C =:= $; ->
+    url_path_encode(R, <<Acc/binary, C>>);
+url_path_encode(<<C, R/binary>>, Acc) when ?is_unreserved(C) ->
+    url_path_encode(R, <<Acc/binary, C>>);
+url_path_encode(<<C, R/binary>>, Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    url_path_encode(R, <<Acc/binary,  $%, (hexdigit(Hi)), (hexdigit(Lo))>>).
 
 % hexdigit is from Mochiweb.
 
 hexdigit(C) when C < 10 -> $0 + C;
 hexdigit(C) when C < 16 -> $A + (C - 10).
 
+hexdigit_lc(C) when C < 10 -> $0 + C;
+hexdigit_lc(C) when C < 16 -> $a + (C - 10).
+
+from_hexdigit(C) when C =< $9 -> C - $0;
+from_hexdigit(C) when C =< $Z -> C - $A + 10;
+from_hexdigit(C) when C =< $z -> C - $a + 10.
+
 
 %%% PERCENT encode ENCODE %%%
 
 %% @doc Percent encoding/decoding as defined by RFC 3986 (http://tools.ietf.org/html/rfc3986).
+-spec percent_encode( iodata() ) -> binary().
 percent_encode(Chars) when is_list(Chars) ->
-    percent_encode(Chars, []);
-percent_encode(Chars) ->
-    percent_encode(z_convert:to_list(Chars)).
+    percent_encode(iolist_to_binary(Chars), <<>>);
+percent_encode(Chars) when is_binary(Chars) ->
+    percent_encode(Chars, <<>>).
 
-percent_encode([], Encoded) ->
-  lists:flatten(lists:reverse(Encoded));
-percent_encode([C|Etc], Encoded) when ?is_unreserved(C) ->
-  percent_encode(Etc, [C|Encoded]);
-percent_encode([C|Etc], Encoded) ->
-  Value = [io_lib:format("%~s", [encode([Char], 16)])
-            || Char <- binary_to_list(unicode:characters_to_binary([C]))],
-  percent_encode(Etc, [lists:flatten(Value)|Encoded]).
+percent_encode(<<>>, Acc) ->
+    Acc;
+percent_encode(<<C, R/binary>>, Acc) when ?is_unreserved(C) ->
+    percent_encode(R, <<Acc/binary, C>>);
+percent_encode(<<C, R/binary>>, Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    percent_encode(R, <<Acc/binary,  $%, (hexdigit(Hi)), (hexdigit(Lo))>>).
 
 
 %% @doc Naive function to remove the protocol from an Url
--spec remove_protocol( string() | binary() ) -> string() | binary().
+-spec remove_protocol( string() ) -> string();
+                     ( binary() ) -> binary().
 remove_protocol("://" ++ Rest) -> Rest;
 remove_protocol(":" ++ Rest) -> Rest;
 remove_protocol([_|T]) -> remove_protocol(T);
@@ -177,31 +188,36 @@ location(Url) ->
 
 %%% HEX ENCODE and HEX DECODE
 
-hex_encode(Data) -> encode(Data, 16).
-hex_decode(Data) -> decode(Data, 16).
+-spec hex_encode( iodata() ) -> binary().
+hex_encode(Data) ->
+    hex_encode(iolist_to_binary(Data), <<>>).
 
-encode(Data, Base) when is_binary(Data) -> encode(binary_to_list(Data), Base);
-encode(Data, Base) when is_list(Data) ->
-	F = fun(C) when is_integer(C) ->
-		case erlang:integer_to_list(C, Base) of
-			[C1, C2] -> [C1, C2];
-			[C1]     -> [$0, C1]
-		end
-	end,
-	[F(I) || I <- Data].
+hex_encode(<<>>, Acc) ->
+    Acc;
+hex_encode(<<C, R/binary>>, Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    hex_encode(R, <<Acc/binary,  (hexdigit(Hi)), (hexdigit(Lo))>>).
 
-decode(Data, Base) when is_binary(Data) -> decode(binary_to_list(Data), Base);
-decode(Data, Base) when is_list(Data) ->
-	inner_decode(Data, Base).
+-spec hex_encode_lc( iodata() ) -> binary().
+hex_encode_lc(Data) ->
+    hex_encode_lc(iolist_to_binary(Data), <<>>).
 
-inner_decode(Data, Base) when is_list(Data) ->
-	case Data of
-		[C1, C2|Rest] ->
-			I = erlang:list_to_integer([C1, C2], Base),
-			[I|inner_decode(Rest, Base)];
-		[] ->
-			[]
-	end.
+hex_encode_lc(<<>>, Acc) ->
+    Acc;
+hex_encode_lc(<<C, R/binary>>, Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    hex_encode_lc(R, <<Acc/binary,  (hexdigit_lc(Hi)), (hexdigit_lc(Lo))>>).
+
+-spec hex_decode( binary() ) -> binary().
+hex_decode(Data) ->
+    hex_decode(Data, <<>>).
+
+hex_decode(<<>>, Acc) ->
+    Acc;
+hex_decode(<<Hi, Lo, R/binary>>, Acc) ->
+    HiC = from_hexdigit(Hi),
+    LoC = from_hexdigit(Lo),
+    hex_decode(R, <<Acc/binary, HiC:4, LoC:4>>).
 
 
 -spec split_base_host(string()|binary()) -> {binary(), binary()}.
