@@ -10,6 +10,9 @@ link_elements_test() ->
     ?assertEqual([[{<<"rel">>, <<"Foo">>}]], z_html:scrape_link_elements("<p>This is text.<LINK REL=\"Foo\" /></p>")),
     ok.
 
+escape_link_test() ->
+    z_html:escape_link(z_html:unescape(<<"http://example.com/a&nbsp;">>)),
+    ok.
 
 escape_props_test() ->
     ?assertEqual([{title, <<"Foo &amp; bar">>}],
