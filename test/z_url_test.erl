@@ -10,7 +10,7 @@ url_encode_decode_test() ->
 
 
 url_encode_test() ->
-    ?assertEqual(<<"foo+bar">>, z_url:url_encode("foo bar")),
+    ?assertEqual(<<"foo%20bar">>, z_url:url_encode("foo bar")),
     ?assertEqual(<<"foo%26bar">>, z_url:url_encode("foo&bar")).
 
 url_decode_test() ->
@@ -18,8 +18,19 @@ url_decode_test() ->
 
 
 percent_encode_test() ->
-    ?assertEqual("foo%20bar", z_url:percent_encode("foo bar")),
-    ?assertEqual("foo%26bar", z_url:percent_encode("foo&bar")).
+    ?assertEqual(<<"foo%20bar">>, z_url:percent_encode("foo bar")),
+    ?assertEqual(<<"foo%26bar">>, z_url:percent_encode("foo&bar")).
+
+
+hex_test() ->
+    ?assertEqual(<<"FF">>, z_url:hex_encode(<<255>>)),
+    ?assertEqual(<<"0F">>, z_url:hex_encode(<<15>>)),
+    ?assertEqual(<<255>>, z_url:hex_decode(<<"FF">>)),
+    ?assertEqual(<<15>>, z_url:hex_decode(<<"0F">>)),
+    ?assertEqual(<<255>>, z_url:hex_decode(<<"ff">>)),
+    ?assertEqual(<<15>>, z_url:hex_decode(<<"0f">>)),
+    B = <<218,57,163,238,94,107,75,13,50,85,191,239,149,96,24,144,175,216,7,9>>,
+    ?assertEqual(B, z_url:hex_decode(z_url:hex_encode(B))).
 
 split_base_host_test() ->
     ?assertEqual(
