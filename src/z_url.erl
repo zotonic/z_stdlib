@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2012 Marc Worrell
+%% @copyright 2012-2022 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
 
-%% Copyright 2012 Marc Worrell
+%% Copyright 2012-2022 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
     percent_encode/1,
     percent_encode/2,
     hex_encode/1,
+    hex_encode_lc/1,
     hex_decode/1,
     remove_protocol/1,
     location/1,
@@ -87,6 +88,9 @@ url_path_encode(<<C, R/binary>>, Acc) ->
 
 hexdigit(C) when C < 10 -> $0 + C;
 hexdigit(C) when C < 16 -> $A + (C - 10).
+
+hexdigit_lc(C) when C < 10 -> $0 + C;
+hexdigit_lc(C) when C < 16 -> $a + (C - 10).
 
 from_hexdigit(C) when C =< $9 -> C - $0;
 from_hexdigit(C) when C =< $Z -> C - $A + 10;
@@ -193,6 +197,16 @@ hex_encode(<<>>, Acc) ->
 hex_encode(<<C, R/binary>>, Acc) ->
     <<Hi:4, Lo:4>> = <<C>>,
     hex_encode(R, <<Acc/binary,  (hexdigit(Hi)), (hexdigit(Lo))>>).
+
+-spec hex_encode_lc( iodata() ) -> binary().
+hex_encode_lc(Data) ->
+    hex_encode_lc(iolist_to_binary(Data), <<>>).
+
+hex_encode_lc(<<>>, Acc) ->
+    Acc;
+hex_encode_lc(<<C, R/binary>>, Acc) ->
+    <<Hi:4, Lo:4>> = <<C>>,
+    hex_encode_lc(R, <<Acc/binary,  (hexdigit_lc(Hi)), (hexdigit_lc(Lo))>>).
 
 -spec hex_decode( binary() ) -> binary().
 hex_decode(Data) ->

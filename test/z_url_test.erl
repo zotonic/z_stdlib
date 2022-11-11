@@ -25,6 +25,12 @@ percent_encode_test() ->
 hex_test() ->
     ?assertEqual(<<"FF">>, z_url:hex_encode(<<255>>)),
     ?assertEqual(<<"0F">>, z_url:hex_encode(<<15>>)),
+    ?assertEqual(<<"0A">>, z_url:hex_encode(<<10>>)),
+    ?assertEqual(<<"09">>, z_url:hex_encode(<<9>>)),
+    ?assertEqual(<<"ff">>, z_url:hex_encode_lc(<<255>>)),
+    ?assertEqual(<<"0f">>, z_url:hex_encode_lc(<<15>>)),
+    ?assertEqual(<<"0a">>, z_url:hex_encode_lc(<<10>>)),
+    ?assertEqual(<<"09">>, z_url:hex_encode_lc(<<9>>)),
     ?assertEqual(<<255>>, z_url:hex_decode(<<"FF">>)),
     ?assertEqual(<<15>>, z_url:hex_decode(<<"0F">>)),
     ?assertEqual(<<255>>, z_url:hex_decode(<<"ff">>)),
