@@ -217,8 +217,7 @@ hex_decode(<<>>, Acc) ->
 hex_decode(<<Hi, Lo, R/binary>>, Acc) ->
     HiC = from_hexdigit(Hi),
     LoC = from_hexdigit(Lo),
-    <<C>> = <<HiC:4, LoC:4>>,
-    hex_decode(R, <<Acc/binary, C>>).
+    hex_decode(R, <<Acc/binary, HiC:4, LoC:4>>).
 
 
 -spec split_base_host(string()|binary()) -> {binary(), binary()}.
