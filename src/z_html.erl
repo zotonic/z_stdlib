@@ -493,31 +493,49 @@ escape_link(undefined) ->
     undefined;
 escape_link(<<>>) ->
     <<>>;
-escape_link([]) ->
+escape_link("") ->
     <<>>;
-escape_link(Text) ->
+escape_link(Text) when is_binary(Text) ->
     case re:run(Text,
-            "\\b(([\\w-]+://?|www[.])[^\\s()<>]+(?:\\([\\w\\d]+\\)|([^[:punct:]\\s]|/)))",
-            [{capture, first, index}, global])
+            "(("
+                "mailto:"
+                    "[-a-zA-Z0-9_\\.\\(\\)\\+=%]+"
+                    "@"
+                "|"
+                    "ftp://|http://|https://|www\\."
+            ")"
+            "[-a-zA-Z0-9]+(\\.[-a-zA-Z0-9]+)+"
+            "(/[-_a-zA-Z0-9\\.:\\(\\)\\[\\]\\+%;])*"
+            "(\\?[-_a-zA-Z0-9\\.:\\(\\)\\[\\]\\+%=&;\\$/]*)?"
+              "(#[-_a-zA-Z0-9\\.:\\(\\)\\[\\]\\+%=&;\\$/]*)?)",
+            [{capture, first}, global])
     of
         {match, Matches} ->
             Matches1 = [ hd(M) || M <- Matches ],
-            nl2br(iolist_to_binary(make_links1(0, Matches1, z_convert:to_list(Text), [])));
+            Linked = make_links1(lists:reverse(Matches1), Text),
+            nl2br(iolist_to_binary(Linked));
         nomatch ->
             nl2br(escape(Text))
-    end.
+    end;
+escape_link(Text) ->
+    escape_link(iolist_to_binary(Text)).
 
-make_links1(_Offset, [], Text, Acc) ->
-    lists:reverse([escape(Text) | Acc]);
-make_links1(Offset, [{Offset, Len}|Rest], Text, Acc) ->
-    {Link, Text1} = lists:split(Len, Text),
+make_links1([], Text) ->
+    Text;
+make_links1([{Offset, Len}|Matches], Text) ->
+    <<Before:Offset/binary, Link:Len/binary, Rest/binary>> = Text,
     NoScript = noscript(Link, true),
     LinkText = escape(NoScript),
     LinkUrl = escape(ensure_protocol(NoScript)),
-    make_links1(Offset+Len, Rest, Text1, [["<a href=\"",LinkUrl,"\" rel=\"nofollow noreferrer\">",LinkText,"</a>"] | Acc]);
-make_links1(Offset, [{MatchOffs,_}|_] = Matches, Text, Acc) ->
-    {Text1,Text2} = lists:split(MatchOffs-Offset, Text),
-    make_links1(MatchOffs, Matches, Text2, [escape(Text1)|Acc]).
+    Anchor = <<
+        "<a href=\"",
+        LinkUrl/binary,
+        "\" rel=\"noopener nofollow noreferrer\">",
+        LinkText/binary,
+        "</a>"
+        >>,
+    Text1 = <<Before/binary, Anchor/binary, Rest/binary>>,
+    make_links1(Matches, Text1).
 
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
