@@ -1,8 +1,9 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2021 Marc Worrell
+%% @copyright 2009-2022 Marc Worrell
 %% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
+%% @end
 
-%% Copyright 2009-2021 Marc Worrell
+%% Copyright 2009-2022 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -505,7 +506,7 @@ escape_link(Text) when is_binary(Text) ->
                     "ftp://|http://|https://|www\\."
             ")"
             "[-a-zA-Z0-9]+(\\.[-a-zA-Z0-9]+)+"
-            "(/[-_a-zA-Z0-9\\.:\\+%;~])*"
+            "(/[-/_a-zA-Z0-9\\.:\\+%;~]*)?"
             "(\\?[-_a-zA-Z0-9\\.:\\+%=&;\\$/~]*)?"
               "(#[-_a-zA-Z0-9\\.:\\+%=&;\\$/~]*)?)",
             [{capture, first}, global])

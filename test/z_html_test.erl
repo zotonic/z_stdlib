@@ -11,7 +11,10 @@ link_elements_test() ->
     ok.
 
 escape_link_test() ->
-    z_html:escape_link(z_html:unescape(<<"http://example.com/a&nbsp;">>)),
+    <<"<a href=\"http://example.com/a\" rel=\"noopener nofollow noreferrer\">http://example.com/a</a> "/utf8>> 
+        = z_html:escape_link(z_html:unescape(<<"http://example.com/a&nbsp;">>)),
+    <<"foo <a href=\"https://www.example.com/~user/home_foo;c?a=123&amp;b=c#abc\" rel=\"noopener nofollow noreferrer\">www.example.com/~user/home_foo;c?a=123&amp;b=c#abc</a> bar"/utf8>> 
+        = z_html:escape_link(<<"foo www.example.com/~user/home_foo;c?a=123&b=c#abc bar">>),
     ok.
 
 escape_props_test() ->
