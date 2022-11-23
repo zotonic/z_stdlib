@@ -195,8 +195,16 @@ basename(Url) ->
         <<"/">> -> undefined;
         _ ->
             case lists:last( binary:split(Path, <<"/">>, [ global ]) ) of
-                <<>> -> undefined;
-                Basename -> Basename
+                <<>> ->
+                    undefined;
+                Basename ->
+                    % Perform percent-decode of the path
+                    try
+                        z_url:url_decode(Basename)
+                    catch
+                        _:_ ->
+                            Basename
+                    end
             end
     end.
 
