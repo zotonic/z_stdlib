@@ -428,15 +428,20 @@ tzoffset_1(LTime, UTime) ->
 
 -spec tz_name( calendar:datetime(), prefer_standard | prefer_daylight | both, tz() ) -> string().
 tz_name(Date, Disambiguate, ToTZ) ->
-    case localtime:tz_name(Date, ToTZ) of
-        {ShortName, _} when is_list(ShortName) ->
-            ShortName;
-        {{ShortStandard,_},{ShortDST,_}} ->
-            case Disambiguate of
-                prefer_standard -> ShortStandard;
-                prefer_daylight -> ShortDST;
-                both            -> {ambiguous, ShortStandard, ShortDST}
-            end
+    try
+        case localtime:tz_name(Date, ToTZ) of
+            {ShortName, _} when is_list(ShortName) ->
+                ShortName;
+            {{ShortStandard,_},{ShortDST,_}} ->
+                case Disambiguate of
+                    prefer_standard -> ShortStandard;
+                    prefer_daylight -> ShortDST;
+                    both            -> {ambiguous, ShortStandard, ShortDST}
+                end
+        end
+    catch
+        throw:{error, wrong_week_day} ->
+            unicode:characters_to_list(ToTZ)
     end.
 
 % Utility functions
