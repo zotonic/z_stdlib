@@ -1,5 +1,6 @@
 {"1.2.0",
 [{<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.11.0">>},0},
+ {<<"qdate_localtime">>,{pkg,<<"qdate_localtime">>,<<"1.2.0">>},0},
  {<<"ssl_verify_fun">>,{pkg,<<"ssl_verify_fun">>,<<"1.1.6">>},1},
  {<<"tls_certificate_check">>,
   {pkg,<<"tls_certificate_check">>,<<"1.16.0">>},
@@ -7,10 +8,12 @@
 [
 {pkg_hash,[
  {<<"cowlib">>, <<"0B9FF9C346629256C42EBE1EEB769A83C6CB771A6EE5960BD110AB0B9B872063">>},
+ {<<"qdate_localtime">>, <<"644ADE4C7F7EAC765E2048DFA714D78EA86BAF5255FE46279B2EAC5729760A07">>},
  {<<"ssl_verify_fun">>, <<"CF344F5692C82D2CD7554F5EC8FD961548D4FD09E7D22F5B62482E5AEAEBD4B0">>},
  {<<"tls_certificate_check">>, <<"45B05E3B993DBACE2E4EBCCB666EADBD038F1DA8F4DB9691F4F34A274DFB0BD7">>}]},
 {pkg_hash_ext,[
  {<<"cowlib">>, <<"2B3E9DA0B21C4565751A6D4901C20D1B4CC25CBB7FD50D91D2AB6DD287BC86A9">>},
+ {<<"qdate_localtime">>, <<"98A538A5B6046B8652DFC5630B030D0414A1B31D0130C81FA6B88B5C1E625109">>},
  {<<"ssl_verify_fun">>, <<"BDB0D2471F453C88FF3908E7686F86F9BE327D065CC1EC16FA4540197EA04680">>},
  {<<"tls_certificate_check">>, <<"3DC0508C749619B8D6A5E21ACA4D719C184F065541795B0556398C8E574A3064">>}]}
 ].
