@@ -18,9 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        # Temporarily removed OTP 25 from the test matrix due to
-        # crashes in the internals of eunit during CI.
-        otp_version: [23,24]
+        otp_version: [23,24,25]
         os: [ubuntu-latest]
 
     container:
