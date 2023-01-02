@@ -122,6 +122,11 @@ truncate_test() ->
     ?assertEqual(<<"12<!-- hello -->&amp;4...">>, z_html:truncate(<<"12<!-- hello -->&amp;45">>, 4, <<"...">>)),
     ok.
 
+noscript_test() ->
+    ?assertEqual(<<"">>, z_html:noscript(<<"%25AA%25AA">>)),
+    ?assertEqual(<<"#script-removed">>, z_html:noscript(<<"javascript:xyz">>)),
+    ?assertEqual(<<"#script-removed">>, z_html:noscript(<<" jaVas Cript  :xyz">>)),
+   ?assertEqual(<<"http://example.com/">>, z_html:noscript(<<" http://example.com/  ">>)).
 
 sanitize_test() ->
     %% Html tags and attributes are case insensitive 

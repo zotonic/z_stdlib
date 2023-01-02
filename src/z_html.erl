@@ -1124,13 +1124,19 @@ filter_widget_class(Class) ->
     z_convert:to_binary(re:replace(Class, <<"do_[0-9a-zA-Z_]+">>, <<>>, [global])).
 
 %% @doc Filter a url, remove any "javascript:" and "data:" (as data can be text/html).
+-spec noscript(Url) -> SafeUrl when
+    Url :: string() | binary(),
+    SafeUrl :: binary().
 noscript(Url) ->
     noscript(Url, true).
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
--spec noscript( list()|binary(), boolean() ) -> binary().
+-spec noscript(Url, IsStrict) -> SafeUrl when
+    Url :: string() |  binary(),
+    IsStrict :: boolean(),
+    SafeUrl :: binary().
 noscript(Url0, IsStrict) ->
-    Url = z_string:trim( z_convert:to_binary(Url0) ),
+    Url = z_string:trim(z_string:sanitize_utf8(z_convert:to_binary(Url0))),
     case nows(Url, <<>>) of
         {<<"javascript">>, _} -> <<"#script-removed">>;
         {<<"script">>, _} -> <<"#script-removed">>;
@@ -1147,7 +1153,8 @@ noscript(Url0, IsStrict) ->
         {undefined, _} -> Url
     end.
 
-%% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign.
+%% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign. Also
+%% deletes all invalid utf8 characters.
 -spec nows( binary(), binary() ) -> {binary()|undefined, binary()}.
 nows(<<>>, Acc) -> {undefined, Acc};
 nows(<<$:, Rest/binary>>, Acc) -> {Acc, Rest};
@@ -1162,9 +1169,17 @@ nows(<<$%, A, B, Rest/binary>>, Acc) ->
 nows(<<$%, _/binary>>, _Acc) ->
     % Illegal: not enough characters left for escape sequence
     {undefined, <<>>};
-nows(<<C, Rest/binary>>, Acc) when C =< 32 -> nows(Rest, Acc);
-nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z -> nows(Rest, <<Acc/binary, (C+32)>>);
-nows(<<C/utf8, Rest/binary>>, Acc) -> nows(Rest, <<Acc/binary, C/utf8>>).
+nows(<<C, Rest/binary>>, Acc) when C =< 32 ->
+    % Discard control characters
+    nows(Rest, Acc);
+nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z ->
+    % Ensure lowercase a-z
+    nows(Rest, <<Acc/binary, (C+32)>>);
+nows(<<C/utf8, Rest/binary>>, Acc) ->
+    nows(Rest, <<Acc/binary, C/utf8>>);
+nows(<<_, Rest/binary>>, Acc) ->
+    % Discard non utf8 characters
+    nows(Rest, Acc).
 
 %% @doc Sanitize the data link, drop anything suspected to be a script, or that could contain a script.
 %% @todo Parse SVG with the svg sanitizer
