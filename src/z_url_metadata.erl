@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2014-2022 Marc Worrell
+%% @copyright 2014-2023 Marc Worrell
 %% @doc Discover metadata about an url.
 
-%% Copyright 2014-2022 Marc Worrell
+%% Copyright 2014-2023 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,12 @@
 
 -export_type([ metadata/0 ]).
 
+% Per default we fetch max 1MB of data to analyze
 -define(FETCH_LENGTH, 1024*1024).
+
+% Below this size an image is considered too small to be a representative image or icon
+-define(IMG_SMALL_SIZE, 16).
+
 
 %% @doc Fetch metadata information for the URL
 -spec fetch(binary()|string()) -> {ok, metadata()} | {error, term()}.
@@ -163,7 +168,8 @@ maybe_abs_link(false, Value, _FinalUrl) ->
 maybe_abs_link(true, <<>>, _FinalUrl) ->
     undefined;
 maybe_abs_link(true, Value, FinalUrl) ->
-    z_url:abs_link(Value, FinalUrl).
+    Url1 = z_url:abs_link(Value, FinalUrl),
+    z_html:sanitize_uri(Url1).
 
 is_link_property(canonical_url) -> true;
 is_link_property(short_url) -> true;
@@ -361,9 +367,14 @@ tag({<<"img">>, As, _}, MD, P) ->
         <<>> ->
             {MD, P};
         Src ->
-            case P#ps.in_nav of
-                true -> {[{image_nav, Src} | MD], P};
-                false -> {[{image, Src} | MD], P}
+            case is_img_allowed(Src, As) of
+                true ->
+                    case P#ps.in_nav of
+                        true -> {[{image_nav, Src} | MD], P};
+                        false -> {[{image, Src} | MD], P}
+                    end;
+                false ->
+                    {MD, P}
             end
     end;
 tag({<<"h1">>, _As, Es}, MD, #ps{in_nav=false} = P) ->
@@ -472,6 +483,39 @@ is_text(<<"application/javascript">>) -> true;
 is_text(<<"application/xhtml">>) -> true;
 is_text(<<"application/xhtml+", _/binary>>) -> true;
 is_text(_) -> false.
+
+% Suppres tracking pixels and small images
+is_img_allowed(<<>>, _As) ->
+    false;
+is_img_allowed(Url, As) ->
+    not is_img_small(As)
+    andalso binary:match(Url, img_blocklist()) =:= nomatch.
+
+% Images are considered small if their width or height is smaller than 16px
+is_img_small(As) ->
+    is_small_size(proplists:get_value(<<"width">>, As))
+    orelse is_small_size(proplists:get_value(<<"height">>, As)).
+
+is_small_size(undefined) -> false;
+is_small_size(<<>>) -> false;
+is_small_size(Size) ->
+    try
+        Sz = z_convert:to_integer(Size),
+        Sz =< ?IMG_SMALL_SIZE
+    catch
+        _:_ -> false
+    end.
+
+% Add parts of image URLs to be suppressed
+img_blocklist() -> [
+    <<"//www.facebook.com/tr?">>,
+    <<"//www.googleadservices.com/pagead/">>,
+    <<"futuresimple.com/api/v1/">>,
+    <<"tracking.cirrusinsight.com">>,
+    <<"list-manage.com/track">>,
+    <<"mjt.lu/oo">>,
+    <<"/1x1/">>
+    ].
 
 
 maybe_convert_utf8(true, IsHtml, Charset, Html) ->
