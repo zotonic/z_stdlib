@@ -1,8 +1,8 @@
 %% @author Marc Worrell
-%% @copyright 2014 Marc Worrell
+%% @copyright 2014-2023 Marc Worrell
 %% @doc Discover metadata about an url.
 
-%% Copyright 2014 Marc Worrell
+%% Copyright 2014-2023 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
 -include("../include/z_url_metadata.hrl").
 
--define(FETCH_LENGTH, 128*1024).
+-define(FETCH_LENGTH, 1024*1024).
 
 %% @doc Fetch metadata information for the URL
 -spec fetch(binary()|string()) -> {ok, #url_metadata{}} | {error, term()}.
