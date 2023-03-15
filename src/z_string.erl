@@ -70,7 +70,8 @@
     ends_with/2,
     contains/2,
     split/2,
-    concat/2
+    concat/2,
+    distance/2
 ]).
 
 
@@ -1098,3 +1099,36 @@ concat(A, B) when is_binary(A) ->
     <<A/binary, B1/binary>>;
 concat(A, B) when is_list(A) ->
     A ++ z_convert:to_flatlist(B).
+
+
+%% @doc Calculate the Levensthein distance between two strings.
+%% Adapted from https://rosettacode.org/wiki/Levenshtein_distance#Erlang to use
+%% binary utf8 strings and maps. The smaller the returned integer the closer the
+%% strings are. Distance 0 means the two strings are equal.
+-spec distance(S, T) -> Distance when
+    S :: binary() | string(),
+    T :: binary() | string(),
+    Distance :: non_neg_integer().
+distance(S, T) when is_binary(S), is_binary(T) ->
+    {L,_} = ld(S, T, #{}),
+    L;
+distance(S, T) ->
+    distance(unicode:characters_to_binary(S), unicode:characters_to_binary(T)).
+
+ld(<<>> = S, T, Cache) ->
+    {len(T), Cache#{ {S,T} => len(T) }};
+ld(S, <<>> = T, Cache) ->
+    {len(S), Cache#{ {S,T} => len(S) }};
+ld(<<X/utf8, S/binary>>, <<X/utf8, T/binary>>, Cache) ->
+    ld(S, T, Cache);
+ld(<<_/utf8, ST/binary>> = S, <<_/utf8, TT/binary>> = T, Cache) ->
+    case maps:get({S, T}, Cache, undefined) of
+        undefined ->
+            {L1, C1} = ld(S, TT, Cache),
+            {L2, C2} = ld(ST, T, C1),
+            {L3, C3} = ld(ST, TT, C2),
+            L = 1 + lists:min([L1, L2, L3]),
+            {L, C3#{ {S, T} => L }};
+        Dist ->
+            {Dist, Cache}
+    end.
