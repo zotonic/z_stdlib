@@ -12,6 +12,7 @@ to_upper_test() ->
     A = <<"üçgen"/utf8>>,
     <<"ÜÇGEN"/utf8>> = z_string:to_upper(A),
     <<"HOLA">> = z_string:to_upper("hola"),
+    ?assertEqual(<<"NOTIFICAÇÕES"/utf8>>, z_string:to_upper("notificações")),
     ok.
 
 to_lower_to_upper_test() ->
