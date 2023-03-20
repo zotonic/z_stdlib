@@ -281,7 +281,7 @@ to_lower(undefined) ->
 to_lower(A) when is_atom(A) ->
     to_lower(z_convert:to_binary(A));
 to_lower(L) when is_list(L) ->
-    to_lower(iolist_to_binary(L)).
+    to_lower(unicode:characters_to_binary(L)).
 
 to_lower(<<>>, Acc) ->
     Acc;
