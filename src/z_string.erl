@@ -418,6 +418,12 @@ to_upper(<<"ø"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,152>>);
 to_upper(<<"ç"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,135>>);
 to_upper(<<"æ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,134>>);
 to_upper(<<"œ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,146>>);
+
+% TODO: Convert to decimal to maintain code semantic
+to_upper(<<"ã"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,"Ã"/utf8>>);
+to_upper(<<"ñ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,"Ñ"/utf8>>);
+to_upper(<<"õ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,"Õ"/utf8>>);
+
 % Cyrillic support
 to_upper(<<"а"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,144>>);
 to_upper(<<"б"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,145>>);
