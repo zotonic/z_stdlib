@@ -540,7 +540,7 @@ normalize({trans, Tr}) ->
 normalize(Name) when is_atom(Name) ->
     normalize(atom_to_binary(Name, utf8));
 normalize(T) ->
-    normalize(iolist_to_binary(T), <<>>).
+    normalize(unicode:characters_to_binary(T), <<>>).
 
 normalize(<<>>, Acc) ->
     Acc;
