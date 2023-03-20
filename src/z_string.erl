@@ -571,6 +571,12 @@ normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
 normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
+normalize(<<"ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"Õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
 normalize(<<"А"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"а"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
