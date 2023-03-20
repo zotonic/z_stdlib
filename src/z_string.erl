@@ -314,6 +314,12 @@ to_lower(<<"Ø"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,184>>);
 to_lower(<<"Ç"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,167>>);
 to_lower(<<"Æ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,166>>);
 to_lower(<<"Œ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,147>>);
+
+% TODO: Convert to decimal to maintain code semantic
+to_lower(<<"Ã"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,"ã"/utf8>>);
+to_lower(<<"Ñ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,"ñ"/utf8>>);
+to_lower(<<"Õ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,"õ"/utf8>>);
+
 % Cyrillic support
 to_lower(<<"А"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,176>>);
 to_lower(<<"Б"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,177>>);
