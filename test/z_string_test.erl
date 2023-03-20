@@ -19,6 +19,9 @@ to_lower_to_upper_test() ->
     A = z_string:to_lower(z_string:to_upper(A)),
     ok.
 
+to_lower_test() ->
+    ?assertEqual(<<"notificações"/utf8>>, z_string:to_lower("NOTIFICAÇÕES")).
+
 first_char_test() ->
     ?assertEqual($a, z_string:first_char("aap")),
     ?assertEqual($a, z_string:first_char(<<"aap">>)),
