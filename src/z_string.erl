@@ -281,7 +281,7 @@ to_lower(undefined) ->
 to_lower(A) when is_atom(A) ->
     to_lower(z_convert:to_binary(A));
 to_lower(L) when is_list(L) ->
-    to_lower(iolist_to_binary(L)).
+    to_lower(unicode:characters_to_binary(L)).
 
 to_lower(<<>>, Acc) ->
     Acc;
@@ -314,6 +314,9 @@ to_lower(<<"Ø"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,184>>);
 to_lower(<<"Ç"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,167>>);
 to_lower(<<"Æ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,166>>);
 to_lower(<<"Œ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,147>>);
+to_lower(<<"Ã"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,163>>);
+to_lower(<<"Ñ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,177>>);
+to_lower(<<"Õ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,181>>);
 % Cyrillic support
 to_lower(<<"А"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,176>>);
 to_lower(<<"Б"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,177>>);
@@ -379,7 +382,7 @@ to_upper(undefined) ->
 to_upper(A) when is_atom(A) ->
     to_upper(z_convert:to_binary(A));
 to_upper(L) when is_list(L) ->
-    to_upper(iolist_to_binary(L), <<>>).
+    to_upper(unicode:characters_to_binary(L), <<>>).
 
 to_upper(<<>>, Acc) ->
     Acc;
@@ -412,6 +415,9 @@ to_upper(<<"ø"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,152>>);
 to_upper(<<"ç"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,135>>);
 to_upper(<<"æ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,134>>);
 to_upper(<<"œ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,146>>);
+to_upper(<<"ã"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,131>>);
+to_upper(<<"ñ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,145>>);
+to_upper(<<"õ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,149>>);
 % Cyrillic support
 to_upper(<<"а"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,144>>);
 to_upper(<<"б"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,145>>);
@@ -512,9 +518,15 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
--spec normalize(iodata() | atom() | {trans, list()}) -> binary().
+-spec normalize(string() | binary() | atom() | {trans, list()}) -> binary().
+normalize(B) when is_binary(B) ->
+    normalize(B, <<>>);
 normalize(undefined) ->
     <<>>;
+normalize(A) when is_atom(A) ->
+    normalize(z_convert:to_binary(A));
+normalize(L) when is_list(L) ->
+    normalize(unicode:characters_to_binary(L), <<>>);
 normalize({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
         undefined ->
@@ -524,11 +536,7 @@ normalize({trans, Tr}) ->
             end;
         V ->
             normalize(V)
-    end;
-normalize(Name) when is_atom(Name) ->
-    normalize(atom_to_binary(Name, utf8));
-normalize(T) ->
-    normalize(iolist_to_binary(T), <<>>).
+    end.
 
 normalize(<<>>, Acc) ->
     Acc;
@@ -571,6 +579,12 @@ normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
 normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
+normalize(<<"ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
+normalize(<<"Ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
+normalize(<<"Õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
 normalize(<<"А"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"а"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
