@@ -518,7 +518,7 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
--spec normalize(iodata() | atom() | {trans, list()}) -> binary().
+-spec normalize(string() | binary() | atom() | {trans, list()}) -> binary().
 normalize(B) when is_binary(B) ->
     normalize(B, <<>>);
 normalize(undefined) ->
