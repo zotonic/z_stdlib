@@ -9,18 +9,16 @@
 -include_lib("eunit/include/eunit.hrl").
 
 to_upper_test() ->
-    A = <<"üçgen"/utf8>>,
-    <<"ÜÇGEN"/utf8>> = z_string:to_upper(A),
-    <<"HOLA">> = z_string:to_upper("hola"),
-    ?assertEqual(<<"NOTIFICAÇÕES"/utf8>>, z_string:to_upper("notificações")),
-    ok.
+    ?assertEqual(<<"ÜÇGEN"/utf8>>, z_string:to_upper(<<"üçgen"/utf8>>)),
+    ?assertEqual(<<"HOLA">>, z_string:to_upper("hola")),
+    ?assertEqual(<<"NOTIFICAÇÕES"/utf8>>, z_string:to_upper(<<"notificações"/utf8>>)),
+    ?assertEqual(<<"NOTIFICAÇÕES"/utf8>>, z_string:to_upper("notificações")).
 
 to_lower_to_upper_test() ->
-    A = <<"üçgen"/utf8>>,
-    A = z_string:to_lower(z_string:to_upper(A)),
-    ok.
+    ?assertEqual(<<"üçgen"/utf8>>, z_string:to_lower(z_string:to_upper(<<"üçgen"/utf8>>))).
 
 to_lower_test() ->
+    ?assertEqual(<<"notificações"/utf8>>, z_string:to_lower(<<"NOTIFICAÇÕES"/utf8>>)),
     ?assertEqual(<<"notificações"/utf8>>, z_string:to_lower("NOTIFICAÇÕES")).
 
 first_char_test() ->
@@ -29,8 +27,7 @@ first_char_test() ->
     % ?assertEqual(1046, z_string:first_char("ЖЖЖxx")),
     ?assertEqual(1046, z_string:first_char(<<"ЖЖЖxx"/utf8>>)),
     % ?assertEqual(263, z_string:first_char("ćaap")),
-    ?assertEqual(263, z_string:first_char(<<"ćaap"/utf8>>)),
-    ok.
+    ?assertEqual(263, z_string:first_char(<<"ćaap"/utf8>>)).
 
 last_char_test() ->
     ?assertEqual($p, z_string:last_char("aap")),
@@ -38,26 +35,22 @@ last_char_test() ->
     % ?assertEqual(1046, z_string:last_char("xxЖЖЖ")),
     ?assertEqual(1046, z_string:last_char(<<"xxЖЖЖ"/utf8>>)),
     % ?assertEqual(263, z_string:last_char("aapć")),
-    ?assertEqual(263, z_string:last_char(<<"aapć"/utf8>>)),
-    ok.
+    ?assertEqual(263, z_string:last_char(<<"aapć"/utf8>>)).
 
 to_name_test() ->
-    A = <<"üçgen"/utf8>>,
-    <<"ucgen">> = z_string:to_name(A),
-    <<"hola">> = z_string:to_name(hola),
-    <<"hola">> = z_string:to_name("hola"),
-    <<"at">> = z_string:to_name(<<"@">>),
-    <<"at">> = z_string:to_name("@"),
-    <<"foo_at_bar">> = z_string:to_name("foo@bar"),
-    <<"_">> = z_string:to_name(<<"廣東話"/utf8>>),
-    ok.
+    ?assertEqual(<<"ucgen">>, z_string:to_name(<<"üçgen"/utf8>>)),
+    ?assertEqual(<<"hola">>, z_string:to_name(hola)),
+    ?assertEqual(<<"hola">>, z_string:to_name("hola")),
+    ?assertEqual(<<"at">>, z_string:to_name(<<"@">>)),
+    ?assertEqual(<<"at">>, z_string:to_name("@")),
+    ?assertEqual(<<"foo_at_bar">>, z_string:to_name("foo@bar")),
+    ?assertEqual(<<"_">>, z_string:to_name(<<"廣東話"/utf8>>)).
 
 concat_test() ->
-    <<"abcdef">> = z_string:concat(<<"abc">>, <<"def">>),
-    <<"abcdef">> = z_string:concat(<<"abc">>, "def"),
-    "abcdef" = z_string:concat("abc", "def"),
-    "abcdef" = z_string:concat("abc", <<"def">>),
-    ok.
+    ?assertEqual(<<"abcdef">>, z_string:concat(<<"abc">>, <<"def">>)),
+    ?assertEqual(<<"abcdef">>, z_string:concat(<<"abc">>, "def")),
+    ?assertEqual("abcdef", z_string:concat("abc", "def")),
+    ?assertEqual("abcdef", z_string:concat("abc", <<"def">>)).
 
 contains_test() ->
     ?assert(z_string:contains("", "strange case")),
@@ -68,8 +61,7 @@ contains_test() ->
     ?assert(z_string:contains("t.", "This is text.")),
     ?assertNot(z_string:contains("not", "This is text.")),
     ?assertNot(z_string:contains("n", "")),
-    ?assertNot(z_string:contains("n", "b")),
-    ok.
+    ?assertNot(z_string:contains("n", "b")).
 
 starts_with_test() ->
     ?assert(z_string:starts_with("", "This is text.")),
@@ -80,8 +72,7 @@ starts_with_test() ->
     ?assertNot(z_string:starts_with("Bla", "This is text.")),
     ?assert(z_string:starts_with(["This ", "is"], "This is text.")),
     ?assert(z_string:starts_with(["This ", <<"is">>], "This is text.")),
-    ?assertNot(z_string:starts_with(["This ", <<"is not">>], "This is text.")),
-    ok.
+    ?assertNot(z_string:starts_with(["This ", <<"is not">>], "This is text.")).
 
 ends_with_test() ->
     ?assert(z_string:ends_with("", "This is text.")),
@@ -91,30 +82,25 @@ ends_with_test() ->
     ?assert(z_string:ends_with("ext.", "This is text.")),
     ?assert(z_string:ends_with(["is ", "text."], "This is text.")),
     ?assert(z_string:ends_with(["is ", <<"text.">>], "This is text.")),
-    ?assertNot(z_string:ends_with(["is ", <<"jpeg.">>], "This is text.")),
-    ok.
+    ?assertNot(z_string:ends_with(["is ", <<"jpeg.">>], "This is text.")).
 
 trim_left_test() ->
     ?assertEqual("foo", z_string:trim_left(" foo")),
     ?assertEqual("foo", z_string:trim_left("     foo")),
     ?assertEqual("foo", z_string:trim_left(".foo", $.)),
     ?assertEqual("foo", z_string:trim_left("......foo", $.)),
-    ?assertEqual(<<"foo"/utf8>>, z_string:trim_left(<<"​foo"/utf8>>)), %% zero width space (8203)
-    ok.
+    ?assertEqual(<<"foo"/utf8>>, z_string:trim_left(<<"​foo"/utf8>>)). %% zero width space (8203)
 
 trim_right_test() ->
     ?assertEqual(<<"foo">>, z_string:trim_right("foo ")),
     ?assertEqual(<<"foo">>, z_string:trim_right("foo         ")),
     ?assertEqual(<<"foo">>, z_string:trim_right("foo.", $.)),
     ?assertEqual(<<"foo">>, z_string:trim_right("foo........", $.)),
-    ?assertEqual(<<"foo"/utf8>>, z_string:trim_right(<<"foo​"/utf8>>)), %% zero width space (8203)
-    ok.
+    ?assertEqual(<<"foo"/utf8>>, z_string:trim_right(<<"foo​"/utf8>>)). %% zero width space (8203)
 
 trim_utf8_list_test() ->
-    A = <<" üçgen "/utf8>>,
-    <<"üçgen"/utf8>> = z_string:trim(A),
-    <<"üçgen"/utf8>> = z_string:trim([A]),
-    ok.
+    ?assertEqual(<<"üçgen"/utf8>>, z_string:trim(<<" üçgen "/utf8>>)),
+    ?assertEqual(<<"üçgen"/utf8>>, z_string:trim([<<" üçgen "/utf8>>])).
 
 truncate_test() ->
     ?assertEqual(<<"foox">>, z_string:truncate(<<"foo bar">>, 4, <<"x">>)),
@@ -671,6 +657,9 @@ normalize_test() ->
     ?assertEqual(<<"-"/utf8>>, z_string:normalize('–')),
     ?assertEqual(<<" a"/utf8>>, z_string:normalize(' a')),
     % Some words
+    ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize(<<"notificações"/utf8>>)),
+    ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize(<<"NOTIFICAÇÕES"/utf8>>)),
     ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize("notificações")),
     ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize("NOTIFICAÇÕES")),
-    ok.
+    ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize('notificações')),
+    ?assertEqual(<<"notificacoes"/utf8>>, z_string:normalize('NOTIFICAÇÕES')).
