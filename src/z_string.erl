@@ -519,8 +519,14 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
 -spec normalize(iodata() | atom() | {trans, list()}) -> binary().
+normalize(B) when is_binary(B) ->
+    normalize(B, <<>>);
 normalize(undefined) ->
     <<>>;
+normalize(A) when is_atom(A) ->
+    normalize(z_convert:to_binary(A));
+normalize(L) when is_list(L) ->
+    normalize(unicode:characters_to_binary(L), <<>>);
 normalize({trans, Tr}) ->
     case proplists:get_value(en, Tr) of
         undefined ->
@@ -530,11 +536,7 @@ normalize({trans, Tr}) ->
             end;
         V ->
             normalize(V)
-    end;
-normalize(Name) when is_atom(Name) ->
-    normalize(atom_to_binary(Name, utf8));
-normalize(T) ->
-    normalize(unicode:characters_to_binary(T), <<>>).
+    end.
 
 normalize(<<>>, Acc) ->
     Acc;
