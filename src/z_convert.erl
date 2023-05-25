@@ -1,11 +1,12 @@
 %% @author Rusty Klophaus
-%% @copyright Copyright (c) 2008-2009 Rusty Klophaus, Copyright (c) 2009-2021 Marc Worrell
-%%
+%% @copyright Copyright (c) 2008-2009 Rusty Klophaus, Copyright (c) 2009-2023 Marc Worrell
 %% @doc Conversion functions for all kinds of data types. Changes to
 %% Rusty's version: added date conversion, undefined handling and more
 %% to_bool cases.
+%% @end
 
-%% Copyright 2009-2021 Marc Worrell
+%% Copyright 2008-2009 Rusty Klophaus
+%% Copyright 2009-2023 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,9 +114,13 @@ to_binary({trans, []}) ->
     <<>>.
 
 %% Specific Zotonic callback, please keep here.
-to_binary({trans, _} = Tr, Context) -> to_binary(z_trans:lookup_fallback(Tr, Context));
+to_binary({trans, _} = Tr, Context) -> to_binary(trans_lookup_fallback(Tr, Context));
 to_binary(A, _Context) -> to_binary(A).
 
+% Add nowarn because the z_trans module is optional (and from Zotonic core)
+-dialyzer({[ nowarn_function ], trans_lookup_fallback/2}).
+trans_lookup_fallback(Tr, Context) ->
+    z_trans:lookup_fallback(Tr, Context).
 
 %% @doc Convert (almost) any value to an integer.
 -spec to_integer(term()) -> integer() | undefined.

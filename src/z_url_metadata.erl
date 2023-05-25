@@ -517,7 +517,8 @@ img_blocklist() -> [
     <<"/1x1/">>
     ].
 
-
+% Add nowarn because the iconv module is optional.
+-dialyzer({[ nowarn_function ], maybe_convert_utf8/4}).
 maybe_convert_utf8(true, IsHtml, Charset, Html) ->
     CS1 = z_convert:to_list(
                 z_string:to_lower(

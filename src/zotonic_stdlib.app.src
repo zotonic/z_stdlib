@@ -2,7 +2,11 @@
     {description, "Zotonic standard library"},
     {vsn, "git"},
     {registered, []},
-    {applications, [kernel, stdlib, tls_certificate_check]},
+    {applications, [
+        kernel, stdlib, inets,
+        tls_certificate_check,
+        cowlib, qdate_localtime
+    ]},
     {env, []},
     {modules, []},
     {exclude_files, [
