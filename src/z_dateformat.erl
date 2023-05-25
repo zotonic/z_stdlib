@@ -56,7 +56,7 @@
 -type datetime() :: calendar:datetime()
                   | {date(), calendar:time()}.
 
--export_type([datetime/0]).
+-export_type([datetime/0, date/0, tz/0]).
 
 %
 % Format the current date/time

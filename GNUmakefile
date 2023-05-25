@@ -31,7 +31,7 @@ shell: $(REBAR) compile
 	$(REBAR) $(REBAR_OPTS) shell
 
 dialyzer: $(REBAR)
-	$(REBAR) as test dialyzer
+	$(REBAR) dialyzer
 
 xref: $(REBAR)
 	$(REBAR) as test xref
