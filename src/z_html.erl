@@ -513,7 +513,8 @@ escape_link(Text) when is_binary(Text) ->
     of
         {match, Matches} ->
             Matches1 = [ hd(M) || M <- Matches ],
-            Linked = make_links1(lists:reverse(Matches1), Text),
+            Parts = split_in_links(lists:reverse(Matches1), Text, []),
+            Linked = lists:map(fun make_link/1, Parts),
             nl2br(iolist_to_binary(Linked));
         nomatch ->
             nl2br(escape(Text))
@@ -521,22 +522,26 @@ escape_link(Text) when is_binary(Text) ->
 escape_link(Text) ->
     escape_link(iolist_to_binary(Text)).
 
-make_links1([], Text) ->
-    Text;
-make_links1([{Offset, Len}|Matches], Text) ->
-    <<Before:Offset/binary, Link:Len/binary, Rest/binary>> = Text,
+make_link(B) when is_binary(B) ->
+    escape(B);
+make_link({link, Link}) ->
     NoScript = noscript(Link, true),
     LinkText = escape(NoScript),
     LinkUrl = escape(ensure_protocol(NoScript)),
-    Anchor = <<
+    <<
         "<a href=\"",
         LinkUrl/binary,
         "\" rel=\"noopener nofollow noreferrer\">",
         LinkText/binary,
         "</a>"
-        >>,
-    Text1 = <<Before/binary, Anchor/binary, Rest/binary>>,
-    make_links1(Matches, Text1).
+    >>.
+
+split_in_links([], Text, Acc) ->
+    [ Text | Acc ];
+split_in_links([ {Offset, Len}|Matches ], Text, Acc) ->
+    <<Before:Offset/binary, Link:Len/binary, Rest/binary>> = Text,
+    Acc1 = [ {link, Link}, Rest | Acc ],
+    split_in_links(Matches, Before, Acc1).
 
 ensure_protocol(<<>>) -> <<>>;
 ensure_protocol(<<"#", _/binary>> = Link) -> Link;
