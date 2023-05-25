@@ -19,7 +19,7 @@ $(REBAR):
 	chmod +x $(REBAR)
 
 # Use Rebar to get, update and compile dependencies
-.PHONY: upgrade-deps compile compile shell dialyzer xref test
+.PHONY: upgrade-deps compile compile shell dialyzer xref test edoc
 
 upgrade-deps: $(REBAR)
 	$(REBAR) $(REBAR_OPTS) upgrade
@@ -41,7 +41,7 @@ test: $(REBAR)
 	$(REBAR) as test eunit
 
 edoc: $(REBAR)
-	$(REBAR) edoc
+	$(REBAR) ex_doc
 
 # Cleaning
 .PHONY: clean_logs
