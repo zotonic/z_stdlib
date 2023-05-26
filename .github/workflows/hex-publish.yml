@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Publish to Hex.pm
         uses: erlangpack/github-action@v3
