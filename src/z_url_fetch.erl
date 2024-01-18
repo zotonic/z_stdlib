@@ -1,8 +1,8 @@
 % @author Marc Worrell
-%% @copyright 2014-2022 Marc Worrell
+%% @copyright 2014-2024 Marc Worrell
 %% @doc Fetch (part of) the data of an Url, including its headers.
 
-%% Copyright 2014-2022 Marc Worrell
+%% Copyright 2014-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -121,7 +121,9 @@ fetch_partial(Url, Options) ->
 fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     OutDevice = proplists:get_value(device, Options),
     MaxLength = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
-    maybe_unzip(fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options)).
+    maybe_handle_content_encoding(
+        fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options),
+        MaxLength).
 
 -spec ensure_profiles() -> ok.
 ensure_profiles() ->
@@ -361,30 +363,30 @@ append_data(Data, Part, OutDev) ->
     end.
 
 %% @doc Some servers (Spotify) deliver gzip encoded content, even when we ask for identity.
-maybe_unzip({ok, {FinalUrl, Hs, Length, Data}} = Result) when Length > 0, is_binary(Data), Data =/= <<>> ->
-    case is_ce_gzip(Hs) of
-        true ->
-            % Decode partial gzip data
-            case partial_unzip(Data) of
-                {ok, Data1} ->
-                    {ok, {FinalUrl, Hs, size(Data1), Data1}};
-                {error, _} ->
-                    Result
-            end;
-        false ->
-            Result
-    end;
-maybe_unzip(Result) ->
+maybe_handle_content_encoding({ok, {_FinalUrl, Hs, Length, Data}} = Result, MaxLength)
+    when Length > 0, is_binary(Data), Data =/= <<>> ->
+    CE = proplists:get_value("content-encoding", Hs, "identity"),
+    handle_ce(CE, Result, MaxLength);
+maybe_handle_content_encoding(Result, _MaxLength) ->
     Result.
 
-is_ce_gzip(Hs) ->
-    proplists:get_value("content-encoding", Hs) =:= "gzip".
+handle_ce("gzip", {ok, {FinalUrl, Hs, Length, Data}} = Result, MaxLength)
+    when Length > 0, is_binary(Data), Data =/= <<>> ->
+    % Decode partial gzip data
+    case partial_unzip(Data, MaxLength) of
+        {ok, Data1} ->
+            {ok, {FinalUrl, Hs, size(Data1), Data1}};
+        {error, _} ->
+            Result
+    end;
+handle_ce(_ContentEncoding, Result, _MaxLength) ->
+    Result.
 
-partial_unzip(Compressed) ->
+partial_unzip(Compressed, MaxLength) ->
     Z = zlib:open(),
     zlib:inflateInit(Z, 16 + 15),
     try
-        Uncompressed = unzip_loop(Z, <<>>, zlib:safeInflate(Z, Compressed)),
+        Uncompressed = unzip_loop(Z, <<>>, zlib:safeInflate(Z, Compressed), MaxLength),
         {ok, Uncompressed}
     catch
         _:_ ->
@@ -393,7 +395,9 @@ partial_unzip(Compressed) ->
         zlib:close(Z)
     end.
 
-unzip_loop(Z, Acc, {continue, Output}) ->
+unzip_loop(_Z, Acc, _, MaxLength) when size(Acc) >= MaxLength ->
+    Acc;
+unzip_loop(Z, Acc, {continue, Output}, MaxLength) ->
     Out1 = iolist_to_binary(Output),
     Acc1 = <<Acc/binary, Out1/binary>>,
     Next = try
@@ -402,8 +406,8 @@ unzip_loop(Z, Acc, {continue, Output}) ->
         _:_ ->
             {finished, <<>>}
     end,
-    unzip_loop(Z, Acc1, Next);
-unzip_loop(_Z, Acc, {finished, Output}) ->
+    unzip_loop(Z, Acc1, Next, MaxLength);
+unzip_loop(_Z, Acc, {finished, Output}, _MaxLength) ->
     Out1 = iolist_to_binary(Output),
     <<Acc/binary, Out1/binary>>.
 
