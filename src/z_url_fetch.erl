@@ -121,8 +121,7 @@ fetch_partial(Url, Options) ->
 fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     OutDevice = proplists:get_value(device, Options),
     MaxLength = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
-    fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options).
-
+    maybe_unzip(fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options)).
 
 -spec ensure_profiles() -> ok.
 ensure_profiles() ->
@@ -360,6 +359,53 @@ append_data(Data, Part, OutDev) ->
         ok -> {ok, Data};
         {error, _} = Error -> Error
     end.
+
+%% @doc Some servers (Spotify) deliver gzip encoded content, even when we ask for identity.
+maybe_unzip({ok, {FinalUrl, Hs, Length, Data}} = Result) when Length > 0, is_binary(Data), Data =/= <<>> ->
+    case is_ce_gzip(Hs) of
+        true ->
+            % Decode partial gzip data
+            case partial_unzip(Data) of
+                {ok, Data1} ->
+                    {ok, {FinalUrl, Hs, size(Data1), Data1}};
+                {error, _} ->
+                    Result
+            end;
+        false ->
+            Result
+    end;
+maybe_unzip(Result) ->
+    Result.
+
+is_ce_gzip(Hs) ->
+    proplists:get_value("content-encoding", Hs) =:= "gzip".
+
+partial_unzip(Compressed) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z, 16 + 15),
+    try
+        Uncompressed = unzip_loop(Z, <<>>, zlib:safeInflate(Z, Compressed)),
+        {ok, Uncompressed}
+    catch
+        _:_ ->
+            {error, gunzip}
+    after
+        zlib:close(Z)
+    end.
+
+unzip_loop(Z, Acc, {continue, Output}) ->
+    Out1 = iolist_to_binary(Output),
+    Acc1 = <<Acc/binary, Out1/binary>>,
+    Next = try
+        zlib:safeInflate(Z, [])
+    catch
+        _:_ ->
+            {finished, <<>>}
+    end,
+    unzip_loop(Z, Acc1, Next);
+unzip_loop(_Z, Acc, {finished, Output}) ->
+    Out1 = iolist_to_binary(Output),
+    <<Acc/binary, Out1/binary>>.
 
 %% @doc Flush any late results from previous requests
 httpc_flush() ->
