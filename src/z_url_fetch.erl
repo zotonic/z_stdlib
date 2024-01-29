@@ -1,6 +1,7 @@
 % @author Marc Worrell
 %% @copyright 2014-2024 Marc Worrell
 %% @doc Fetch (part of) the data of an Url, including its headers.
+%% @end
 
 %% Copyright 2014-2024 Marc Worrell
 %%
@@ -66,6 +67,7 @@
                 | {user_agent, binary() | string()}
                 | {language, atom()}
                 | {content_type, binary() | string()}
+                | {headers, [ {binary()|string(), binary()|string()} ]}
                 | insecure.
 
 -type fetch_result() :: {ok, {string(), list({string(), string()}), pos_integer(), binary()}} | {error, term()}.
@@ -189,7 +191,7 @@ fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_b
                 undefined -> "application/octet-stream";
                 CT -> to_list(CT)
             end,
-            Headers = [
+            Headers0 = [
                 {"Accept", Accept},
                 {"Accept-Encoding", "identity"},
                 {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
@@ -201,6 +203,19 @@ fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_b
             end ++ case proplists:get_value(authorization, Opts) of
                 undefined -> [];
                 Auth -> [ {"Authorization", to_list(Auth)} ]
+            end,
+            Headers = case proplists:get_value(headers, Opts) of
+                undefined ->
+                    Headers0;
+                [] ->
+                    Headers0;
+                Hs ->
+                    Hs1 = lists:map(
+                        fun({K,V}) ->
+                            {z_convert:to_list(K), z_convert:to_list(V)}
+                        end,
+                        Hs),
+                    Headers0 ++ Hs1
             end,
             Request = case Method of
                 get -> {Url, Headers};
