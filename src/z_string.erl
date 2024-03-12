@@ -3,8 +3,9 @@
 %% coding: utf-8
 
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2020 Marc Worrell
+%% @copyright 2009-2024 Marc Worrell
 %% @doc String related functions
+%% @end
 
 %% @todo Check valid chars for filenames, allow chinese, japanese, etc?
 %% CJK Unified Ideographs Extension A: Range: 3400-4DBF
@@ -12,7 +13,7 @@
 %% Kangxi Radicals: Range 2F00-2FDF
 %% See also: http://www.utf8-chartable.de/
 
-%% Copyright 2009-2020 Marc Worrell
+%% Copyright 2009-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -578,7 +579,7 @@ normalize(<<"Ø"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
-normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
+normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
 normalize(<<"ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
