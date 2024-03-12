@@ -1,19 +1,19 @@
 {"1.2.0",
-[{<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.11.0">>},0},
- {<<"qdate_localtime">>,{pkg,<<"qdate_localtime">>,<<"1.2.0">>},0},
- {<<"ssl_verify_fun">>,{pkg,<<"ssl_verify_fun">>,<<"1.1.6">>},1},
+[{<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.12.1">>},0},
+ {<<"qdate_localtime">>,{pkg,<<"qdate_localtime">>,<<"1.2.1">>},0},
+ {<<"ssl_verify_fun">>,{pkg,<<"ssl_verify_fun">>,<<"1.1.7">>},1},
  {<<"tls_certificate_check">>,
-  {pkg,<<"tls_certificate_check">>,<<"1.18.1">>},
+  {pkg,<<"tls_certificate_check">>,<<"1.21.0">>},
   0}]}.
 [
 {pkg_hash,[
- {<<"cowlib">>, <<"0B9FF9C346629256C42EBE1EEB769A83C6CB771A6EE5960BD110AB0B9B872063">>},
- {<<"qdate_localtime">>, <<"644ADE4C7F7EAC765E2048DFA714D78EA86BAF5255FE46279B2EAC5729760A07">>},
- {<<"ssl_verify_fun">>, <<"CF344F5692C82D2CD7554F5EC8FD961548D4FD09E7D22F5B62482E5AEAEBD4B0">>},
- {<<"tls_certificate_check">>, <<"54033CCBA6D5C7DC249C9D88243CCF9BAC2285784B9B7E258404B4B5AFF3DF10">>}]},
+ {<<"cowlib">>, <<"A9FA9A625F1D2025FE6B462CB865881329B5CAFF8F1854D1CBC9F9533F00E1E1">>},
+ {<<"qdate_localtime">>, <<"72E1034DC6B7FEE8F588281EDDD0BD0DC5260005D758052F50634D265D382C18">>},
+ {<<"ssl_verify_fun">>, <<"354C321CF377240C7B8716899E182CE4890C5938111A1296ADD3EC74CF1715DF">>},
+ {<<"tls_certificate_check">>, <<"042AB2C0C860652BC5CF69C94E3A31F96676D14682E22EC7813BD173CEFF1788">>}]},
 {pkg_hash_ext,[
- {<<"cowlib">>, <<"2B3E9DA0B21C4565751A6D4901C20D1B4CC25CBB7FD50D91D2AB6DD287BC86A9">>},
- {<<"qdate_localtime">>, <<"98A538A5B6046B8652DFC5630B030D0414A1B31D0130C81FA6B88B5C1E625109">>},
- {<<"ssl_verify_fun">>, <<"BDB0D2471F453C88FF3908E7686F86F9BE327D065CC1EC16FA4540197EA04680">>},
- {<<"tls_certificate_check">>, <<"078DE55B522D0550FE8112C01D33B380CFA55E8EC662DDA300457CC67895A9B6">>}]}
+ {<<"cowlib">>, <<"163B73F6367A7341B33C794C4E88E7DBFE6498AC42DCD69EF44C5BC5507C8DB0">>},
+ {<<"qdate_localtime">>, <<"1109958D205C65C595C8C5694CB83EBAF2DBE770CF902E4DCE8AFB2C4123764D">>},
+ {<<"ssl_verify_fun">>, <<"FE4C190E8F37401D30167C8C405EDA19469F34577987C76DDE613E838BBC67F8">>},
+ {<<"tls_certificate_check">>, <<"6CEE6CFFC35A390840D48D463541D50746A7B0E421ACAADB833CFC7961E490E7">>}]}
 ].
