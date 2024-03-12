@@ -3,8 +3,9 @@
 %% coding: utf-8
 
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2020 Marc Worrell
+%% @copyright 2009-2024 Marc Worrell
 %% @doc String related functions
+%% @end
 
 %% @todo Check valid chars for filenames, allow chinese, japanese, etc?
 %% CJK Unified Ideographs Extension A: Range: 3400-4DBF
@@ -12,7 +13,7 @@
 %% Kangxi Radicals: Range 2F00-2FDF
 %% See also: http://www.utf8-chartable.de/
 
-%% Copyright 2009-2020 Marc Worrell
+%% Copyright 2009-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -317,6 +318,7 @@ to_lower(<<"Œ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,147>>);
 to_lower(<<"Ã"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,163>>);
 to_lower(<<"Ñ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,177>>);
 to_lower(<<"Õ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,181>>);
+to_lower(<<"Ÿ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,"ÿ"/utf8>>);
 % Cyrillic support
 to_lower(<<"А"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,176>>);
 to_lower(<<"Б"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,177>>);
@@ -418,6 +420,7 @@ to_upper(<<"œ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,146>>);
 to_upper(<<"ã"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,131>>);
 to_upper(<<"ñ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,145>>);
 to_upper(<<"õ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,149>>);
+to_upper(<<"ÿ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,"Ÿ"/utf8>>);
 % Cyrillic support
 to_upper(<<"а"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,144>>);
 to_upper(<<"б"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,145>>);
@@ -578,7 +581,8 @@ normalize(<<"Ø"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
-normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
+normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
+normalize(<<"Ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
 normalize(<<"ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
