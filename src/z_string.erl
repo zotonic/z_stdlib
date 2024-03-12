@@ -578,7 +578,7 @@ normalize(<<"Ø"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Å"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"€"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
-normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$j>>);
+normalize(<<"ÿ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
 normalize(<<"ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
