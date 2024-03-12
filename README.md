@@ -122,12 +122,12 @@ URL encode, decode and more.
 
 ### z_url_fetch
 
-Fetch the first N bytes of an URL. Protection against too large return body.
+Fetch the first N bytes of a URL. Protection against too large return body.
 
 
 ### z_url_metadata
 
-Fetch an URL, extract metadata like mime type, title, description, images etc.
+Fetch URL, extract metadata like mime type, title, description, images etc.
 
 
 Tests
