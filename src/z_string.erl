@@ -318,6 +318,7 @@ to_lower(<<"Œ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,197,147>>);
 to_lower(<<"Ã"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,163>>);
 to_lower(<<"Ñ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,177>>);
 to_lower(<<"Õ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,195,181>>);
+to_lower(<<"Ÿ"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,"ÿ"/utf8>>);
 % Cyrillic support
 to_lower(<<"А"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,176>>);
 to_lower(<<"Б"/utf8,T/binary>>, Acc) -> to_lower(T, <<Acc/binary,208,177>>);
@@ -419,6 +420,7 @@ to_upper(<<"œ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,197,146>>);
 to_upper(<<"ã"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,131>>);
 to_upper(<<"ñ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,145>>);
 to_upper(<<"õ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,195,149>>);
+to_upper(<<"ÿ"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,"Ÿ"/utf8>>);
 % Cyrillic support
 to_upper(<<"а"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,144>>);
 to_upper(<<"б"/utf8,T/binary>>, Acc) -> to_upper(T, <<Acc/binary,208,145>>);
