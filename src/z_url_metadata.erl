@@ -1,8 +1,9 @@
 %% @author Marc Worrell
-%% @copyright 2014-2023 Marc Worrell
+%% @copyright 2014-2024 Marc Worrell
 %% @doc Discover metadata about an url.
+%% @end
 
-%% Copyright 2014-2023 Marc Worrell
+%% Copyright 2014-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,10 +37,16 @@
 
 -export_type([ metadata/0 ]).
 
-% Per default we fetch max 1MB of data to analyze
+% User-agent used for metadata sniffing - we pretend to be Slack so
+% that some websites with bot-protection allow us to sniff the metadata.
+-define(USER_AGENT, <<"Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)">>).
+
+% Per default we fetch max 1MB of data to analyze.
+% We need to fetch this much as (for example) Youtube adds a lot of css/scripts
+% above the metadata of the page.
 -define(FETCH_LENGTH, 1024*1024).
 
-% Below this size an image is considered too small to be a representative image or icon
+% Below this size an image is considered too small to be a representative image or icon.
 -define(IMG_SMALL_SIZE, 16).
 
 
@@ -55,7 +62,11 @@ fetch(Url, Options) ->
         true -> Options;
         false -> [ {max_length, ?FETCH_LENGTH} | Options ]
     end,
-    case z_url_fetch:fetch_partial(Url, Options1) of
+    Options2 = case proplists:is_defined(user_agent, Options1) of
+        true -> Options1;
+        false -> [ {user_agent, ?USER_AGENT} | Options1 ]
+    end,
+    case z_url_fetch:fetch_partial(Url, Options2) of
         {ok, {FinalUrl, Headers, _Size, Data}} ->
             {ok, partial_metadata(FinalUrl, Headers, Data)};
         {error, _} = Error ->
