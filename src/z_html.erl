@@ -634,6 +634,26 @@ strip(<<"</span>",T/binary>>, Acc, N) ->
     strip(T, Acc, N);
 strip(<<"</a>",T/binary>>, Acc, N) ->
     strip(T, Acc, N);
+strip(<<"<script", T/binary>>, Acc, N) ->
+    case binary:split(T, <<"</script">>) of
+        [_] -> Acc;
+        [_, Rest] -> strip_tag(Rest, Acc, N)
+    end;
+strip(<<"<noscript", T/binary>>, Acc, N) ->
+    case binary:split(T, <<"</noscript">>) of
+        [_] -> Acc;
+        [_, Rest] -> strip_tag(Rest, Acc, N)
+    end;
+strip(<<"<style", T/binary>>, Acc, N) ->
+    case binary:split(T, <<"</style">>) of
+        [_] -> Acc;
+        [_, Rest] -> strip_tag(Rest, Acc, N)
+    end;
+strip(<<"<!--",T/binary>>, Acc, N) ->
+    case binary:split(T, <<"-->">>) of
+        [_] -> Acc;
+        [_, Rest] -> strip(Rest, Acc, N)
+    end;
 strip(<<"<",T/binary>>, Acc, N) ->
     strip_tag(T, Acc, N);
 strip(<<H/utf8,T/binary>>, Acc, N) ->

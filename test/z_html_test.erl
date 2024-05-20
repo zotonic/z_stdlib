@@ -68,6 +68,12 @@ strip_test() ->
     ?assertEqual(<<"1234\n5678">>, z_html:strip(<<"<p>1234\n<span>5678</span></p>">>)),
     ?assertEqual(<<"This is a list item.">>, z_html:strip(<<"<ul><li>This is a list item.</li></ul>">>)),
     ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234</p><p>5678</p>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234</p><!-- Hello --><p>5678</p>">>)),
+    ?assertEqual(<<"12345678">>, z_html:strip(<<"<p>1234<!-- Hello -->5678</p>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234<style type=\"text/css\">foo: { a: x }</style>5678</p>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234<script type=\"text/javascript\">foo();</script>5678</p>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234<style>foo: { a: x }</style>5678</p>">>)),
+    ?assertEqual(<<"1234 5678">>, z_html:strip(<<"<p>1234<script>foo();</script>5678</p>">>)),
     ok.
 
 abs_links_test() ->
