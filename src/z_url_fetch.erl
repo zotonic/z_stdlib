@@ -380,20 +380,14 @@ normalize_url(Url) ->
             {error, url}
     end.
 
-start_stream(Host, Method, Url, Request, Opts) ->
-    SSLOptions = case proplists:get_value(insecure, Opts) of
-        true ->
-            [ {verify, verify_none} ];
-        _ ->
-            tls_certificate_check:options(Host)
-    end,
+start_stream(_Host, Method, Url, Request, Opts) ->
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     HttpOptions = [
         {autoredirect, false},
         {relaxed, true},
         {timeout, Timeout},
         {connect_timeout, ?HTTPC_TIMEOUT_CONNECT},
-        {ssl, SSLOptions}
+        {ssl, [ {verify, verify_none} ]}
      ],
     try
         httpc:request(Method,
