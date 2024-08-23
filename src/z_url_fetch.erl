@@ -163,14 +163,25 @@ fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method
         options = Options
     },
     case fetch_partial_loop(FState) of
-        {ok, FState1} ->
+        {ok, #fstate{ code = Code } = FState1} ->
             FState2 = maybe_handle_content_encoding(FState1),
-            {ok, {
-                FState2#fstate.url,
-                FState2#fstate.headers,
-                FState2#fstate.length,
-                FState2#fstate.data
-            }};
+            if
+                Code >= 200 andalso Code < 300 ->
+                    {ok, {
+                        FState2#fstate.url,
+                        FState2#fstate.headers,
+                        FState2#fstate.length,
+                        FState2#fstate.data
+                    }};
+                true ->
+                    {error, {
+                        Code,
+                        FState2#fstate.url,
+                        FState2#fstate.headers,
+                        FState2#fstate.length,
+                        FState2#fstate.data
+                    }}
+            end;
         {error, _} = Error ->
             Error
     end.
@@ -566,7 +577,7 @@ maybe_redirect(#fstate{ code = Code, headers = Hs, url = Url } = FState)
             {redirect, FState#fstate.method, NewUrl, FState#fstate.options}
     end;
 maybe_redirect(FState) ->
-    {error, {FState#fstate.code, FState#fstate.url}}.
+    {ok, FState}.
 
 append_data(Data, <<>>, _Device) ->
     {ok, Data};
