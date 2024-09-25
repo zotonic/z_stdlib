@@ -74,7 +74,7 @@
 -type fetch_result() :: {ok, {
             FinalUrl :: string(),
             RespHeaders :: list({string(), string()}),
-            ContentLength :: pos_integer(),
+            ContentLength :: non_neg_integer(),
             Content :: binary()
         }}
         | {error, Reason :: term()}.
