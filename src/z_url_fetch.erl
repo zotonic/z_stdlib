@@ -505,10 +505,10 @@ fetch_stream_data(ReqId, HandlerPid, #fstate{ length = Length, max = Max } = FSt
                             fetch_stream_data(ReqId, HandlerPid, FState1);
                         false ->
                             httpc:cancel_request(ReqId),
-                            FState1 = FState#fstate{
+                            FState2 = FState1#fstate{
                                 code = 200
                             },
-                            {ok, FState1}
+                            {ok, FState2}
                     end;
                 {error, _} = Error ->
                     httpc:cancel_request(ReqId),
