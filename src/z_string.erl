@@ -51,6 +51,7 @@
     nospaces/1,
     line/1,
     len/1,
+    unaccent/1,
     normalize/1,
     to_rootname/1,
     to_name/1,
@@ -518,6 +519,16 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
     to_name1(Rest, <<Acc/binary, "_">>).
 
 
+%% @doc Remove all accents from all characters.
+-spec unaccent(S) -> S1 when
+    S :: unicode:chardata(),
+    S1 :: binary().
+unaccent(S) ->
+    {ok, Re} = re:compile(<<"\\p{Mn}">>, [unicode]),
+    NFD = unicode:characters_to_nfd_binary(S),
+    WithoutAccents = re:replace(NFD, Re, <<>>, [global]),
+    unicode:characters_to_nfc_binary(WithoutAccents).
+
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
@@ -573,6 +584,8 @@ normalize(<<"ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"Ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"Ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"ô"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ô"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"ß"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$s>>);
 normalize(<<"ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
 normalize(<<"Ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
