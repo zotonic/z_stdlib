@@ -1,8 +1,9 @@
 %% @author Marc Worrell
-%% @copyright 2014-2021 Marc Worrell
+%% @copyright 2014-2024 Marc Worrell
 %% @doc Record returned by z_url_metadata:fetch/1
+%% @end
 
-%% Copyright 2014-2021 Marc Worrell
+%% Copyright 2014-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +24,6 @@
     content_length :: integer(),
     metadata :: list(),
     is_index_page = false :: boolean(),
-    headers :: list(),
+    headers :: list({binary(), binary()}),
     partial_data :: binary()
 }).
-
