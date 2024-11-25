@@ -1,19 +1,19 @@
 {"1.2.0",
-[{<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.12.1">>},0},
+[{<<"cowlib">>,{pkg,<<"cowlib">>,<<"2.13.0">>},0},
  {<<"qdate_localtime">>,{pkg,<<"qdate_localtime">>,<<"1.2.1">>},0},
  {<<"ssl_verify_fun">>,{pkg,<<"ssl_verify_fun">>,<<"1.1.7">>},1},
  {<<"tls_certificate_check">>,
-  {pkg,<<"tls_certificate_check">>,<<"1.21.0">>},
+  {pkg,<<"tls_certificate_check">>,<<"1.24.0">>},
   0}]}.
 [
 {pkg_hash,[
- {<<"cowlib">>, <<"A9FA9A625F1D2025FE6B462CB865881329B5CAFF8F1854D1CBC9F9533F00E1E1">>},
+ {<<"cowlib">>, <<"DB8F7505D8332D98EF50A3EF34B34C1AFDDEC7506E4EE4DD4A3A266285D282CA">>},
  {<<"qdate_localtime">>, <<"72E1034DC6B7FEE8F588281EDDD0BD0DC5260005D758052F50634D265D382C18">>},
  {<<"ssl_verify_fun">>, <<"354C321CF377240C7B8716899E182CE4890C5938111A1296ADD3EC74CF1715DF">>},
- {<<"tls_certificate_check">>, <<"042AB2C0C860652BC5CF69C94E3A31F96676D14682E22EC7813BD173CEFF1788">>}]},
+ {<<"tls_certificate_check">>, <<"D00E2887551FF8CDAE4D0340D90D9FCBC4943C7B5F49D32ED4BC23AFF4DB9A44">>}]},
 {pkg_hash_ext,[
- {<<"cowlib">>, <<"163B73F6367A7341B33C794C4E88E7DBFE6498AC42DCD69EF44C5BC5507C8DB0">>},
+ {<<"cowlib">>, <<"E1E1284DC3FC030A64B1AD0D8382AE7E99DA46C3246B815318A4B848873800A4">>},
  {<<"qdate_localtime">>, <<"1109958D205C65C595C8C5694CB83EBAF2DBE770CF902E4DCE8AFB2C4123764D">>},
  {<<"ssl_verify_fun">>, <<"FE4C190E8F37401D30167C8C405EDA19469F34577987C76DDE613E838BBC67F8">>},
- {<<"tls_certificate_check">>, <<"6CEE6CFFC35A390840D48D463541D50746A7B0E421ACAADB833CFC7961E490E7">>}]}
+ {<<"tls_certificate_check">>, <<"90B25A58EE433D91C17F036D4D354BF8859A089BFDA60E68A86F8EECAE45EF1B">>}]}
 ].
