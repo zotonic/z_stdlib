@@ -1,6 +1,12 @@
 %% @author Marc Worrell
 %% @copyright 2014-2024 Marc Worrell
-%% @doc Discover metadata about an url.
+%% @doc Discover metadata about an url. First follows any redirects
+%% and URL shorteners, then fetches the data at the final URL to inspect
+%% all metadata tags, content headers and first part of the HTML. The
+%% returned opaque metadata can be questioned with properties.
+%% The Slackbot user-agent is used for fetching URLs so that the URL shorteners
+%% return a location header and other sites are coerced to give correct metadata.
+%% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 
 %% Copyright 2014-2024 Marc Worrell
@@ -34,6 +40,13 @@
 
 
 -type metadata() :: #url_metadata{}.
+-type property() :: mime | mime_options | site_name | content_length |
+    url | canonical_url | short_url | final_url |
+    headers | title | h1 | summary | tags | filename |
+    mtitle | description | keywords | author | charset | language |
+    image | image_nav | thumbnail |
+    icon | icon_nav | icon_shortcut | icon_touch |
+    binary().
 
 -export_type([ metadata/0 ]).
 
@@ -75,7 +88,11 @@ fetch(Url, Options) ->
 
 
 %% @doc Fetch properties of the fetched metadata
--spec p(atom() | binary() | list( atom() | binary() ), metadata()) -> list(binary()) | binary() | undefined.
+-spec p(Property, Metadata) -> Value when
+    Property :: property() | [ property() ],
+    Metadata :: metadata(),
+    Value :: binary() | list( binary() ) | Headers | undefined,
+    Headers :: list({binary(), binary()}).
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
