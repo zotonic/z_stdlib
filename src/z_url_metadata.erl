@@ -87,6 +87,25 @@ p(url, MD) ->
         undefined -> MD#url_metadata.final_url;
         PrefUrl -> z_url:abs_link(PrefUrl, MD#url_metadata.final_url)
     end;
+p(site_name, MD) ->
+    case p1([<<"og:site_name">>, <<"twitter:site">>], MD) of
+        undefined ->
+            Url = case p1([canonical_url], MD) of
+                undefined -> MD#url_metadata.final_url;
+                Canonical -> Canonical
+            end,
+            case uri_string:parse(Url) of
+                #{ host := Host } ->
+                    case unicode:characters_to_binary(Host) of
+                        <<"www.", H/binary>> -> H;
+                        H -> H
+                    end;
+                {error, _, _} ->
+                    undefined
+            end;
+        Sitename ->
+            Sitename
+    end;
 p(content_length, MD) ->
     MD#url_metadata.content_length;
 p(headers, MD) ->
