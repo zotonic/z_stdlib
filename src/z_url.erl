@@ -50,7 +50,9 @@
 
 %%% URL ENCODE %%%
 
--spec url_encode( string() | atom() | float() | integer() | binary() | iodata() ) -> binary().
+-spec url_encode(Value) -> Encoded when
+    Value :: string() | atom() | float() | integer() | binary() | iodata(),
+    Encoded :: binary().
 url_encode(S) ->
     Encoded = cow_qs:urlencode( z_convert:to_binary(S) ),
     case binary:match(Encoded, <<"+">>) of
@@ -58,7 +60,9 @@ url_encode(S) ->
         _ -> binary:replace(Encoded, <<"+">>, <<"%20">>, [global])
     end.
 
--spec url_decode( string() | binary() | iodata() ) -> binary().
+-spec url_decode(Encoded) -> Data when
+    Encoded :: iodata(),
+    Data :: binary().
 url_decode(S) ->
     cow_qs:urldecode( z_convert:to_binary(S) ).
 
@@ -132,6 +136,8 @@ remove_protocol(<<>>) -> <<>>.
 
 %% VALID URL CHARACTERS
 %% RFC 3986
+-spec url_valid_char(Char) -> boolean() when
+    Char :: non_neg_integer().
 url_valid_char(Char) ->
   url_reserved_char(Char) orelse url_unreserved_char(Char).
 
@@ -251,7 +257,10 @@ split_base_host(Base) ->
 
 
 %% @doc Given a relative URL and a base URL, calculate the absolute URL.
--spec abs_link(string()|binary(), string()|binary()) -> binary().
+-spec abs_link(Url, BaseUrl) -> AbsUrl when
+    Url :: string() | binary(),
+    BaseUrl :: string() | binary(),
+    AbsUrl :: binary().
 abs_link(RelativeUrl, BaseUrl) ->
     {BaseHost, BaseHostDir} = z_url:split_base_host(BaseUrl),
     ensure_protocol(iolist_to_binary(make_abs_link(z_convert:to_binary(RelativeUrl), BaseHost, BaseHostDir))).
@@ -286,7 +295,12 @@ make_abs_link(Url, _Host, HostDir) ->
 
 
 %% @doc Decode a "data:" url to its parts.
--spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
+-spec decode_data_url(DataUrl) -> {ok, Mime, Charset, Data} | {error, Reason} when
+    DataUrl :: binary(),
+    Mime :: binary(),
+    Charset :: binary(),
+    Data :: binary(),
+    Reason :: unknown_encoding | nodata.
 decode_data_url(<<"data:", Data/binary>>) ->
     case binary:split(Data, <<",">>) of
         [ MimeData, EncodedData ] ->
@@ -301,8 +315,8 @@ decode_data_url(<<"data:", Data/binary>>) ->
         [ _ ] ->
             {error, unknown_encoding}
     end;
-decode_data_url(_Url) ->
-    {error, unknown_encoding}.
+decode_data_url(Url) when is_binary(Url) ->
+    {error, nodata}.
 
 decode_base64(Data) ->
     Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
