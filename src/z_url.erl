@@ -1,8 +1,9 @@
 %% @author Marc Worrell
-%% @copyright 2012-2022 Marc Worrell
+%% @copyright 2012-2024 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
+%% @end
 
-%% Copyright 2012-2022 Marc Worrell
+%% Copyright 2012-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -291,16 +292,18 @@ decode_data_url(<<"data:", Data/binary>>) ->
     case binary:split(Data, <<",">>) of
         [ MimeData, EncodedData ] ->
             MimeParts = binary:split(MimeData, <<";">>, [global]),
-            Mime = check_mime(MimeParts),
+            Mime = find_mime(MimeParts),
             Charset = find_charset(MimeParts),
             DecodedData = case lists:member(<<"base64">>, MimeParts) of
                 true -> decode_base64(EncodedData);
                 false -> z_url:url_decode(EncodedData)
             end,
             {ok, Mime, Charset, DecodedData};
-        {error, _} = Error ->
-            Error
-    end.
+        [ _ ] ->
+            {error, unknown_encoding}
+    end;
+decode_data_url(_Url) ->
+    {error, unknown_encoding}.
 
 decode_base64(Data) ->
     Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
@@ -311,9 +314,9 @@ decode_base64(Data) ->
     end,
     base64:decode(Data2).
 
-check_mime([]) -> <<"text/plain">>;
-check_mime([<<>>|_]) -> <<"text/plain">>;
-check_mime([M|_]) ->
+find_mime([]) -> <<"text/plain">>;
+find_mime([<<>>|_]) -> <<"text/plain">>;
+find_mime([M|_]) ->
     case binary:match(M, <<"=">>) of
         nomatch -> M;
         {_,_} -> <<"text/plain">>
