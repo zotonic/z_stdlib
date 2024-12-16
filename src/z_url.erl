@@ -37,7 +37,8 @@
     location/1,
     abs_link/2,
     split_base_host/1,
-    decode_data_url/1
+    decode_data_url/1,
+    encode_data_url/3
 ]).
 
 
@@ -294,7 +295,8 @@ make_abs_link(Url, _Host, HostDir) ->
     [HostDir, Url].
 
 
-%% @doc Decode a "data:" url to its parts.
+%% @doc Decode a "data:" url to its parts. If the charset is not defined in the data
+%% then it is returned as "US-ASCII". The mime type defaults to "text/plain".
 -spec decode_data_url(DataUrl) -> {ok, Mime, Charset, Data} | {error, Reason} when
     DataUrl :: binary(),
     Mime :: binary(),
@@ -338,3 +340,24 @@ find_mime([M|_]) ->
 find_charset([]) -> <<"US-ASCII">>;
 find_charset([ <<"charset=", Charset/binary>> | _ ]) -> Charset;
 find_charset([ _ | Ms ]) -> find_charset(Ms).
+
+
+%% Encode a data URL. If the charset is US-ASCII or empty then it is omitted.
+%% Plain text (text/plain) is URL encoded, other data is base64 encoded.
+-spec encode_data_url(Mime, Charset, Data) -> Encoded when
+    Mime :: binary(),
+    Charset :: binary() | undefined,
+    Data :: binary(),
+    Encoded :: binary().
+encode_data_url(<<"text/plain">>, Charset, Data) when
+    Charset =:= undefined;
+    Charset =:= <<>>;
+    Charset =:= <<"US-ASCII">> ->
+    <<"data:,", (url_encode(Data))/binary>>;
+encode_data_url(Mime, Charset, Data) when
+    Charset =:= undefined;
+    Charset =:= <<>>;
+    Charset =:= <<"US-ASCII">> ->
+    <<"data:", Mime/binary, ";base64,", (base64:encode(Data))/binary>>;
+encode_data_url(Mime, Charset, Data) ->
+    <<"data:", Mime/binary, ";charset=", Charset/binary, ";base64,", (base64:encode(Data))/binary>>.
