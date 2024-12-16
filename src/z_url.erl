@@ -312,7 +312,7 @@ decode_data_url(<<"data:", Data/binary>>) ->
             DecodedData = case last(MimeParts) of
                 <<"base64">> -> decode_base64(EncodedData);
                 <<"utf8">> -> EncodedData;
-                false -> z_url:url_decode(EncodedData)
+                _ -> z_url:url_decode(EncodedData)
             end,
             {ok, Mime, Charset, DecodedData};
         [ _ ] ->
