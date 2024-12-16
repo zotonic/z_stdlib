@@ -286,7 +286,6 @@ make_abs_link(Url, _Host, HostDir) ->
 
 
 %% @doc Decode a "data:" url to its parts.
-%%      Crashes if the url doesn't have a "data:" protocol.
 -spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
 decode_data_url(<<"data:", Data/binary>>) ->
     case binary:split(Data, <<",">>) of
