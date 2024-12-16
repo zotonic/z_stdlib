@@ -288,35 +288,37 @@ make_abs_link(Url, _Host, HostDir) ->
 %%      Crashes if the url doesn't have a "data:" protocol.
 -spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
 decode_data_url(<<"data:", Data/binary>>) ->
-    Parts = binary:split(Data, <<";">>, [global]),
-    [Encoded|Args] = lists:reverse(Parts),
-    case decode_url_data(Encoded) of
-        {ok, Decoded} ->
-            {Mime, Charset} = decode_data_url_args(Args),
-            {ok, Mime, Charset, Decoded};
+    case binary:split(Data, <<",">>) of
+        [ MimeData, EncodedData ] ->
+            MimeParts = binary:split(MimeData, <<";">>, [global]),
+            Mime = check_mime(MimeParts),
+            Charset = find_charset(MimeParts),
+            DecodedData = case lists:member(<<"base64">>, MimeParts) of
+                true -> decode_base64(EncodedData);
+                false -> z_url:url_decode(EncodedData)
+            end,
+            {ok, Mime, Charset, DecodedData};
         {error, _} = Error ->
             Error
     end.
 
-decode_url_data(<<"base64,", Data/binary>>) ->
+decode_base64(Data) ->
     Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
     Data2 = case byte_size(Data1) rem 4 of
         0 -> Data1;
         2 -> <<Data1/binary, "==">>;
         3 -> <<Data1/binary, "=">>
     end,
-    {ok, base64:decode(Data2)};
-decode_url_data(<<",", Data/binary>>) ->
-    {ok, Data};
-decode_url_data(_) ->
-    {error, unknown_encoding}.
+    base64:decode(Data2).
 
-decode_data_url_args(Args) ->
-    lists:foldl(fun(<<"charset=", Charset/binary>>, {Mime,_Charset}) ->
-                        {Mime,Charset};
-                    (Mime, {_Mime,Charset}) ->
-                        {Mime,Charset}
-                end,
-                {<<"text/plain">>, <<"US-ASCII">>},
-                Args).
+check_mime([]) -> <<"text/plain">>;
+check_mime([<<>>|_]) -> <<"text/plain">>;
+check_mime([M|_]) ->
+    case binary:match(M, <<"=">>) of
+        nomatch -> M;
+        {_,_} -> <<"text/plain">>
+    end.
 
+find_charset([]) -> <<"US-ASCII">>;
+find_charset([ <<"charset=", Charset/binary>> | _ ]) -> Charset;
+find_charset([ _ | Ms ]) -> find_charset(Ms).

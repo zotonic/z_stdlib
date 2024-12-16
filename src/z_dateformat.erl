@@ -78,6 +78,8 @@ format(FormatString, Options) ->
 -spec format( datetime() | calendar:date(), string(), list() ) -> binary() | undefined.
 format({{9999,_,_},_}, _FormatString, _Options) ->
     undefined;
+format({{0,0,0},{0,0,0}}, _FormatString, _Options) ->
+    undefined;
 format({{_,_,_} = Date,{_,_,_} = Time}, FormatString, Options) ->
     iolist_to_binary(replace_tags(Date, Time, FormatString, Options));
 
