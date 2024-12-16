@@ -309,8 +309,9 @@ decode_data_url(<<"data:", Data/binary>>) ->
             MimeParts = binary:split(MimeData, <<";">>, [global]),
             Mime = find_mime(MimeParts),
             Charset = find_charset(MimeParts),
-            DecodedData = case lists:member(<<"base64">>, MimeParts) of
-                true -> decode_base64(EncodedData);
+            DecodedData = case last(MimeParts) of
+                <<"base64">> -> decode_base64(EncodedData);
+                <<"utf8">> -> EncodedData;
                 false -> z_url:url_decode(EncodedData)
             end,
             {ok, Mime, Charset, DecodedData};
@@ -319,6 +320,9 @@ decode_data_url(<<"data:", Data/binary>>) ->
     end;
 decode_data_url(Url) when is_binary(Url) ->
     {error, nodata}.
+
+last([]) -> undefined;
+last(L) -> lists:last(L).
 
 decode_base64(Data) ->
     Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
