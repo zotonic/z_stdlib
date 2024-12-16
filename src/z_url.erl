@@ -1,8 +1,9 @@
 %% @author Marc Worrell
-%% @copyright 2012-2022 Marc Worrell
+%% @copyright 2012-2024 Marc Worrell
 %% @doc Misc utility URL functions for zotonic
+%% @end
 
-%% Copyright 2012-2022 Marc Worrell
+%% Copyright 2012-2024 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +37,8 @@
     location/1,
     abs_link/2,
     split_base_host/1,
-    decode_data_url/1
+    decode_data_url/1,
+    encode_data_url/3
 ]).
 
 
@@ -49,7 +51,9 @@
 
 %%% URL ENCODE %%%
 
--spec url_encode( string() | atom() | float() | integer() | binary() | iodata() ) -> binary().
+-spec url_encode(Value) -> Encoded when
+    Value :: string() | atom() | float() | integer() | binary() | iodata(),
+    Encoded :: binary().
 url_encode(S) ->
     Encoded = cow_qs:urlencode( z_convert:to_binary(S) ),
     case binary:match(Encoded, <<"+">>) of
@@ -57,7 +61,9 @@ url_encode(S) ->
         _ -> binary:replace(Encoded, <<"+">>, <<"%20">>, [global])
     end.
 
--spec url_decode( string() | binary() | iodata() ) -> binary().
+-spec url_decode(Encoded) -> Data when
+    Encoded :: iodata(),
+    Data :: binary().
 url_decode(S) ->
     cow_qs:urldecode( z_convert:to_binary(S) ).
 
@@ -131,6 +137,8 @@ remove_protocol(<<>>) -> <<>>.
 
 %% VALID URL CHARACTERS
 %% RFC 3986
+-spec url_valid_char(Char) -> boolean() when
+    Char :: non_neg_integer().
 url_valid_char(Char) ->
   url_reserved_char(Char) orelse url_unreserved_char(Char).
 
@@ -250,7 +258,10 @@ split_base_host(Base) ->
 
 
 %% @doc Given a relative URL and a base URL, calculate the absolute URL.
--spec abs_link(string()|binary(), string()|binary()) -> binary().
+-spec abs_link(Url, BaseUrl) -> AbsUrl when
+    Url :: string() | binary(),
+    BaseUrl :: string() | binary(),
+    AbsUrl :: binary().
 abs_link(RelativeUrl, BaseUrl) ->
     {BaseHost, BaseHostDir} = z_url:split_base_host(BaseUrl),
     ensure_protocol(iolist_to_binary(make_abs_link(z_convert:to_binary(RelativeUrl), BaseHost, BaseHostDir))).
@@ -284,39 +295,73 @@ make_abs_link(Url, _Host, HostDir) ->
     [HostDir, Url].
 
 
-%% @doc Decode a "data:" url to its parts.
-%%      Crashes if the url doesn't have a "data:" protocol.
--spec decode_data_url(binary()) -> {ok, Mime::binary(), Charset::binary(), Data::binary()} | {error, unknown_encoding}.
+%% @doc Decode a "data:" url to its parts. If the charset is not defined in the data
+%% then it is returned as "US-ASCII". The mime type defaults to "text/plain".
+-spec decode_data_url(DataUrl) -> {ok, Mime, Charset, Data} | {error, Reason} when
+    DataUrl :: binary(),
+    Mime :: binary(),
+    Charset :: binary(),
+    Data :: binary(),
+    Reason :: unknown_encoding | nodata.
 decode_data_url(<<"data:", Data/binary>>) ->
-    Parts = binary:split(Data, <<";">>, [global]),
-    [Encoded|Args] = lists:reverse(Parts),
-    case decode_url_data(Encoded) of
-        {ok, Decoded} ->
-            {Mime, Charset} = decode_data_url_args(Args),
-            {ok, Mime, Charset, Decoded};
-        {error, _} = Error ->
-            Error
-    end.
+    case binary:split(Data, <<",">>) of
+        [ MimeData, EncodedData ] ->
+            MimeParts = binary:split(MimeData, <<";">>, [global]),
+            Mime = find_mime(MimeParts),
+            Charset = find_charset(MimeParts),
+            DecodedData = case last(MimeParts) of
+                <<"base64">> -> decode_base64(EncodedData);
+                <<"utf8">> -> EncodedData;
+                _ -> z_url:url_decode(EncodedData)
+            end,
+            {ok, Mime, Charset, DecodedData};
+        [ _ ] ->
+            {error, unknown_encoding}
+    end;
+decode_data_url(Url) when is_binary(Url) ->
+    {error, nodata}.
 
-decode_url_data(<<"base64,", Data/binary>>) ->
+last([]) -> undefined;
+last(L) -> lists:last(L).
+
+decode_base64(Data) ->
     Data1 = << <<case C of $- -> $+; $_ -> $/; _ -> C end>> || <<C>> <= Data >>,
     Data2 = case byte_size(Data1) rem 4 of
         0 -> Data1;
         2 -> <<Data1/binary, "==">>;
         3 -> <<Data1/binary, "=">>
     end,
-    {ok, base64:decode(Data2)};
-decode_url_data(<<",", Data/binary>>) ->
-    {ok, Data};
-decode_url_data(_) ->
-    {error, unknown_encoding}.
+    base64:decode(Data2).
 
-decode_data_url_args(Args) ->
-    lists:foldl(fun(<<"charset=", Charset/binary>>, {Mime,_Charset}) ->
-                        {Mime,Charset};
-                    (Mime, {_Mime,Charset}) ->
-                        {Mime,Charset}
-                end,
-                {<<"text/plain">>, <<"US-ASCII">>},
-                Args).
+find_mime([]) -> <<"text/plain">>;
+find_mime([<<>>|_]) -> <<"text/plain">>;
+find_mime([M|_]) ->
+    case binary:match(M, <<"=">>) of
+        nomatch -> M;
+        {_,_} -> <<"text/plain">>
+    end.
 
+find_charset([]) -> <<"US-ASCII">>;
+find_charset([ <<"charset=", Charset/binary>> | _ ]) -> Charset;
+find_charset([ _ | Ms ]) -> find_charset(Ms).
+
+
+%% Encode a data URL. If the charset is US-ASCII or empty then it is omitted.
+%% Plain text (text/plain) is URL encoded, other data is base64 encoded.
+-spec encode_data_url(Mime, Charset, Data) -> Encoded when
+    Mime :: binary(),
+    Charset :: binary() | undefined,
+    Data :: binary(),
+    Encoded :: binary().
+encode_data_url(<<"text/plain">>, Charset, Data) when
+    Charset =:= undefined;
+    Charset =:= <<>>;
+    Charset =:= <<"US-ASCII">> ->
+    <<"data:,", (url_encode(Data))/binary>>;
+encode_data_url(Mime, Charset, Data) when
+    Charset =:= undefined;
+    Charset =:= <<>>;
+    Charset =:= <<"US-ASCII">> ->
+    <<"data:", Mime/binary, ";base64,", (base64:encode(Data))/binary>>;
+encode_data_url(Mime, Charset, Data) ->
+    <<"data:", Mime/binary, ";charset=", Charset/binary, ";base64,", (base64:encode(Data))/binary>>.

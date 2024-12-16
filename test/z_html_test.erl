@@ -109,7 +109,6 @@ unescape_test() ->
 
     ok.
 
-
 truncate_test() ->
     ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 6)),
     ?assertEqual(<<"12345">>, z_html:truncate(<<"12345">>, 5)),
@@ -207,6 +206,24 @@ sanitize_test() ->
         z_html:sanitize(<<"<ol><li>a</li></ol>">>)),
 
     ok.
+
+data_url_sanitize_test() ->
+    Url = <<"data:image/gif;base64,R0lGODlhAQABAJAAAAAAAAAAACH5BAEUAAAALAAAAAABAAEAAAICRAEAOw==">>,
+    ?assertEqual(<<>>, z_html:sanitize_uri(Url, false)),
+    ?assertEqual(Url, z_html:sanitize_uri(Url, true)),
+    ok.
+
+data_url_sanitize_svg_test() ->
+    Url = <<"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22",
+            "400%22%20height%3D%22400%22%20viewBox%3D%220%200%20124%20124%22%20fill%3D%22none%22%3E%3Crect",
+            "%20width%3D%22124%22%20height%3D%22124%22%20rx%3D%2224%22%20fill%3D%22%23F97316%22%2F%3E%3C%2F",
+            "svg%3E">>,
+    Sanitized = <<"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0",
+                  "MDAiIGhlaWdodD0iNDAwIiB2aWV3Qm94PSIwIDAgMTI0IDEyNCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjEyNCI",
+                  "gaGVpZ2h0PSIxMjQiIHJ4PSIyNCIgZmlsbD0iI0Y5NzMxNiI+PC9yZWN0Pjwvc3ZnPg==">>,
+    ?assertEqual(Sanitized, z_html:sanitize_uri(Url, true)),
+    ok.
+
 
 rel_sanitize_test() ->
     ?assertEqual(<<"<a rel=\"nofollow noopener noreferrer\" target=\"_blank\" href=\"https://example.com\">Click me</a>">>,
