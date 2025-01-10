@@ -1,5 +1,5 @@
 %% @author Marc Worrell
-%% @copyright 2014-2024 Marc Worrell
+%% @copyright 2014-2025 Marc Worrell
 %% @doc Discover metadata about an url. First follows any redirects
 %% and URL shorteners, then fetches the data at the final URL to inspect
 %% all metadata tags, content headers and first part of the HTML. The
@@ -9,7 +9,7 @@
 %% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 
-%% Copyright 2014-2024 Marc Worrell
+%% Copyright 2014-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -452,6 +452,8 @@ tag({_Tag, As, Es}, MD, P) ->
             {html(Es, MD, P#ps{in_nav = P#ps.in_nav orelse has_nav_class(Cs) orelse is_topbar_id(Id)}), P}
     end.
 
+meta_tag(_Name, undefined, MD) -> MD;
+meta_tag(_Name, <<>>, MD) -> MD;
 meta_tag(<<"og:", _/binary>> = OG, Content, MD) -> [{OG, Content}|MD];
 meta_tag(<<"twitter:", _/binary>> = Tw, Content, MD) -> [{Tw, Content}|MD];
 meta_tag(<<"title">>, Content, MD) -> [{mtitle, Content}|MD];
@@ -462,6 +464,9 @@ meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
 
+meta_link(_Name, undefined, _As, MD) -> MD;
+meta_link(_Name, <<>>, _As, MD) -> MD;
+meta_link(_Name, <<"undefined">>, _As, MD) -> MD;  % Youtube...
 meta_link(<<"canonical">>, Content, _As, MD) -> [{canonical_url, Content}|MD];
 meta_link(<<"shortlink">>, Content, _As, MD) -> [{short_url, Content}|MD];
 meta_link(<<"shorturl">>, Content, _As, MD) -> [{short_url, Content}|MD];
