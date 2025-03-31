@@ -158,6 +158,8 @@ sanitize_type(_, _Ks, V, _Options) -> escape_value(V).
 sanitize_list(Ks, L, Options) when is_list(L) ->
     lists:map(
         fun
+            ({trans, Tr} = V) when is_list(Tr) ->
+                escape(V);
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
@@ -280,6 +282,8 @@ sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 sanitize_list_check(L, Options) when is_list(L) ->
     lists:map(
         fun
+            ({trans, Tr} = V) when is_list(Tr) ->
+                escape_check(V);
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props_check1(P1, V, Options),

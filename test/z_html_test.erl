@@ -59,6 +59,12 @@ ensure_check_test() ->
 	?assertEqual(<<"&#1234; &lt;&gt;;">>, z_html:escape_check(<<"&#1234; <>;">>)),
 	ok.
 
+escape_trans_list_test() ->
+    ?assertEqual(
+        #{ <<"a_list">> => [ {trans, [ {en, <<"&amp;">> } ] } ] },
+        z_html:escape_props(#{ <<"a_list">> => [ {trans, [ {en, <<"&">> } ] } ] })),
+    ok.
+
 strip_test() ->
     ?assertEqual(<<"Hello">>, z_html:strip(<<"<p class='hello'>Hello</p>">>)),
     ?assertEqual(<<"Hello">>, z_html:strip(<<"Hello">>)),

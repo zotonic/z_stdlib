@@ -606,7 +606,7 @@ handle_ce("gzip", #fstate{ length = Length, data = Data } = FState)
                 length = size(Data1),
                 data = Data1
             },
-            {ok, FState1};
+            FState1;
         {error, _} ->
             FState
     end;
