@@ -26,7 +26,7 @@
 %%       human-readable output, or compact ASCII serializations for floats.
 digits(N) when is_integer(N) ->
     integer_to_list(N);
-digits(0.0) ->
+digits(+0.0) ->
     "0.0";
 digits(-0.0) ->
     "0.0";

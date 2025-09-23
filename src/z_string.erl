@@ -534,7 +534,9 @@ unaccent(S) ->
 %% Tries to transliterate some characters to a..z
 -spec normalize(string() | binary() | atom() | {trans, list()}) -> binary().
 normalize(B) when is_binary(B) ->
-    normalize(B, <<>>);
+    B1 = sanitize_utf8(B),
+    B2 = unicode:characters_to_nfc_binary(B1),
+    normalize(B2, <<>>);
 normalize(undefined) ->
     <<>>;
 normalize(A) when is_atom(A) ->

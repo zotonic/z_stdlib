@@ -175,7 +175,7 @@ to_bool(V) -> to_bool_strict(V).
 to_bool_strict(undefined) -> false;
 to_bool_strict(false) -> false;
 to_bool_strict(0) -> false;
-to_bool_strict(0.0) -> false;
+to_bool_strict(+0.0) -> false;
 to_bool_strict(-0.0) -> false;
 to_bool_strict(<<>>) -> false;
 to_bool_strict(<<0>>) -> false;
