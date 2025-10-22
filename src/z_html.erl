@@ -78,7 +78,7 @@
                      | binary().
 
 -type text() :: iodata() | trans().
--type trans() :: {trans, list( {atom()|binary(), text()} )}.
+-type trans() :: {trans, list( {atom()|binary(), iodata()} )}.
 
 -type unsafe_text() :: iodata()
                      | {trans, list( {atom(), iodata()} )}
