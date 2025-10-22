@@ -1,9 +1,12 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2017-2021 Marc Worrell
-%%
-%% @doc Extra file functions.
+%% @copyright 2017-2025 Marc Worrell
+%% @doc Extra file functions to complement the standard library.
+%% Rename files between different filesystems, and ensure directories of
+%% a path exist. Also escape routines to safely handle filenames as command
+%% line arguments.
+%% @end
 
-%% Copyright 2017-2021 Marc Worrell
+%% Copyright 2017-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,10 +23,32 @@
 -module(z_filelib).
 
 -export([
+    rename/2,
     ensure_dir/1,
     os_filename/1,
     os_escape/1
     ]).
+
+
+%% @doc Rename a file. Copy the file on a cross-fs error.
+-spec rename(From, To) -> ok | {error, term()} when
+    From :: file:filename_all(),
+    To :: file:filename_all().
+rename(From, To) ->
+    case file:rename(From, To) of
+        ok ->
+            ok;
+        {error, exdev} ->
+            % cross-fs rename is not supported by erlang, so copy and delete the file
+            case file:copy(From, To) of
+                {ok, _BytesCopied} ->
+                    ok = file:delete(From);
+                {error, _} = Error ->
+                    Error
+            end;
+        {error, _} = Error ->
+            Error
+    end.
 
 %% @doc Ensure the directory of a file is present. This will still work
 %%      if a soft-link in the path refers to a missing directory.
@@ -103,7 +128,8 @@ os_filename_bs([C|Rest], Acc) ->
     os_filename(Rest, [C,$\\|Acc]).
 
 
-%% @doc Simple escape function for command line arguments
+%% @doc Simple escape function for command line arguments. Escapes special characters
+%% in the filename using backslashes. The path is not quoted, use os_filename/1 for that.
 -spec os_escape(string()|binary()|undefined) -> string().
 os_escape(undefined) ->
     "";

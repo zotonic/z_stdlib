@@ -78,6 +78,8 @@ format(FormatString, Options) ->
 -spec format( datetime() | calendar:date(), string(), list() ) -> binary() | undefined.
 format({{9999,_,_},_}, _FormatString, _Options) ->
     undefined;
+format({{0,0,0},{0,0,0}}, _FormatString, _Options) ->
+    undefined;
 format({{_,_,_} = Date,{_,_,_} = Time}, FormatString, Options) ->
     iolist_to_binary(replace_tags(Date, Time, FormatString, Options));
 
@@ -411,10 +413,19 @@ to_utc(LTime, Options) ->
             UTC
     end.
 
+tzoffset({{Y, _, _}, _}, _Options) when Y < 1916->
+    0;
 tzoffset(LTime, Options) ->
     case proplists:get_value(utc, Options) of
         undefined ->
-            tzoffset_1(LTime, erlang:localtime_to_universaltime(LTime));
+            UTime = case LTime of
+                {{Y, M, D}, T} when Y =< 1 ->
+                    {{Y1, M1, D1}, T1} = erlang:localtime_to_universaltime({{10, M, D}, T}),
+                    {{Y1 - 10 + Y, M1, D1}, T1};
+                _ ->
+                    erlang:localtime_to_universaltime(LTime)
+            end,
+            tzoffset_1(LTime, UTime);
         UTime ->
             tzoffset_1(LTime, UTime)
     end.

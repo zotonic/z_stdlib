@@ -1,8 +1,10 @@
 %% @author Marc Worrell
-%% @copyright 2013 Marc Worrell
-%% @doc Useful routines for e-mail address handling.
+%% @copyright 2013-2025 Marc Worrell
+%% @doc Useful routines for e-mail address handling. Extract emails from a text
+%% and check if a text is a valid email address.
+%% @end.
 
-%% Copyright 2013 Marc Worrell
+%% Copyright 2013-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

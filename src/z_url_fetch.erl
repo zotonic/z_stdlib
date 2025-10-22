@@ -1,9 +1,12 @@
 % @author Marc Worrell
-%% @copyright 2014-2024 Marc Worrell
-%% @doc Fetch (part of) the data of an Url, including its headers.
+%% @copyright 2014-2025 Marc Worrell
+%% @doc Fetch (part of) the data of an Url, including its headers. Also
+%% support decoding 'data:' URLs and streaming fetched data to a device.
+%% Uses the httpc OTP library for the actual fetching.
+%% The fetch functions are able to unzip partially fetched data.
 %% @end
 
-%% Copyright 2014-2024 Marc Worrell
+%% Copyright 2014-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +65,7 @@
 -type option() :: {device, pid()}
                 | {timeout, pos_integer()}
                 | {max_length, pos_integer()}
+                | {use_range, boolean()}
                 | {authorization, binary() | string()}
                 | {accept, binary() | string()}
                 | {user_agent, binary() | string()}
@@ -70,7 +74,13 @@
                 | {headers, [ {binary()|string(), binary()|string()} ]}
                 | insecure.
 
--type fetch_result() :: {ok, {string(), list({string(), string()}), pos_integer(), binary()}} | {error, term()}.
+-type fetch_result() :: {ok, {
+            FinalUrl :: string(),
+            RespHeaders :: list({string(), string()}),
+            ContentLength :: non_neg_integer(),
+            Content :: binary()
+        }}
+        | {error, Reason :: term()}.
 
 -export_type([
     options/0,
@@ -79,6 +89,9 @@
 ]).
 
 -define(is_method(M), (M =:= get orelse M =:= post orelse M =:= delete orelse M =:= put orelse M =:= patch)).
+
+-include_lib("kernel/include/logger.hrl").
+
 
 %% @doc Fetch the data and headers from an url
 -spec fetch(Url, Options) -> fetch_result() when
@@ -97,7 +110,7 @@ fetch(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method)
     fetch_partial(Method, Url, Payload, Options).
 
 
-%% @doc Fetch the first kilobytes of data and headers from an url
+%% @doc Fetch the first 64 kilobytes of data and headers from an url
 -spec fetch_partial(Url) -> fetch_result() when
     Url :: string() | binary().
 fetch_partial(Url) ->
@@ -114,6 +127,22 @@ fetch_partial(<<"data:", _/binary>> = DataUrl, Options) ->
 fetch_partial(Url, Options) ->
     fetch_partial(get, Url, <<>>, Options).
 
+% Track the fetch state, some requests use redirects, some need
+% multiple range fetches.
+-record(fstate, {
+    method :: atom(),
+    url :: string(),
+    payload :: binary(),
+    code :: undefined | integer(),
+    headers :: list({string(), string()}),
+    redirects = 0 :: non_neg_integer(),
+    max = undefined :: non_neg_integer() | undefined,
+    length = 0 :: non_neg_integer(),
+    data = <<>> :: binary(),
+    device = undefined :: pid() | undefined,
+    options :: list()
+}).
+
 %% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
 -spec fetch_partial(Method, Url, Payload, Options) -> fetch_result() when
     Method :: get | post | delete | put | patch,
@@ -123,9 +152,42 @@ fetch_partial(Url, Options) ->
 fetch_partial(Method, Url, Payload, Options) when is_binary(Payload), ?is_method(Method) ->
     OutDevice = proplists:get_value(device, Options),
     MaxLength = proplists:get_value(max_length, Options, ?HTTPC_MAX_LENGTH),
-    maybe_handle_content_encoding(
-        fetch_partial(Method, z_convert:to_list(Url), Payload, 0, MaxLength, OutDevice, Options),
-        MaxLength).
+    FState = #fstate{
+        code = undefined,
+        method = Method,
+        url = z_convert:to_list(Url),
+        headers = [],
+        redirects = 0,
+        payload = Payload,
+        length = 0,
+        max = MaxLength,
+        data = <<>>,
+        device = OutDevice,
+        options = Options
+    },
+    case fetch_partial_loop(FState) of
+        {ok, #fstate{ code = Code } = FState1} ->
+            FState2 = maybe_handle_content_encoding(FState1),
+            if
+                Code >= 200 andalso Code < 300 ->
+                    {ok, {
+                        FState2#fstate.url,
+                        FState2#fstate.headers,
+                        FState2#fstate.length,
+                        FState2#fstate.data
+                    }};
+                true ->
+                    {error, {
+                        Code,
+                        FState2#fstate.url,
+                        FState2#fstate.headers,
+                        FState2#fstate.length,
+                        FState2#fstate.data
+                    }}
+            end;
+        {error, _} = Error ->
+            Error
+    end.
 
 -spec ensure_profiles() -> ok.
 ensure_profiles() ->
@@ -167,56 +229,37 @@ fetch_data_url(DataUrl, Options) when is_binary(DataUrl) ->
             ],
             case proplists:get_value(device, Options) of
                 undefined ->
-                    {ok, {200, Headers, size(Bytes), Bytes}};
+                    {ok, {"data://", Headers, size(Bytes), Bytes}};
                 Dev ->
                     file:write(Dev, Bytes),
-                    {ok, {200, Headers, size(Bytes), <<>>}}
+                    {ok, {"data://", Headers, size(Bytes), <<>>}}
             end;
         {error, _} = Error ->
             Error
     end.
 
-fetch_partial(_Method, Url0, _Payload, RedirectCount, _Max, _OutDev, _Opts) when RedirectCount >= ?HTTPC_REDIRECT_COUNT ->
-    error_logger:warning_msg("Error fetching url, too many redirects ~p", [Url0]),
+fetch_partial_loop(#fstate{ url = Url, redirects = Redirects }) when Redirects >= ?HTTPC_REDIRECT_COUNT ->
+    ?LOG_ERROR(#{
+        in => zotonic_stdlib,
+        text => <<"Error fetching URL, too many redirects">>,
+        result => error,
+        reason => too_many_redirects,
+        redirects => Redirects,
+        url => unicode:characters_to_binary(Url, utf8)
+    }),
     {error, too_many_redirects};
-fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_binary(Payload) ->
+fetch_partial_loop(#fstate{ url = Url0, payload = Payload } = FState) when is_binary(Payload) ->
     httpc_flush(),
     case normalize_url(Url0) of
         {ok, {Host, UrlBin}} ->
+            #fstate{
+                method = Method,
+                max = Max,
+                length = Length,
+                options = Opts
+            } = FState,
             Url = to_list(UrlBin),
-            Language = z_convert:to_list(proplists:get_value(language, Opts, en)),
-            Accept = z_convert:to_list(proplists:get_value(accept, Opts, ?HTTP_ACCEPT)),
-            UserAgent = z_convert:to_list(proplists:get_value(user_agent, Opts, httpc_ua(Url))),
-            ContentType = case proplists:get_value(content_type, Opts) of
-                undefined -> "application/octet-stream";
-                CT -> to_list(CT)
-            end,
-            Headers0 = [
-                {"Accept", Accept},
-                {"Accept-Encoding", "identity"},
-                {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
-                {"Accept-Language", Language ++ ",*;q=0"},
-                {"User-Agent", UserAgent}
-            ] ++ case Max of
-                undefined -> [];
-                _ -> [ {"Range", "bytes=0-"++integer_to_list(Max-1)} ]
-            end ++ case proplists:get_value(authorization, Opts) of
-                undefined -> [];
-                Auth -> [ {"Authorization", to_list(Auth)} ]
-            end,
-            Headers = case proplists:get_value(headers, Opts) of
-                undefined ->
-                    Headers0;
-                [] ->
-                    Headers0;
-                Hs ->
-                    Hs1 = lists:map(
-                        fun({K,V}) ->
-                            {z_convert:to_list(K), z_convert:to_list(V)}
-                        end,
-                        Hs),
-                    Headers0 ++ Hs1
-            end,
+            {Headers, ContentType} = headers_ct(Method, Url, Length, Max, Opts),
             Request = case Method of
                 get -> {Url, Headers};
                 delete when Payload =:= <<>> -> {Url, Headers};
@@ -225,16 +268,123 @@ fetch_partial(Method, Url0, Payload, RedirectCount, Max, OutDev, Opts) when is_b
                 put -> {Url, Headers, ContentType, Payload};
                 patch -> {Url, Headers, ContentType, Payload}
             end,
-            case fetch_stream(start_stream(Host, Method, Url, Request, Opts), Max, OutDev, Opts) of
+            FState1 = FState#fstate{
+                url = Url
+            },
+            case fetch_stream(start_stream(Host, Method, Url, Request, Opts), FState1) of
                 {ok, Result} ->
-                    maybe_redirect(Result, Method, Url, Payload, RedirectCount, Max, OutDev, Opts);
-                {error, _} = Error ->
-                    error_logger:warning_msg("Error fetching url ~p error: ~p", [Url, Error]),
+                    case maybe_redirect(Result) of
+                        {redirect, NewMethod, NewUrl, NewOpts} ->
+                            FState2 = FState1#fstate{
+                                method = NewMethod,
+                                url = NewUrl,
+                                headers = [],
+                                redirects = FState1#fstate.redirects + 1,
+                                length = 0,
+                                data = <<>>,
+                                options = NewOpts
+                            },
+                            fetch_partial_loop(FState2);
+                        {ok, #fstate{ method = ResMethod, code = Code, max = ResMax, length = ResLength } = FState2} when
+                                Code >= 200, Code < 300,
+                                is_integer(Max), ResLength < ResMax,
+                                ResMethod =:= get ->
+                            case is_fetch_complete(FState2#fstate.headers, ResMax) of
+                                true ->
+                                    {ok, FState2};
+                                false ->
+                                    fetch_partial_loop(FState2)
+                            end;
+                        {ok, FState2} ->
+                            {ok, FState2};
+                        {error, _} = Error ->
+                            Error
+                    end;
+                {error, Reason} = Error ->
+                    ?LOG_WARNING(#{
+                        in => zotonic_stdlib,
+                        text => <<"Error fetching URL">>,
+                        result => error,
+                        reason => Reason,
+                        url => unicode:characters_to_binary(Url)
+                    }),
                     Error
             end;
         {error, _} = Error ->
             Error
     end.
+
+is_fetch_complete(_Hs, undefined) ->
+    true;
+is_fetch_complete(Hs, Max) ->
+    % {"content-length","1000000"},
+    % {"content-range","bytes 0-999999/4645135"},
+    case proplists:get_value("content-range", Hs) of
+        undefined ->
+            true;
+        Range ->
+            case cow_http_hd:parse_content_range(list_to_binary(Range)) of
+                {bytes, '*', _} ->
+                    true;
+                {_, _} ->
+                    true;
+                {bytes, _First, Last, '*'} ->
+                    Last >= Max + 1;
+                {bytes, _First, Last, Complete} when Last + 1 == Complete ->
+                    true;
+                {bytes, _First, Last, _Complete} when Last >= Max + 1 ->
+                    true;
+                {bytes, _First, _Last, _Complete} ->
+                    false
+            end
+    end.
+
+headers_ct(Method, Url, TotalSz, Max, Opts) ->
+    Language = z_convert:to_list(proplists:get_value(language, Opts, en)),
+    Accept = z_convert:to_list(proplists:get_value(accept, Opts, ?HTTP_ACCEPT)),
+    UserAgent = z_convert:to_list(proplists:get_value(user_agent, Opts, httpc_ua(Url))),
+    UseRange = z_convert:to_bool(proplists:get_value(use_range, Opts, true)),
+    ContentType = case proplists:get_value(content_type, Opts) of
+        undefined -> "application/octet-stream";
+        CT -> to_list(CT)
+    end,
+    Headers0 = [
+        {"Accept", Accept},
+        {"Accept-Encoding", "identity"},
+        {"Accept-Charset", "UTF-8;q=1.0, ISO-8859-1;q=0.5, *;q=0"},
+        {"Accept-Language", Language ++ ",*;q=0"},
+        {"User-Agent", UserAgent}
+    ],
+    Headers1 = if
+        is_integer(Max), Method =:= get, UseRange ->
+            Range = "bytes="
+                ++ integer_to_list(TotalSz)
+                ++ "-"
+                ++ integer_to_list(Max-1),
+            [ {"Range", Range} | Headers0 ];
+        true ->
+            Headers0
+    end,
+    Headers2 = case proplists:get_value(authorization, Opts) of
+        undefined ->
+            Headers1;
+        Auth ->
+            [ {"Authorization", to_list(Auth)} | Headers1 ]
+    end,
+    FinalHeaders = case proplists:get_value(headers, Opts) of
+        undefined ->
+            Headers2;
+        [] ->
+            Headers2;
+        Hs ->
+            Hs1 = lists:map(
+                fun({K,V}) ->
+                    {z_convert:to_list(K), z_convert:to_list(V)}
+                end,
+                Hs),
+            Headers2 ++ Hs1
+    end,
+    {FinalHeaders, ContentType}.
 
 to_list(B) when is_binary(B) -> binary_to_list(B);
 to_list(L) when is_list(L) -> L.
@@ -288,41 +438,80 @@ start_stream(Host, Method, Url, Request, Opts) ->
     end.
 
 
-fetch_stream({ok, ReqId}, Max, OutDev, Opts) ->
+fetch_stream({ok, ReqId}, #fstate{ options = Opts } = FState) ->
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     receive
         {http, {ReqId, stream_end, Hs}} ->
-            {ok, {200, Hs, 0, <<>>}};
+            FState1 = FState#fstate{
+                code = 200,
+                headers = Hs ++ FState#fstate.headers
+            },
+            {ok, FState1};
         {http, {ReqId, stream_start, Hs, HandlerPid}} ->
             httpc:stream_next(HandlerPid),
-            fetch_stream_data(ReqId, HandlerPid, Hs, <<>>, 0, Max, OutDev, Opts);
+            FState1 = FState#fstate{
+                headers = Hs
+            },
+            fetch_stream_data(ReqId, HandlerPid, FState1);
         {http, {ReqId, {error, _} = Error}} ->
             Error;
-        {http, {_ReqId, {{_V, Code, _Msg}, Hs, Data}}} ->
-            {ok, {Code, Hs, 0, Data}}
+        {http, {_ReqId, {{_V, Code, _Msg}, Hs, Data}}} when is_binary(Data) ->
+            case append_data(FState#fstate.data, Data, FState#fstate.device) of
+                {ok, Data1} ->
+                    FState1 = FState#fstate{
+                        code = Code,
+                        headers = Hs ++ FState#fstate.headers,
+                        data = Data1
+                    },
+                    {ok, FState1};
+                {error, _} = Error ->
+                    Error
+            end;
+        {http, {_ReqId, {{_V, Code, _Msg}, Hs, _Data}}} ->
+            FState1 = FState#fstate{
+                code = Code,
+                headers = Hs ++ FState#fstate.headers
+            },
+            {ok, FState1}
     after Timeout ->
         httpc:cancel_request(ReqId),
         {error, timeout}
     end;
-fetch_stream({error, _} = Error, _Max, _OutDev, _Opts) ->
+fetch_stream({error, _} = Error, _FState) ->
     Error.
 
-fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev, Opts) when N =< Max ->
+fetch_stream_data(ReqId, HandlerPid, #fstate{ length = Length, max = Max } = FState) when
+        Max =:= undefined; Length =< Max ->
+    #fstate{
+        options = Opts,
+        data = Data
+    } = FState,
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     receive
         {http, {ReqId, stream_end, EndHs}} ->
-            {ok, {200, EndHs++Hs, N, Data}};
+            FState1 = FState#fstate{
+                code = 200,
+                headers = EndHs ++ FState#fstate.headers
+            },
+            {ok, FState1};
         {http, {ReqId, stream, Part}} ->
-            case append_data(Data, Part, OutDev) of
+            case append_data(Data, Part, FState#fstate.device) of
                 {ok, Data1} ->
-                    N1 = N + size(Part),
-                    case N1 =< Max of
+                    Length1 = Length + size(Part),
+                    FState1 = FState#fstate{
+                        length = Length1,
+                        data = Data1
+                    },
+                    case Length1 =< Max of
                         true ->
                             httpc:stream_next(HandlerPid),
-                            fetch_stream_data(ReqId, HandlerPid, Hs, Data1, N1, Max, OutDev, Opts);
+                            fetch_stream_data(ReqId, HandlerPid, FState1);
                         false ->
                             httpc:cancel_request(ReqId),
-                            {ok, {200, Hs, N1, Data1}}
+                            FState2 = FState1#fstate{
+                                code = 200
+                            },
+                            {ok, FState2}
                     end;
                 {error, _} = Error ->
                     httpc:cancel_request(ReqId),
@@ -333,42 +522,68 @@ fetch_stream_data(ReqId, HandlerPid, Hs, Data, N, Max, OutDev, Opts) when N =< M
             % we received all data, then this error is received instead of
             % the expected data.
             % Return the data we received till now and pretend nothing is wrong.
-            {ok, {200, Hs, N, Data}};
+            FState1 = FState#fstate{
+                code = 200
+            },
+            {ok, FState1};
         {http, {ReqId, {error, _} = Error}} ->
             Error
     after Timeout ->
         httpc:cancel_request(ReqId),
         {error, timeout}
     end;
-fetch_stream_data(ReqId, _HandlerPid, Hs, Data, N, _Max, _OutFile, _Opts) ->
+fetch_stream_data(ReqId, _HandlerPid, FState) ->
     receive
         {http, {ReqId, stream_end, EndHs}} ->
-            {ok, {200, EndHs++Hs, N, Data}};
+            FState1 = FState#fstate{
+                code = 200,
+                headers = EndHs ++ FState#fstate.headers
+            },
+            {ok, FState1};
         {http, _} ->
             httpc:cancel_request(ReqId),
-            {ok, {200, Hs, N, Data}}
+            FState1 = FState#fstate{
+                code = 200
+            },
+            {ok, FState1}
     after 100 ->
         httpc:cancel_request(ReqId),
-        {ok, {200, Hs, N, Data}}
+        FState1 = FState#fstate{
+            code = 200
+        },
+        {ok, FState1}
     end.
 
-maybe_redirect({Code, Hs, Size, Data}, _Method, Url, _Payload, _RedirectCount, _Max, _OutDev, _Opts)
-    when Code >= 200, Code =< 299 ->
-    {ok, {Url, Hs, Size, Data}};
-maybe_redirect({416, _Hs, _Size, _Data}, Method, Url, Payload, RedirectCount, _Max, OutDev, Opts) ->
-    fetch_partial(Method, Url, Payload, RedirectCount+1, undefined, OutDev, Opts);
-maybe_redirect({Code, Hs, _Size, _Data}, Method, BaseUrl, Payload, RedirectCount, Max, OutDev, Opts)
-    when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307 ->
+maybe_redirect(#fstate{ code = Code } = FState) when Code >= 200, Code =< 299 ->
+    {ok, FState};
+maybe_redirect(#fstate{ code = 416, options = Opts, url = Url }) ->
+    % 416 Range Not Satisfiable - if this is the first request then it might
+    % be a picky server complaining that we requested beyond the size of the
+    % document.
+    Opts1 = proplists:delete(use_range, Opts),
+    {redirect, get, Url, [ {use_range, false} | Opts1 ]};
+maybe_redirect(#fstate{ code = 303, headers = Hs, url = Url } = FState) ->
     case proplists:get_value("location", Hs) of
         undefined ->
             {error, no_location_header};
         Location ->
-            NewUrl = z_convert:to_list(z_url:abs_link(Location, BaseUrl)),
-            fetch_partial(Method, NewUrl, Payload, RedirectCount+1, Max, OutDev, Opts)
+            NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
+            {redirect, get, NewUrl, FState#fstate.options}
     end;
-maybe_redirect({Code, Hs, Size, Data}, _Method, Url, _Payload, _RedirectCount, _Max, _OutDev, _Opts) ->
-    {error, {Code, Url, Hs, Size, Data}}.
+maybe_redirect(#fstate{ code = Code, headers = Hs, url = Url } = FState)
+    when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307; Code =:= 308 ->
+    case proplists:get_value("location", Hs) of
+        undefined ->
+            {error, no_location_header};
+        Location ->
+            NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
+            {redirect, FState#fstate.method, NewUrl, FState#fstate.options}
+    end;
+maybe_redirect(FState) ->
+    {ok, FState}.
 
+append_data(Data, <<>>, _Device) ->
+    {ok, Data};
 append_data(Data, Part, undefined) ->
     {ok, <<Data/binary, Part/binary>>};
 append_data(Data, Part, OutDev) ->
@@ -378,24 +593,28 @@ append_data(Data, Part, OutDev) ->
     end.
 
 %% @doc Some servers (Spotify) deliver gzip encoded content, even when we ask for identity.
-maybe_handle_content_encoding({ok, {_FinalUrl, Hs, Length, Data}} = Result, MaxLength)
+maybe_handle_content_encoding(#fstate{ length = Length, headers = Hs, data = Data } = FState)
     when Length > 0, is_binary(Data), Data =/= <<>> ->
     CE = proplists:get_value("content-encoding", Hs, "identity"),
-    handle_ce(CE, Result, MaxLength);
-maybe_handle_content_encoding(Result, _MaxLength) ->
-    Result.
+    handle_ce(CE, FState);
+maybe_handle_content_encoding(FState) ->
+    FState.
 
-handle_ce("gzip", {ok, {FinalUrl, Hs, Length, Data}} = Result, MaxLength)
+handle_ce("gzip", #fstate{ length = Length, data = Data } = FState)
     when Length > 0, is_binary(Data), Data =/= <<>> ->
     % Decode partial gzip data
-    case partial_unzip(Data, MaxLength) of
+    case partial_unzip(Data, FState#fstate.max) of
         {ok, Data1} ->
-            {ok, {FinalUrl, Hs, size(Data1), Data1}};
+            FState1 = FState#fstate{
+                length = size(Data1),
+                data = Data1
+            },
+            FState1;
         {error, _} ->
-            Result
+            FState
     end;
-handle_ce(_ContentEncoding, Result, _MaxLength) ->
-    Result.
+handle_ce(_ContentEncoding, FState) ->
+    FState.
 
 partial_unzip(Compressed, MaxLength) ->
     Z = zlib:open(),

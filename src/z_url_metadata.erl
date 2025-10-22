@@ -1,9 +1,18 @@
 %% @author Marc Worrell
-%% @copyright 2014-2024 Marc Worrell
-%% @doc Discover metadata about an url.
+%% @copyright 2014-2025 Marc Worrell
+%% @doc Discover metadata about an url. Follows redirects
+%% and URL shorteners, and then fetches the data at the final URL
+%% to inspect for metadata tags, content headers and the first part of the HTML.
+%%
+%% The returned opaque metadata can be questioned for properties using p/2.
+%%
+%% The Slackbot user-agent is used for fetching URLs so that the URL shorteners
+%% return a location header and other sites are coerced to give correct metadata.
+%%
+%% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 
-%% Copyright 2014-2024 Marc Worrell
+%% Copyright 2014-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +43,13 @@
 
 
 -type metadata() :: #url_metadata{}.
+-type property() :: mime | mime_options | site_name | content_length |
+    url | canonical_url | short_url | final_url |
+    headers | title | h1 | summary | tags | filename |
+    mtitle | description | keywords | author | charset | language |
+    image | image_nav | thumbnail |
+    icon | icon_nav | icon_shortcut | icon_touch |
+    binary().
 
 -export_type([ metadata/0 ]).
 
@@ -75,7 +91,11 @@ fetch(Url, Options) ->
 
 
 %% @doc Fetch properties of the fetched metadata
--spec p(atom() | binary() | list( atom() | binary() ), metadata()) -> list(binary()) | binary() | undefined.
+-spec p(Property, Metadata) -> Value when
+    Property :: property() | [ property() ],
+    Metadata :: metadata(),
+    Value :: binary() | list( binary() ) | Headers | undefined,
+    Headers :: list({binary(), binary()}).
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
@@ -86,6 +106,25 @@ p(url, MD) ->
     case p1([<<"og:url">>, <<"twitter:url">>, canonical_url, short_url], MD) of
         undefined -> MD#url_metadata.final_url;
         PrefUrl -> z_url:abs_link(PrefUrl, MD#url_metadata.final_url)
+    end;
+p(site_name, MD) ->
+    case p1([<<"og:site_name">>, <<"twitter:site">>], MD) of
+        undefined ->
+            Url = case p1([canonical_url], MD) of
+                undefined -> MD#url_metadata.final_url;
+                Canonical -> Canonical
+            end,
+            case uri_string:parse(Url) of
+                #{ host := Host } ->
+                    case unicode:characters_to_binary(Host) of
+                        <<"www.", H/binary>> -> H;
+                        H -> H
+                    end;
+                {error, _, _} ->
+                    undefined
+            end;
+        Sitename ->
+            Sitename
     end;
 p(content_length, MD) ->
     MD#url_metadata.content_length;
@@ -416,6 +455,8 @@ tag({_Tag, As, Es}, MD, P) ->
             {html(Es, MD, P#ps{in_nav = P#ps.in_nav orelse has_nav_class(Cs) orelse is_topbar_id(Id)}), P}
     end.
 
+meta_tag(_Name, undefined, MD) -> MD;
+meta_tag(_Name, <<>>, MD) -> MD;
 meta_tag(<<"og:", _/binary>> = OG, Content, MD) -> [{OG, Content}|MD];
 meta_tag(<<"twitter:", _/binary>> = Tw, Content, MD) -> [{Tw, Content}|MD];
 meta_tag(<<"title">>, Content, MD) -> [{mtitle, Content}|MD];
@@ -426,6 +467,9 @@ meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
 
+meta_link(_Name, undefined, _As, MD) -> MD;
+meta_link(_Name, <<>>, _As, MD) -> MD;
+meta_link(_Name, <<"undefined">>, _As, MD) -> MD;  % Youtube...
 meta_link(<<"canonical">>, Content, _As, MD) -> [{canonical_url, Content}|MD];
 meta_link(<<"shortlink">>, Content, _As, MD) -> [{short_url, Content}|MD];
 meta_link(<<"shorturl">>, Content, _As, MD) -> [{short_url, Content}|MD];

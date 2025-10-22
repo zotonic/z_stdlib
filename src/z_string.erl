@@ -51,6 +51,7 @@
     nospaces/1,
     line/1,
     len/1,
+    unaccent/1,
     normalize/1,
     to_rootname/1,
     to_name/1,
@@ -518,12 +519,24 @@ to_name1(<<_/utf8, Rest/binary>>, Acc) ->
     to_name1(Rest, <<Acc/binary, "_">>).
 
 
+%% @doc Remove all accents from all characters.
+-spec unaccent(S) -> S1 when
+    S :: unicode:chardata(),
+    S1 :: binary().
+unaccent(S) ->
+    {ok, Re} = re:compile(<<"\\p{Mn}">>, [unicode]),
+    NFD = unicode:characters_to_nfd_binary(S),
+    WithoutAccents = re:replace(NFD, Re, <<>>, [global]),
+    unicode:characters_to_nfc_binary(WithoutAccents).
+
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
 -spec normalize(string() | binary() | atom() | {trans, list()}) -> binary().
 normalize(B) when is_binary(B) ->
-    normalize(B, <<>>);
+    B1 = sanitize_utf8(B),
+    B2 = unicode:characters_to_nfc_binary(B1),
+    normalize(B2, <<>>);
 normalize(undefined) ->
     <<>>;
 normalize(A) when is_atom(A) ->
@@ -573,6 +586,8 @@ normalize(<<"ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"Ó"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"Ò"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"ô"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
+normalize(<<"Ô"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 normalize(<<"ß"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$s>>);
 normalize(<<"ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
 normalize(<<"Ç"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
@@ -590,6 +605,7 @@ normalize(<<"Ã"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Ñ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"Õ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o>>);
 % Cyrillic support (from http://en.wikipedia.org/wiki/Romanization_of_Russian)
+% See also the rules for Russian passports (2013, ICAO).
 normalize(<<"А"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"а"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"Б"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$b>>);
@@ -602,10 +618,10 @@ normalize(<<"Д"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
 normalize(<<"д"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$d>>);
 normalize(<<"Е"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
 normalize(<<"е"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
-normalize(<<"Ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o,$y>>);
-normalize(<<"ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$o,$y>>);
-normalize(<<"Ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$z>>);
-normalize(<<"ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$z>>);
+normalize(<<"Ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"ё"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"Ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z,$h>>);
+normalize(<<"ж"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z,$h>>);
 normalize(<<"З"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
 normalize(<<"з"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
 normalize(<<"И"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i>>);
@@ -634,28 +650,28 @@ normalize(<<"У"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
 normalize(<<"у"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u>>);
 normalize(<<"Ф"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$f>>);
 normalize(<<"ф"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$f>>);
-normalize(<<"Х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
-normalize(<<"х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h>>);
+normalize(<<"Х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k,$h>>);
+normalize(<<"х"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$k,$h>>);
 normalize(<<"Ц"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
 normalize(<<"ц"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
-normalize(<<"Ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$c>>);
-normalize(<<"ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$c>>);
-normalize(<<"Ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$s>>);
-normalize(<<"ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$s>>);
-normalize(<<"Щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$h,$s>>);
-normalize(<<"щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$h,$s>>);
+normalize(<<"Ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c,$h>>);
+normalize(<<"ч"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c,$h>>);
+normalize(<<"Ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h>>);
+normalize(<<"ш"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h>>);
+normalize(<<"Щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h,$c,$h>>);
+normalize(<<"щ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s,$h,$c,$h>>);
 normalize(<<"Ъ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
 normalize(<<"ъ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
 normalize(<<"Ы"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
 normalize(<<"ы"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$y>>);
 normalize(<<"Ь"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
 normalize(<<"ь"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$_>>);
-normalize(<<"Э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$e>>);
-normalize(<<"э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$h,$e>>);
-normalize(<<"Ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$y>>);
-normalize(<<"ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$u,$y>>);
-normalize(<<"Я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$y>>);
-normalize(<<"я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a,$y>>);
+normalize(<<"Э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"э"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
+normalize(<<"Ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$u>>);
+normalize(<<"ю"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$u>>);
+normalize(<<"Я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$a>>);
+normalize(<<"я"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$i,$a>>);
 % Ukrainian support
 normalize(<<"Ґ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
 normalize(<<"ґ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
