@@ -522,15 +522,15 @@ sanitize_iso639(Lang) when is_binary(Lang) ->
         <<A, B>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
             {Lang, Lang};
         <<A, B, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
-            Rest1 = << <<X>> || <<X>> <- Rest, ?is_alpha(X) >>,
+            Rest1 = << <<X>> || <<X>> <= Rest, ?is_alpha(X) >>,
             {<<A, B, $-, Rest1/binary>>, <<A, B>>};
         <<A, B, C>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
             {Lang, Lang};
         <<A, B, C, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
-            Rest1 = << <<X>> || <<X>> <- Rest, ?is_alpha_digit(X) >>,
+            Rest1 = << <<X>> || <<X>> <= Rest, ?is_alpha_digit(X) >>,
             {<<A, B, C, $-, Rest1/binary>>, <<A,B>>};
         <<$x, $-, Rest/binary>> ->
-            Rest1 = << <<C>> || <<C>> <- Rest, ?is_alpha(C) >>,
+            Rest1 = << <<C>> || <<C>> <= Rest, ?is_alpha(C) >>,
             {<<$x, $-, Rest1/binary>>, <<"x-other">>};
         _ ->
             {<<"x-other">>, <<"x-other">>}
