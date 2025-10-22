@@ -1,8 +1,17 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2011-2020 Marc Worrell
-%% @doc Simple temporary file handling, deletes the file when the calling process stops or crashes.
+%% @copyright 2011-2025 Marc Worrell
+%% @doc Simple temporary file handling, deletes the file when the calling process
+%% stops or crashes. If a file is created then a watchdog process is started to
+%% monitor the calling process. If the calling process is stopped or crashes then
+%% the file is deleted.
+%%
+%% Periodically call cleanup/0 to delete temporary files older than 24 hours.
+%%
+%% Temporary files are created in the directory specified by the TMP or TEMP environment
+%% variable, or /tmp if none is set.
+%% @end
 
-%% Copyright 2011-2020 Marc Worrell
+%% Copyright 2011-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +31,7 @@
 -export([
 	new/0,
 	new/1,
+    copy/1,
 
     monitored_new/0,
     monitored_new/1,
@@ -60,6 +70,22 @@ new() ->
 new(Extension) ->
     {ok, {_Pid, Filename}} = monitored_new(Extension),
     Filename.
+
+%% @doc Copy a file to a new tempfile, start a monitoring process to clean it up after use.
+-spec copy(File) -> {ok, NewFile} | {error, Reason} when
+      File :: file:filename_all(),
+      NewFile :: file:filename_all(),
+      Reason :: term().
+copy(File) ->
+    case monitored_new() of
+        {ok, {_Pid, NewFile}} ->
+            case file:copy(File, NewFile) of
+                ok ->
+                    {ok, NewFile};
+                {error, Reason} ->
+                    {error, Reason}
+            end
+    end.
 
 %% @doc Like new/0 but also return the Pid of the monitoring process.
 -spec monitored_new() -> {ok, {pid(), file:filename_all()}}.
