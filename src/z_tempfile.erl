@@ -77,14 +77,12 @@ new(Extension) ->
       NewFile :: file:filename_all(),
       Reason :: term().
 copy(File) ->
-    case monitored_new() of
-        {ok, {_Pid, NewFile}} ->
-            case file:copy(File, NewFile) of
-                ok ->
-                    {ok, NewFile};
-                {error, Reason} ->
-                    {error, Reason}
-            end
+    {ok, {_Pid, NewFile}} = monitored_new(),
+    case file:copy(File, NewFile) of
+        ok ->
+            {ok, NewFile};
+        {error, _} = Error ->
+            Error
     end.
 
 %% @doc Like new/0 but also return the Pid of the monitoring process.
