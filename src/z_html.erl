@@ -223,7 +223,7 @@ sanitize_list(Ks, L, Options) when is_list(L) ->
     lists:filtermap(
         fun
             ({trans, Tr} = V) when is_list(Tr) ->
-                escape(V);
+                {true, escape(V)};
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
@@ -422,10 +422,9 @@ escape({trans, Tr}) when is_list(Tr) ->
         fun
             ({Lang, V}) when is_binary(Lang); is_atom(Lang) ->
                 try
-                    Lang1 = sanitize_iso639_1(Lang),
-                    Lang2 = binary_to_existing_atom(Lang1, utf8),
+                    Lang1 = sanitize_iso639(Lang),
                     V1 = z_convert:to_binary(V),
-                    {true, {Lang2, escape(V1)}}
+                    {true, {Lang1, escape(V1)}}
                 catch _:_ ->
                     false
                 end;
@@ -474,10 +473,9 @@ escape_check({trans, Tr}) when is_list(Tr) ->
         fun
             ({Lang, V}) when is_binary(Lang); is_atom(Lang) ->
                 try
-                    Lang1 = sanitize_iso639_1(Lang),
-                    Lang2 = binary_to_existing_atom(Lang1, utf8),
+                    Lang1 = sanitize_iso639(Lang),
                     V1 = z_convert:to_binary(V),
-                    {true, {Lang2, escape_check(V1)}}
+                    {true, {Lang1, escape_check(V1)}}
                 catch _:_ ->
                     false
                 end;
@@ -512,24 +510,39 @@ property_filter_cb(K, V, Options) ->
     end.
 
 -define(is_lower_alpha(C), (C >= $a andalso C =< $z)).
--define(is_alpha(C), ((C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z))).
+-define(is_alpha(C), ((C >= $a andalso C =< $z)
+                      orelse (C >= $A andalso C =< $Z))).
+-define(is_alpha_digit(C), ((C >= $a andalso C =< $z)
+                     orelse (C >= $A andalso C =< $Z)
+                     orelse (C >= $0 andalso C =< $9))).
 
-% Sanitize a language code, so that "it looks like" an ISO639-1 code.
-sanitize_iso639_1(Lang) when is_binary(Lang) ->
-    case Lang of
+% Sanitize a language code, so that "it looks like" an ISO639-1 or -2 code.
+sanitize_iso639(Lang) when is_binary(Lang) ->
+    {Lang1, BaseLang} = case Lang of
         <<A, B>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
-            Lang;
+            {Lang, Lang};
         <<A, B, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
-            Rest1 = << <<C>> || <<C>> <= Rest, ?is_alpha(C) >>,
-            <<A, B, $-, Rest1/binary>>;
+            Rest1 = << <<X>> || <<X>> <- Rest, ?is_alpha(X) >>,
+            {<<A, B, $-, Rest1/binary>>, <<A, B>>};
+        <<A, B, C>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
+            {Lang, Lang};
+        <<A, B, C, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
+            Rest1 = << <<X>> || <<X>> <- Rest, ?is_alpha_digit(X) >>,
+            {<<A, B, C, $-, Rest1/binary>>, <<A,B>>};
         <<$x, $-, Rest/binary>> ->
-            Rest1 = << <<C>> || <<C>> <= Rest, ?is_alpha(C) >>,
-            <<$x, $-, Rest1/binary>>;
+            Rest1 = << <<C>> || <<C>> <- Rest, ?is_alpha(C) >>,
+            {<<$x, $-, Rest1/binary>>, <<"x-other">>};
         _ ->
-            <<"x-other">>
+            {<<"x-other">>, <<"x-other">>}
+    end,
+    try
+        binary_to_existing_atom(Lang1, utf8)
+    catch
+        _:_ when is_atom(BaseLang) ->  BaseLang;
+        _:_ when is_binary(BaseLang) -> binary_to_atom(BaseLang, utf8)
     end;
-sanitize_iso639_1(Lang) when is_atom(Lang) ->
-    sanitize_iso639_1(atom_to_binary(Lang, utf8)).
+sanitize_iso639(Lang) when is_atom(Lang) ->
+    sanitize_iso639(atom_to_binary(Lang, utf8)).
 
 escape_check1(<<>>, Acc) ->
     Acc;
