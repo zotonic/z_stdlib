@@ -79,7 +79,7 @@ new(Extension) ->
 copy(File) ->
     {ok, {_Pid, NewFile}} = monitored_new(),
     case file:copy(File, NewFile) of
-        ok ->
+        {ok, _BytesCopied} ->
             {ok, NewFile};
         {error, _} = Error ->
             Error
