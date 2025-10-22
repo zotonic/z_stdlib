@@ -1,9 +1,19 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2024 Marc Worrell
-%% @doc Utility functions for html processing.  Also used for property filtering (by m_rsc_update).
+%% @copyright 2009-2025 Marc Worrell
+%% @doc Utility functions sanitizing, escaping and filtering HTML, and sanitize property lists/maps.
+%%
+%% Utiliy functions to:
+%%
+%% - Sanitize HTML texts
+%% - Truncate HTML, whilst ensuring that opened tags are properly closed.
+%% - Escape and unescape HTML texts
+%% - Newline to br-tag mapping (and vice versa)
+%% - Stripping HTML tags from a text
+%% - Sanitize nested property lists/maps, using type hints from the property names.
+%% - Make relative URLs absolute based on a base URL.
 %% @end
 
-%% Copyright 2009-2024 Marc Worrell
+%% Copyright 2009-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

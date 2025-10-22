@@ -1,11 +1,14 @@
 %% @author Marc Worrell
 %% @copyright 2014-2025 Marc Worrell
-%% @doc Discover metadata about an url. First follows any redirects
-%% and URL shorteners, then fetches the data at the final URL to inspect
-%% all metadata tags, content headers and first part of the HTML. The
-%% returned opaque metadata can be questioned with properties.
+%% @doc Discover metadata about an url. Follows redirects
+%% and URL shorteners, and then fetches the data at the final URL
+%% to inspect for metadata tags, content headers and the first part of the HTML.
+%%
+%% The returned opaque metadata can be questioned for properties using p/2.
+%%
 %% The Slackbot user-agent is used for fetching URLs so that the URL shorteners
 %% return a location header and other sites are coerced to give correct metadata.
+%%
 %% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 

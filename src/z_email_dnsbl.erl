@@ -1,8 +1,12 @@
 %% @author Marc Worrell
-%% @copyright 2015-2020 Marc Worrell
-%% @doc Check an IP address against some DNSBL providers (rfc5782)
+%% @copyright 2015-2025 Marc Worrell
+%% @doc Check an IP address against the list that are maintained by
+%% DNSBL or DNSWL providers (rfc5782). There is a list of default
+%% black list providers in dns_blocklist/0 and of white list providers
+%% in dns_allowlist/0.
+%% @end
 
-%% Copyright 2015-2020 Marc Worrell
+%% Copyright 2015-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
