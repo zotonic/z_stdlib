@@ -1,9 +1,12 @@
 % @author Marc Worrell
-%% @copyright 2014-2024 Marc Worrell
-%% @doc Fetch (part of) the data of an Url, including its headers.
+%% @copyright 2014-2025 Marc Worrell
+%% @doc Fetch (part of) the data of an Url, including its headers. Also
+%% support decoding 'data:' URLs and streaming fetched data to a device.
+%% Uses the httpc OTP library for the actual fetching.
+%% The fetch functions are able to unzip partially fetched data.
 %% @end
 
-%% Copyright 2014-2024 Marc Worrell
+%% Copyright 2014-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

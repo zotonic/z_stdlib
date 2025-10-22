@@ -1,8 +1,11 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2016 Copyright Channel.Me B.V.
-%% @doc Utility functions for svg processing.
+%% @copyright 2016-2025 Copyright Channel.Me B.V.
+%% @doc Utility functions for svg processing. Sanitize SVG content to remove
+%% potentially harmful elements and attributes.
+%% The sanitizer uses a whitelist of allowed elements and attributes.
+%% @end
 
-%% Copyright 2016 Copyright Channel.Me B.V.
+%% Copyright 2016-2025 Copyright Channel.Me B.V.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

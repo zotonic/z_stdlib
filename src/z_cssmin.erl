@@ -1,8 +1,10 @@
 %% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
-%% @copyright 2018 Maas-Maarten Zeeman
-%% @doc Javascript minifier. Based on cssmin.c
+%% @copyright 2018-2025 Maas-Maarten Zeeman
+%% @doc Javascript minifier. Based on cssmin.c. Minimizes a Javascript binary
+%% by removing comments and unnecessary whitespace.
+%% @end
 
-%% Copyright 2018 Maas-Maarten Zeeman
+%% Copyright 2018-2025 Maas-Maarten Zeeman
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

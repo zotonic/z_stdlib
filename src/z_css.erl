@@ -1,9 +1,19 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2014 Marc Worrell
+%% @copyright 2014-2025 Marc Worrell
+%% @doc Utility functions for CSS processing. This sanitizer is used by the
+%% HTML sanitizer for processing style attributes. It can also be called independently
+%% to sanitize CSS.
 %%
-%% @doc Utility functions for CSS processing. Also used for sanitizing HTML.
+%% This is a strict parser for a (big) subset of CSS. It does not support all CSS
+%% constructs. If a block of CSS is not valid according to this parser, it is
+%% rejected.
+%%
+%% URLs in CSS are sanitized to "url()" to prevent external references.
+%%
+%% The grammar is included in z_css_parser.yrl and the lexer is in z_css_lexer.xrl.
+%% @end
 
-%% Copyright 2014 Marc Worrell
+%% Copyright 2014-2025 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

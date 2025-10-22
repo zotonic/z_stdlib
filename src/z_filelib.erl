@@ -1,6 +1,9 @@
 %% @author Marc Worrell <marc@worrell.nl>
 %% @copyright 2017-2025 Marc Worrell
-%% @doc Extra file functions.
+%% @doc Extra file functions to complement the standard library.
+%% Rename files between different filesystems, and ensure directories of
+%% a path exist. Also escape routines to safely handle filenames as command
+%% line arguments.
 %% @end
 
 %% Copyright 2017-2025 Marc Worrell
@@ -125,7 +128,8 @@ os_filename_bs([C|Rest], Acc) ->
     os_filename(Rest, [C,$\\|Acc]).
 
 
-%% @doc Simple escape function for command line arguments
+%% @doc Simple escape function for command line arguments. Escapes special characters
+%% in the filename using backslashes. The path is not quoted, use os_filename/1 for that.
 -spec os_escape(string()|binary()|undefined) -> string().
 os_escape(undefined) ->
     "";

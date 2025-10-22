@@ -1,6 +1,6 @@
 %% @author Marc Worrell
 %% @copyright 2012-2024 Marc Worrell
-%% @doc Misc utility URL functions for zotonic
+%% @doc Misc utility URL functions for Zotonic.
 %% @end
 
 %% Copyright 2012-2024 Marc Worrell
