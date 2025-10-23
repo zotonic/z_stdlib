@@ -531,9 +531,9 @@ sanitize_iso639(Lang) when is_binary(Lang) ->
             {<<A, B, C, $-, Rest1/binary>>, <<A,B>>};
         <<$x, $-, Rest/binary>> ->
             Rest1 = << <<C>> || <<C>> <= Rest, ?is_alpha(C) >>,
-            {<<$x, $-, Rest1/binary>>, <<"x-other">>};
+            {<<$x, $-, Rest1/binary>>, 'x-other'};
         _ ->
-            {<<"x-other">>, <<"x-other">>}
+            {<<"x-other">>, 'x-other'}
     end,
     try
         binary_to_existing_atom(Lang1, utf8)
