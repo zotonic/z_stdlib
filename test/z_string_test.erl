@@ -114,6 +114,9 @@ truncatechars_test() ->
 truncatewords_test() ->
     ?assertEqual(<<"foo bar x">>, z_string:truncatewords(<<"foo bar bla">>, 2, <<"x">>)).
 
+normalize_map_words_test() ->
+    ?assertEqual(<<"odesa">>, z_string:normalize(<<"Одесса"/utf8>>)).
+
 normalize_test() ->
     % binary()
     ?assertEqual(<<"a"/utf8>>, z_string:normalize(<<"ä"/utf8>>)),
