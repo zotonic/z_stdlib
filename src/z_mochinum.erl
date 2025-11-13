@@ -324,7 +324,7 @@ digits_test() ->
 
 frexp_test() ->
     %% zero
-    ?assertEqual({0.0, 0}, frexp(0.0)),
+    ?assertEqual({+0.0, 0}, frexp(+0.0)),
     %% one
     ?assertEqual({0.5, 1}, frexp(1.0)),
     %% negative one
