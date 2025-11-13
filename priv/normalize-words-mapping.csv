@@ -1,0 +1,25 @@
+# This is a list of mappings used by z_string:normalize/1
+# It maps various spellings of common words (like city names) to a canonical form.
+
+kiev, kyiv
+kiyev, kyiv
+київ, kyiv
+киев, kyiv
+
+odessa, odesa
+одеса, odesa
+одесса, odesa
+אָדעס, odesa
+οδησσόσ, odesa
+
+kharkov, kharkiv
+харків, kharkiv
+харьков, kharkiv
+
+lwiw, lviv
+lwów, lviv
+львів, lviv
+львов, lviv
+львоў, lviv
+ilyvó, lviv
+לעמבעריק, lviv

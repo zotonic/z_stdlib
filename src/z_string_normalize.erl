@@ -76,13 +76,7 @@ map_word(W) ->
     catch
         error:badarg ->
             Filename = filename:join(code:priv_dir(zotonic_stdlib), ?WORD_MAPPING_FILE),
-            {ok, Data} = case file:read_file(Filename) of
-                {ok, _} = Ok ->
-                    Ok;
-                {error, _} ->
-                    % Needed for some tests in CI
-                    file:read_file(filename:join("priv", ?WORD_MAPPING_FILE))
-            end,
+            {ok, Data} = file:read_file(Filename),
             Lines = binary:split(Data, [ <<"\n">>, <<"\r">> ], [ global, trim_all ]),
             NewMapping = lists:foldl(
                 fun
