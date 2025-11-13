@@ -21,10 +21,33 @@
         orelse (C > $9 andalso C < $a)
         orelse (C > $z andalso C < 127)
         orelse C =:= 160    % non breaking space
-        orelse C =:= 8023   % non breaking zero width space
+        orelse C =:= 8220   % left double quote
+        orelse C =:= 8221   % right double quote
+        orelse C =:= 8216   % left single quote
+        orelse C =:= 8217   % right single quote
+        orelse C =:= 8230   % ellipsis
+        orelse C =:= 8232   % line separator
+        orelse C =:= 8233   % paragraph separator
         orelse C =:= 8212   % mdash
         orelse C =:= 8211   % ndash
     ).
+
+-define(is_map_space(C),
+               C =:= 65279  % byte order mark
+        orelse C =:= 8232   % line separator
+        orelse C =:= 8233   % paragraph separator
+        orelse C =:= 8203   % zero width space
+        orelse C =:= 8204   % zero width non-joiner
+        orelse C =:= 8023   % non breaking zero width space
+    ).
+
+-define(is_word_ignore_char(C),
+               C =:= 8205   % zero width joiner
+        orelse C =:= 8288   % word joiner
+        orelse C =:= 173    % soft hyphen
+    ).
+
+
 
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
@@ -47,31 +70,18 @@ normalize({trans, [{_, First} | _] = Tr}) ->
     V = proplists:get_value(en, Tr, First),
     normalize(V).
 
-<<<<<<< Updated upstream
-%% Separators in a lowercased string
--define(is_sep(C),
-        C < $0
-        orelse (C > $9 andalso C < $a)
-        orelse (C > $z andalso C < 127)
-        orelse C =:= 8023   % non breaking zero width space
-        orelse C =:= 8212   % mdash
-        orelse C =:= 8211   % ndash
-    ).
-
 %% Normalize specific words using custom mappings from CSV file.
-%% This allows language-specific transliterations that differ from 
+%% This allows language-specific transliterations that differ from
 %% standard romanization rules.
-=======
-%% Normalize some common (Ukrainian) strings, that would be different when
-%% using the Russian romanization rules.
->>>>>>> Stashed changes
 normalize_words(B) when is_binary(B) ->
     Ws = normalize_words_word(B, <<>>, []),
     normalize(erlang:iolist_to_binary(Ws), <<>>).
 
 normalize_words_word(<<>>, W, Acc) ->
     lists:reverse([map_word(W)|Acc]);
-normalize_words_word(<<C/utf8, T/binary>>, W, Acc) when ?is_sep(C) ->
+normalize_words_word(<<C/utf8, T/binary>>, W, Acc) when ?is_word_ignore_char(C) ->
+    normalize_words_word(T, W, Acc);
+normalize_words_word(<<C/utf8, T/binary>>, W, Acc) when ?is_sep(C) orelse ?is_map_space(C) ->
     normalize_words_sep(T, <<C/utf8>>, [map_word(W)|Acc]);
 normalize_words_word(<<C/utf8, T/binary>>, W, Acc) ->
     normalize_words_word(T, <<W/binary, C/utf8>>, Acc);
@@ -81,7 +91,9 @@ normalize_words_word(<<_Byte, T/binary>>, W, Acc) ->
 
 normalize_words_sep(<<>>, W, Acc) ->
     lists:reverse([W|Acc]);
-normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when not (?is_sep(C)) ->
+normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when ?is_word_ignore_char(C) ->
+    normalize_words_sep(T, W, Acc);
+normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when not (?is_sep(C) orelse ?is_map_space(C)) ->
     normalize_words_word(T, <<C/utf8>>, [W|Acc]);
 normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) ->
     normalize_words_sep(T, <<W/binary, C/utf8>>, Acc);
@@ -306,11 +318,11 @@ normalize(<<C/utf8,T/binary>>, Acc) when C >= 32, C =< 126 ->
 normalize(<<C, T/binary>>, Acc) when C =:= $\n; C =:= $\t ->
     % Keep newlines and tabs
     normalize(T, <<Acc/binary, " ">>);
-normalize(<<C/utf8,T/binary>>, Acc) when C < 32 ->
-    % Replace control characters with spaces
+normalize(<<C/utf8,T/binary>>, Acc) when ?is_map_space(C) ->
+    % Replace control or space-like characters with spaces
     normalize(T, <<Acc/binary, " ">>);
-normalize(<<C/utf8,T/binary>>, Acc) when C =:= 8023 ->
-    % Zero width space
+normalize(<<C/utf8,T/binary>>, Acc) when ?is_word_ignore_char(C) ->
+    % Zero width space et al
     normalize(T, Acc);
 normalize(<<C/utf8,T/binary>>, Acc) ->
     % Try to remove any accents.
