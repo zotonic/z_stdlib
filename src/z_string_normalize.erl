@@ -45,8 +45,9 @@ normalize({trans, [{_, First} | _] = Tr}) ->
         orelse C =:= 8211   % ndash
     ).
 
-%% Normalize some common (Ukrainian) strings, that would be different when
-%% using the Russian romanization rules.
+%% Normalize specific words using custom mappings from CSV file.
+%% This allows language-specific transliterations that differ from 
+%% standard romanization rules.
 normalize_words(B) when is_binary(B) ->
     Ws = normalize_words_word(B, <<>>, []),
     normalize(erlang:iolist_to_binary(Ws), <<>>).
