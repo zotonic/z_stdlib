@@ -57,7 +57,29 @@
     abs_links/2
 ]).
 
--type text() :: iodata() | {trans, list( {atom(), binary()} )}.
+-type unsafe_props() :: #{ props_key() => unsafe_props_value() }
+                      | [ {props_key(), unsafe_props_value()} | props_key() ].
+-type unsafe_props_value() :: unsafe_props()
+                            | number()
+                            | atom()
+                            | list( unsafe_props_value() )
+                            | unsafe_text()
+                            | boolean().
+
+-type props() :: #{ props_key() => props_value() }
+               | [ {props_key(), props_value()} | props_key() ].
+-type props_key() :: atom() | binary().
+-type props_value() :: props()
+                     | number()
+                     | atom()
+                     | list( props_value() )
+                     | trans()
+                     | boolean()
+                     | binary().
+
+-type text() :: iodata() | trans().
+-type trans() :: {trans, list( {atom()|binary(), iodata()} )}.
+
 -type unsafe_text() :: iodata()
                      | {trans, list( {atom(), iodata()} )}
                      | {trans, list( {binary(), iodata()} )}
@@ -70,10 +92,19 @@
 -type sanitize_options() :: [ sanitize_option() ].
 -type sanitize_option() :: {elt_extra, list( binary() )}
                          | {attr_extra, list( binary() )}
-                         | {element, function()}.
+                         | {element, function()}
+                         | {property, function()}.
 
 -export_type([
+    unsafe_props/0,
+    unsafe_props_value/0,
+
+    props/0,
+    props_key/0,
+    props_value/0,
+
     text/0,
+    trans/0,
     unsafe_text/0,
     maybe_text/0,
     maybe_unsafe_text/0,
@@ -95,24 +126,47 @@
     ]).
 
 
-%% @doc Escape all properties used for an update statement. Only leaves the body property intact.
--spec escape_props(list() | map()) -> list() | map().
+%% @doc Escape all properties used for an update statement.
+-spec escape_props(Props) -> Props1 when
+    Props:: unsafe_props(),
+    Props1 :: props().
 escape_props(Props) ->
     escape_props(Props, []).
 
--spec escape_props(list() | map(), Options::list()) -> list() | map().
+%% @doc Escape all properties used for an update statement.
+-spec escape_props(Props, Options) -> Props1 when
+    Props :: unsafe_props(),
+    Options :: sanitize_options(),
+    Props1 :: props().
 escape_props(Props, Options) when is_list(Props) ->
-    lists:map(
-        fun({P, V}) ->
-            V1 = escape_props1(z_convert:to_binary(P), V, Options),
-            {P, V1}
+    lists:filtermap(
+        fun
+            ({P, V}) ->
+                V1 = escape_props1(z_convert:to_binary(P), V, Options),
+                case property_filter_cb(P, V1, Options) of
+                    true -> {true, {P, V1}};
+                    PV -> PV
+                end;
+            (P) when is_atom(P) ->
+                case property_filter_cb(P, true, Options) of
+                    true -> {true, {P, true}};
+                    PV -> PV
+                end
         end,
         Props);
 escape_props(Props, Options) when is_map(Props) ->
     maps:fold(
         fun(K, V, Acc) ->
             K1 = z_convert:to_binary(K),
-            Acc#{ K1 => escape_props1(K1, V, Options)}
+            V1 = escape_props1(K1, V, Options),
+            case property_filter_cb(K1, V1, Options) of
+                {true, {K2, V2}} ->
+                    Acc#{ K2 => V2 };
+                true ->
+                    Acc#{ K1 => V1 };
+                false ->
+                    Acc
+            end
         end,
         #{},
         Props).
@@ -166,23 +220,26 @@ sanitize_type(_, Ks, V, Options) when is_list(V) -> sanitize_list(Ks, V, Options
 sanitize_type(_, _Ks, V, _Options) -> escape_value(V).
 
 sanitize_list(Ks, L, Options) when is_list(L) ->
-    lists:map(
+    lists:filtermap(
         fun
             ({trans, Tr} = V) when is_list(Tr) ->
-                escape(V);
+                {true, escape(V)};
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props1(P1, V, Options),
-                {P1, V1};
+                case property_filter_cb(P1, V1, Options) of
+                    true -> {true, P, V1};
+                    PV -> PV
+                end;
             (V) when is_list(V), Ks =:= [] ->
-                escape_props(V, Options);
+                {true, escape_props(V, Options)};
             (V) when is_map(V) ->
-                escape_props(V, Options);
+                {true, escape_props(V, Options)};
             (V) when Ks =:= [] ->
-                escape_value(V);
+                {true, escape_value(V)};
             (V) ->
                 [Type|Ks1] = Ks,
-                sanitize_type(Type, Ks1, V, Options)
+                {true, sanitize_type(Type, Ks1, V, Options)}
         end,
         L);
 sanitize_list(Ks, Map, Options) when is_map(Map) ->
@@ -223,28 +280,47 @@ escape_value(V) ->
     V.
 
 %% @doc Checks if all properties are properly escaped
--spec escape_props_check(list() | map()) -> list() | map().
+-spec escape_props_check(Props) -> Props1 when
+    Props :: unsafe_props(),
+    Props1 :: props().
 escape_props_check(Props) ->
     escape_props_check(Props, []).
 
--spec escape_props_check(list() | map(), Options::list()) -> list() | map().
+-spec escape_props_check(Props, Options) -> Props1 when
+    Props :: unsafe_props(),
+    Options :: sanitize_options(),
+    Props1 :: props().
 escape_props_check(Props, Options) when is_list(Props) ->
-    lists:map(
+    lists:filtermap(
         fun
             ({P, V}) ->
                 V1 = escape_props_check1(z_convert:to_binary(P), V, Options),
-                {P, V1};
-            (V) when is_list(V); is_map(V)->
-                escape_props_check(V, Options);
-            (V) ->
-                escape_value_check(V)
+                case property_filter_cb(P, V1, Options) of
+                    true -> {true, {P, V1}};
+                    PV -> PV
+                end;
+            (P) when is_atom(P) ->
+                case property_filter_cb(P, true, Options) of
+                    true -> {true, {P, true}};
+                    PV -> PV
+                end
         end,
         Props);
 escape_props_check(Props, Options) when is_map(Props) ->
-    maps:map(
-        fun(P, V) ->
-            escape_props_check1(z_convert:to_binary(P), V, Options)
+    maps:fold(
+        fun(K, V, Acc) ->
+            K1 = z_convert:to_binary(K),
+            V1 = escape_props_check1(K1, V, Options),
+            case property_filter_cb(K1, V1, Options) of
+                {true, {K2, V2}} ->
+                    Acc#{ K2 => V2 };
+                true ->
+                    Acc#{ K1 => V1 };
+                false ->
+                    Acc
+            end
         end,
+        #{},
         Props).
 
 
@@ -285,23 +361,26 @@ sanitize_type_check(<<"list">>, V, Options) -> sanitize_list_check(V, Options);
 sanitize_type_check(<<"int">>, V, _Options) -> sanitize_int(V);
 sanitize_type_check(<<"unsafe">>, V, _Options) -> V;
 sanitize_type_check(_, V, Options) when is_map(V) -> escape_props_check(V, Options);
-sanitize_type_check(_, V, Options) when is_list(V) -> escape_props_check(V, Options);
+sanitize_type_check(_, V, Options) when is_list(V) -> sanitize_list_check(V, Options);
 sanitize_type_check(_, V, _Options) -> escape_value_check(V).
 
 
 sanitize_list_check(L, Options) when is_list(L) ->
-    lists:map(
+    lists:filtermap(
         fun
             ({trans, Tr} = V) when is_list(Tr) ->
                 escape_check(V);
             ({P, V}) ->
                 P1 = z_convert:to_binary(P),
                 V1 = escape_props_check1(P1, V, Options),
-                {P1, V1};
+                case property_filter_cb(P1, V1, Options) of
+                    true -> {true, {P, V1}};
+                    PV -> PV
+                end;
             (V) when is_list(V); is_map(V)->
-                escape_props_check(V, Options);
+                {true, escape_props_check(V, Options)};
             (V) ->
-                escape_value_check(V)
+                {true, escape_value_check(V)}
         end,
         L);
 sanitize_list_check(Map, Options) when is_map(Map) ->
@@ -341,12 +420,9 @@ escape_value_check(V) ->
 escape({trans, Tr}) when is_list(Tr) ->
     Tr1 = lists:filtermap(
         fun
-            ({Lang, V}) when is_atom(Lang) ->
-                V1 = z_convert:to_binary(V),
-                {true, {Lang, escape(V1)}};
-            ({Lang, V}) when is_binary(Lang) ->
+            ({Lang, V}) when is_binary(Lang); is_atom(Lang) ->
                 try
-                    Lang1 = binary_to_existing_atom(Lang, utf8),
+                    Lang1 = sanitize_iso639(Lang),
                     V1 = z_convert:to_binary(V),
                     {true, {Lang1, escape(V1)}}
                 catch _:_ ->
@@ -375,7 +451,7 @@ escape(B) when is_binary(B) ->
 escape1(<<>>, Acc) ->
     Acc;
 escape1(<<"&euro;", T/binary>>, Acc) ->
-    escape1(T, <<Acc/binary, "€">>);
+    escape1(T, <<Acc/binary, "€"/utf8>>);
 escape1(<<$&, T/binary>>, Acc) ->
     escape1(T, <<Acc/binary, "&amp;">>);
 escape1(<<$<, T/binary>>, Acc) ->
@@ -395,12 +471,9 @@ escape1(<<C, T/binary>>, Acc) ->
 escape_check({trans, Tr}) when is_list(Tr) ->
     Tr1 = lists:filtermap(
         fun
-            ({Lang, V}) when is_atom(Lang) ->
-                V1 = z_convert:to_binary(V),
-                {true, {Lang, escape_check(V1)}};
-            ({Lang, V}) when is_binary(Lang) ->
+            ({Lang, V}) when is_binary(Lang); is_atom(Lang) ->
                 try
-                    Lang1 = binary_to_existing_atom(Lang, utf8),
+                    Lang1 = sanitize_iso639(Lang),
                     V1 = z_convert:to_binary(V),
                     {true, {Lang1, escape_check(V1)}}
                 catch _:_ ->
@@ -428,10 +501,53 @@ escape_check(B) when is_binary(B) ->
 escape_check(Other) ->
     Other.
 
+property_filter_cb(K, V, Options) ->
+    case lists:keyfind(property, 1, Options) of
+        {property, F} ->
+            F(K, V);
+        false ->
+            true
+    end.
+
+-define(is_lower_alpha(C), (C >= $a andalso C =< $z)).
+-define(is_alpha(C), ((C >= $a andalso C =< $z)
+                      orelse (C >= $A andalso C =< $Z))).
+-define(is_alpha_digit(C), ((C >= $a andalso C =< $z)
+                     orelse (C >= $A andalso C =< $Z)
+                     orelse (C >= $0 andalso C =< $9))).
+
+% Sanitize a language code, so that "it looks like" an ISO639-1 or -2 code.
+sanitize_iso639(Lang) when is_binary(Lang) ->
+    {Lang1, BaseLang} = case Lang of
+        <<A, B>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
+            {Lang, Lang};
+        <<A, B, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B) ->
+            Rest1 = << <<X>> || <<X>> <= Rest, ?is_alpha(X) >>,
+            {<<A, B, $-, Rest1/binary>>, <<A, B>>};
+        <<A, B, C>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
+            {Lang, Lang};
+        <<A, B, C, $-, Rest/binary>> when ?is_lower_alpha(A), ?is_lower_alpha(B), ?is_lower_alpha(C) ->
+            Rest1 = << <<X>> || <<X>> <= Rest, ?is_alpha_digit(X) >>,
+            {<<A, B, C, $-, Rest1/binary>>, <<A,B>>};
+        <<$x, $-, Rest/binary>> ->
+            Rest1 = << <<C>> || <<C>> <= Rest, ?is_alpha(C) >>,
+            {<<$x, $-, Rest1/binary>>, 'x-other'};
+        _ ->
+            {<<"x-other">>, 'x-other'}
+    end,
+    try
+        binary_to_existing_atom(Lang1, utf8)
+    catch
+        _:_ when is_atom(BaseLang) ->  BaseLang;
+        _:_ when is_binary(BaseLang) -> binary_to_atom(BaseLang, utf8)
+    end;
+sanitize_iso639(Lang) when is_atom(Lang) ->
+    sanitize_iso639(atom_to_binary(Lang, utf8)).
+
 escape_check1(<<>>, Acc) ->
     Acc;
 escape_check1(<<"&euro;", T/binary>>, Acc) ->
-    escape_check1(T, <<Acc/binary, "€">>);
+    escape_check1(T, <<Acc/binary, "€"/utf8>>);
 escape_check1(<<"&amp;", T/binary>>, Acc) ->
     escape_check1(T, <<Acc/binary, "&amp;">>);
 escape_check1(<<"&lt;", T/binary>>, Acc) ->
