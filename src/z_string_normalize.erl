@@ -38,7 +38,7 @@
         orelse C =:= 8233   % paragraph separator
         orelse C =:= 8203   % zero width space
         orelse C =:= 8204   % zero width non-joiner
-        orelse C =:= 8023   % non breaking zero width space
+        orelse C =:= 8239   % narrow no-break space
     ).
 
 -define(is_word_ignore_char(C),
