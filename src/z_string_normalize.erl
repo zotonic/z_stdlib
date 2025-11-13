@@ -12,7 +12,19 @@
 
 -export([ normalize/1 ]).
 
+%% File with all the word mappings in the priv folder.
 -define(WORD_MAPPING_FILE, "normalize-words-mapping.csv").
+
+%% Separators in a lowercased string.
+-define(is_sep(C),
+        C < $0
+        orelse (C > $9 andalso C < $a)
+        orelse (C > $z andalso C < 127)
+        orelse C =:= 160    % non breaking space
+        orelse C =:= 8023   % non breaking zero width space
+        orelse C =:= 8212   % mdash
+        orelse C =:= 8211   % ndash
+    ).
 
 
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
@@ -35,6 +47,7 @@ normalize({trans, [{_, First} | _] = Tr}) ->
     V = proplists:get_value(en, Tr, First),
     normalize(V).
 
+<<<<<<< Updated upstream
 %% Separators in a lowercased string
 -define(is_sep(C),
         C < $0
@@ -48,6 +61,10 @@ normalize({trans, [{_, First} | _] = Tr}) ->
 %% Normalize specific words using custom mappings from CSV file.
 %% This allows language-specific transliterations that differ from 
 %% standard romanization rules.
+=======
+%% Normalize some common (Ukrainian) strings, that would be different when
+%% using the Russian romanization rules.
+>>>>>>> Stashed changes
 normalize_words(B) when is_binary(B) ->
     Ws = normalize_words_word(B, <<>>, []),
     normalize(erlang:iolist_to_binary(Ws), <<>>).
