@@ -184,7 +184,6 @@ normalize(<<"є"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e,$y>>);
 normalize(<<"ą"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$a>>);
 normalize(<<"ę"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$e>>);
 normalize(<<"ć"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$c>>);
-normalize(<<"Ł"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
 normalize(<<"ł"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$l>>);
 normalize(<<"ń"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"ś"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
