@@ -239,7 +239,7 @@ normalize(<<"שּׂ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$s>>);
 normalize(<<"ת"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
 normalize(<<"תּ"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t>>);
 normalize(<<"ת׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$t,$h>>);
-% Hebrew forms used in translitearion from Arabic
+% Hebrew forms used in transliteration from Arabic
 normalize(<<"ח׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$n>>);
 normalize(<<"ט׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$z>>);
 normalize(<<"ע׳ר׳"/utf8,T/binary>>, Acc) -> normalize(T, <<Acc/binary,$g>>);
