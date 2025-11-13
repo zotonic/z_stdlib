@@ -57,14 +57,20 @@ normalize_words_word(<<>>, W, Acc) ->
 normalize_words_word(<<C/utf8, T/binary>>, W, Acc) when ?is_sep(C) ->
     normalize_words_sep(T, <<C/utf8>>, [map_word(W)|Acc]);
 normalize_words_word(<<C/utf8, T/binary>>, W, Acc) ->
-    normalize_words_word(T, <<W/binary, C/utf8>>, Acc).
+    normalize_words_word(T, <<W/binary, C/utf8>>, Acc);
+normalize_words_word(<<_Byte, T/binary>>, W, Acc) ->
+    % Skip invalid UTF-8 byte
+    normalize_words_word(T, W, Acc).
 
 normalize_words_sep(<<>>, W, Acc) ->
     lists:reverse([W|Acc]);
 normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when not (?is_sep(C)) ->
     normalize_words_word(T, <<C/utf8>>, [W|Acc]);
 normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) ->
-    normalize_words_sep(T, <<W/binary, C/utf8>>, Acc).
+    normalize_words_sep(T, <<W/binary, C/utf8>>, Acc);
+normalize_words_sep(<<_Byte, T/binary>>, W, Acc) ->
+    % Skip invalid UTF-8 byte
+    normalize_words_sep(T, W, Acc).
 
 %% Specific word normalizations. The mappings are loaded from a CSV file
 %% and stored in the persistent term storage for efficiency.
