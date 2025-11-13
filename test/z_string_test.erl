@@ -114,8 +114,11 @@ truncatechars_test() ->
 truncatewords_test() ->
     ?assertEqual(<<"foo bar x">>, z_string:truncatewords(<<"foo bar bla">>, 2, <<"x">>)).
 
-normalize_map_words_test() ->
+normalize_map_word_test() ->
     ?assertEqual(<<"odesa">>, z_string:normalize(<<"Одесса"/utf8>>)).
+
+normalize_map_words_test() ->
+    ?assertEqual(<<"the city odesa is ukrainian">>, z_string:normalize(<<"the city Одесса is Ukrainian"/utf8>>)).
 
 normalize_test() ->
     % binary()
