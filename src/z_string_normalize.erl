@@ -12,6 +12,9 @@
 
 -export([ normalize/1 ]).
 
+-define(WORD_MAPPING_FILE, "normalize-words-mapping.csv").
+
+
 %% @doc Transliterate an unicode string to an ascii string with lowercase characters.
 %% Tries to transliterate some characters to a..z
 -spec normalize(string() | binary() | atom() | {trans, list()} | undefined) -> binary().
@@ -72,8 +75,14 @@ map_word(W) ->
         maps:get(W, Mapping, W)
     catch
         error:badarg ->
-            Filename = filename:join(code:priv_dir(zotonic_stdlib), "normalize-words-mapping.csv"),
-            {ok, Data} = file:read_file(Filename),
+            Filename = filename:join(code:priv_dir(zotonic_stdlib), ?WORD_MAPPING_FILE),
+            {ok, Data} = case file:read_file(Filename) of
+                {ok, _} = Ok ->
+                    Ok;
+                {error, _} ->
+                    % Needed for some tests in CI
+                    file:read_file(filename:join("priv", ?WORD_MAPPING_FILE))
+            end,
             Lines = binary:split(Data, [ <<"\n">>, <<"\r">> ], [ global, trim_all ]),
             NewMapping = lists:foldl(
                 fun
