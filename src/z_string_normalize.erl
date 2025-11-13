@@ -47,7 +47,7 @@ normalize({trans, [{_, First} | _] = Tr}) ->
 
 %% Normalize some common (Ukrainian) strings, that would be different when
 %% using the Russian romanization rules.
-normalize_words(B) ->
+normalize_words(B) when is_binary(B) ->
     Ws = normalize_words_word(B, <<>>, []),
     normalize(erlang:iolist_to_binary(Ws), <<>>).
 
@@ -60,7 +60,7 @@ normalize_words_word(<<C/utf8, T/binary>>, W, Acc) ->
 
 normalize_words_sep(<<>>, W, Acc) ->
     lists:reverse([W|Acc]);
-normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when not ?is_sep(C) ->
+normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) when not (?is_sep(C)) ->
     normalize_words_word(T, <<C/utf8>>, [W|Acc]);
 normalize_words_sep(<<C/utf8, T/binary>>, W, Acc) ->
     normalize_words_sep(T, <<W/binary, C/utf8>>, Acc).
