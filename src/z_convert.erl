@@ -151,6 +151,14 @@ to_float(L) when is_list(L) ->
 
 %% @doc Quite loose conversion of values to boolean
 -spec to_bool(term()) -> boolean().
+to_bool(true) -> true;
+to_bool(false) -> false;
+to_bool('TRUE') -> true;
+to_bool('FALSE') -> false;
+to_bool('yes') -> true;
+to_bool('no') -> false;
+to_bool('YES') -> true;
+to_bool('NO') -> false;
 to_bool("false") -> false;
 to_bool("FALSE") -> false;
 to_bool("n") -> false;
@@ -173,6 +181,7 @@ to_bool(V) -> to_bool_strict(V).
 % @doc Convert values to boolean values according to the Django rules
 -spec to_bool_strict(term()) -> boolean().
 to_bool_strict(undefined) -> false;
+to_bool_strict(true) -> true;
 to_bool_strict(false) -> false;
 to_bool_strict(0) -> false;
 to_bool_strict(+0.0) -> false;
