@@ -45,6 +45,23 @@ convert_datetime_test() ->
     ?assertDatetime({{2011,10,6},{14,44,0}}, "2011-10-06T16:44:00+0200"),
     ok.
 
+convert_bool_test() ->
+    ?assertEqual(true,  z_convert:to_bool(true)),
+    ?assertEqual(false, z_convert:to_bool(false)),
+    ?assertEqual(true,  z_convert:to_bool('TRUE')),
+    ?assertEqual(false, z_convert:to_bool('FALSE')),
+    ?assertEqual(true,  z_convert:to_bool(yes)),
+    ?assertEqual(false, z_convert:to_bool(no)),
+    ?assertEqual(true,  z_convert:to_bool('YES')),
+    ?assertEqual(false, z_convert:to_bool('NO')),
+    ok.
+
+convert_bool_strict_test() ->
+    ?assertEqual(true,  z_convert:to_bool_strict(true)),
+    ?assertEqual(false, z_convert:to_bool_strict(false)),
+    ?assertEqual(false, z_convert:to_bool_strict(undefined)),
+    ok.
+
 datetime_to_iso_test() ->
     ?assertEqual(<<"2010-09-02T10:11:56Z">>, z_convert:to_isotime({{2010,9,2},{10,11,56}})),
     ?assertEqual(<<"2010-09-02T01:01:01Z">>, z_convert:to_isotime({{2010,9,2},{1,1,1}})),
