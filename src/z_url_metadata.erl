@@ -125,8 +125,9 @@ fetch_data(BaseUrl, Hs, Data) ->
 -spec p(Property, Metadata) -> Value when
     Property :: property() | [ property() ],
     Metadata :: metadata(),
-    Value :: binary() | list( binary() ) | Headers | undefined,
-    Headers :: list({binary(), binary()}).
+    Value :: binary() | list( binary() ) | Headers | Links | undefined,
+    Headers :: list({binary(), binary()}),
+    Links :: #{binary() => [map()]}.
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
