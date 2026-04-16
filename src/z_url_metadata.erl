@@ -12,7 +12,7 @@
 %% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 
-%% Copyright 2014-2025 Marc Worrell
+%% Copyright 2014-2026 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
