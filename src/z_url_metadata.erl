@@ -707,14 +707,20 @@ header_links(Hs, Links) ->
                                     undefined -> HAcc;
                                     <<>> -> HAcc;
                                     Rel ->
-                                        Options1 = maps:from_list(Options),
-                                        Options2 = Options1#{
-                                            <<"href">> => unbracket(Href)
-                                        },
-                                        Options3 = maps:remove(<<"rel">>, Options2),
-                                        HAcc#{
-                                            Rel => [ Options3 | maps:get(Rel, HAcc, []) ]
-                                        }
+                                        Rel1 = z_string:to_lower(z_string:trim(Rel)),
+                                        case Rel1 of
+                                            <<>> ->
+                                                HAcc;
+                                            _ ->
+                                                Options1 = maps:from_list(Options),
+                                                Options2 = Options1#{
+                                                    <<"href">> => unbracket(Href)
+                                                },
+                                                Options3 = maps:remove(<<"rel">>, Options2),
+                                                HAcc#{
+                                                    Rel1 => [ Options3 | maps:get(Rel1, HAcc, []) ]
+                                                }
+                                        end
                                 end
                         end
                     end,
