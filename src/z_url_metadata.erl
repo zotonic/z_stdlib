@@ -331,9 +331,21 @@ unquote_header(<<C, Rest/binary>>, Acc) ->
 -record(ps, { in_nav = false }).
 
 partial_metadata(Url, Hs, Data) ->
-    HsBin = [
-        {z_string:to_lower(z_convert:to_binary(H)), z_convert:to_binary(V)} || {H, V} <- Hs
-    ],
+    HsBin = lists:foldr(
+        fun({H, V}, Acc) ->
+            HBin = z_convert:to_binary(H),
+            VBin = z_convert:to_binary(V),
+            HLower = z_string:to_lower(HBin),
+            case HLower =:= HBin of
+                true ->
+                    [{HLower, VBin} | Acc];
+                false ->
+                    [{HLower, VBin}, {HBin, VBin} | Acc]
+            end
+        end,
+        [],
+        Hs
+    ),
     {CT, CTOpts} = content_type(HsBin),
     IsText = is_text(CT, Data),
     IsHTML = IsText andalso is_html(CT),
