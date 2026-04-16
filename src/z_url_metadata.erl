@@ -327,7 +327,7 @@ parse_header(String) ->
                           unquote_header(z_string:trim(Value))} | Acc]
                 end
         end,
-    {z_string:to_lower(Type), lists:foldr(F, [], Parts)}.
+    {Type, lists:foldr(F, [], Parts)}.
 
 unquote_header(<<"\"", Rest/binary>>) ->
     unquote_header(Rest, <<>>);
@@ -705,7 +705,7 @@ header_links(Hs, Links) ->
                 LinkList = split_link_header(LinkHdr),
                 lists:foldr(
                     fun(Link, HAcc) ->
-                        case parse_link_header(Link) of
+                        case parse_header(Link) of
                             {<<>>, _} ->
                                 HAcc;
                             {Href, Options} ->
@@ -719,9 +719,7 @@ header_links(Hs, Links) ->
                                                 HAcc;
                                             _ ->
                                                 Options1 = maps:from_list(Options),
-                                                Options2 = Options1#{
-                                                    <<"href">> => unbracket(Href)
-                                                },
+                                                Options2 = Options1#{ <<"href">> => unbracket(Href) },
                                                 Options3 = maps:remove(<<"rel">>, Options2),
                                                 HAcc#{
                                                     Rel1 => [ Options3 | maps:get(Rel1, HAcc, []) ]
@@ -739,99 +737,36 @@ header_links(Hs, Links) ->
         Hs).
 
 split_link_header(Bin) ->
-    split_link_header(binary_to_list(Bin), [], [], false, false).
+    split_link_header(Bin, <<>>, [], false, false).
 
-split_link_header([], Current, Acc, _InQuotes, _InUri) ->
-    lists:reverse([ z_string:trim(list_to_binary(lists:reverse(Current))) | Acc ]);
-split_link_header([$,|Rest], Current, Acc, false, false) ->
-    split_link_header(Rest, [], [ z_string:trim(list_to_binary(lists:reverse(Current))) | Acc ], false, false);
-split_link_header([$"|Rest], Current, Acc, InQuotes, InUri) ->
-    split_link_header(Rest, [$"|Current], Acc, not InQuotes, InUri);
-split_link_header([$<|Rest], Current, Acc, InQuotes, false) when not InQuotes ->
-    split_link_header(Rest, [$<|Current], Acc, InQuotes, true);
-split_link_header([$>|Rest], Current, Acc, InQuotes, true) when not InQuotes ->
-    split_link_header(Rest, [$>|Current], Acc, InQuotes, false);
-split_link_header([C|Rest], Current, Acc, InQuotes, InUri) ->
-    split_link_header(Rest, [C|Current], Acc, InQuotes, InUri).
+split_link_header(<<>>, Current, Acc, _InQuotes, _InUri) ->
+    lists:reverse([ z_string:trim(Current) | Acc ]);
+split_link_header(<<$,, Rest/binary>>, Current, Acc, false, false) ->
+    split_link_header(Rest, <<>>, [ z_string:trim(Current) | Acc ], false, false);
+split_link_header(<<$", Rest/binary>>, Current, Acc, InQuotes, InUri) ->
+    split_link_header(Rest, <<Current/binary, $">>, Acc, not InQuotes, InUri);
+split_link_header(<<$<, Rest/binary>>, Current, Acc, InQuotes, false) when not InQuotes ->
+    split_link_header(Rest, <<Current/binary, $<>>, Acc, InQuotes, true);
+split_link_header(<<$>, Rest/binary>>, Current, Acc, InQuotes, true) when not InQuotes ->
+    split_link_header(Rest, <<Current/binary, $>>>, Acc, InQuotes, false);
+split_link_header(<<C, Rest/binary>>, Current, Acc, InQuotes, InUri) ->
+    split_link_header(Rest, <<Current/binary, C>>, Acc, InQuotes, InUri).
 
-parse_link_header(Link) ->
-    case z_string:trim(Link) of
-        <<"<", Rest/binary>> ->
-            case binary:split(Rest, <<">">>, [{parts, 2}]) of
-                [Href, Params] ->
-                    {<<"<", Href/binary, ">">>, parse_link_params(Params)};
-                _ ->
-                    {<<>>, []}
-            end;
-        _ ->
-            {<<>>, []}
-    end.
-
-parse_link_params(Bin) ->
-    lists:reverse(
-        lists:foldl(
-            fun parse_link_param/2,
-            [],
-            split_link_params(Bin)
-        )).
-
-split_link_params(Bin) ->
-    split_link_params(binary_to_list(Bin), [], [], false).
-
-split_link_params([], Current, Acc, _InQuotes) ->
-    lists:reverse([ z_string:trim(list_to_binary(lists:reverse(Current))) | Acc ]);
-split_link_params([$;|Rest], Current, Acc, false) ->
-    split_link_params(Rest, [], [ z_string:trim(list_to_binary(lists:reverse(Current))) | Acc ], false);
-split_link_params([$"|Rest], Current, Acc, InQuotes) ->
-    split_link_params(Rest, [$"|Current], Acc, not InQuotes);
-split_link_params([C|Rest], Current, Acc, InQuotes) ->
-    split_link_params(Rest, [C|Current], Acc, InQuotes).
-
-parse_link_param(Param, Acc) ->
-    case z_string:trim(Param) of
-        <<>> ->
-            Acc;
-        Trimmed ->
-            case binary:split(Trimmed, <<"=">>, [{parts, 2}]) of
-                [Name, Value] ->
-                    Name1 = z_string:to_lower(z_string:trim(Name)),
-                    Value1 = strip_link_param_value(z_string:trim(Value)),
-                    Value2 = case Name1 of
-                                 <<"rel">> -> z_string:to_lower(Value1);
-                                 _ -> Value1
-                             end,
-                    [{Name1, Value2} | Acc];
-                [Name] ->
-                    [{z_string:to_lower(z_string:trim(Name)), <<>>} | Acc]
-            end
-    end.
-
-strip_link_param_value(Bin) ->
-    Size = byte_size(Bin),
-    case Bin of
-        <<$", _/binary>> when Size >= 2 ->
-            case binary:at(Bin, Size - 1) of
-                $" -> binary:part(Bin, 1, Size - 2);
-                _ -> Bin
-            end;
-        _ ->
-            Bin
-    end.
-
-unbracket(<<"<", Link/binary>>) ->
-    case binary:last(Link) of
-        $> -> binary:part(Link, 0, byte_size(Link) - 1);
-        _ -> Link
+unbracket(<<"<", _/binary>> = Hdr) ->
+    case binary:last(Hdr) of
+        $> -> binary:part(Hdr, 1, byte_size(Hdr) - 2);
+        _ -> Hdr
     end;
-unbracket(Link) ->
-    Link.
+unbracket(Hdr) ->
+    Hdr.
 
 content_type(Hs) ->
     case proplists:get_value(<<"content-type">>, Hs) of
         undefined ->
             {<<"application/octet-stream">>, []};
         CT ->
-            parse_header(CT)
+            {Type, Params} = parse_header(CT),
+            {z_string:to_lower(Type), Params}
     end.
 
 content_length(Hs) ->
