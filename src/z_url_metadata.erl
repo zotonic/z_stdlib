@@ -469,13 +469,18 @@ tag({<<"title">>, _As, Es}, MD, P) ->
     {[{title, Text} | MD], P};
 tag({<<"link">>, As, _}, MD, P) ->
     Rel = z_string:to_lower(proplists:get_value(<<"rel">>, As)),
-    HRef = case proplists:get_value(<<"href">>, As) of
-        undefined -> undefined;
-        H -> z_string:trim(H)
-    end,
-    MD1 = meta_link(Rel, HRef, As, MD),
-    MD2 = links(Rel, HRef, As, MD1),
-    {MD2, P};
+    case Rel of
+        <<>> ->
+            {MD, P};
+        _ ->
+            HRef = case proplists:get_value(<<"href">>, As) of
+                undefined -> undefined;
+                H -> z_string:trim(H)
+            end,
+            MD1 = meta_link(Rel, HRef, As, MD),
+            MD2 = links(Rel, HRef, As, MD1),
+            {MD2, P}
+    end;
 tag({<<"img">>, As, _}, MD, P) ->
     case proplists:get_value(<<"src">>, As, <<>>) of
         <<>> ->
