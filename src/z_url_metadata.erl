@@ -94,14 +94,31 @@ fetch(Url, Options) ->
 
 %% @doc Parse metadata from the given headers and data, if an empty header
 %% list is given, then a header with content-type html is added.
+%%
+%% This compatibility variant has no source URL, so callers that need correct
+%% normalization of relative metadata values should use fetch_data/3 and pass
+%% the final/base URL of the fetched content.
 -spec fetch_data(Headers, Data) -> {ok, metadata()} when
     Headers :: list(),
     Data :: binary().
 fetch_data([], Data) ->
     Hs = [ {<<"content-type">>, <<"text/html">>} ],
-    fetch_data(Hs, Data);
+    fetch_data(<<"https://example.com/">>, Hs, Data);
 fetch_data(Hs, Data) ->
-    {ok, partial_metadata(<<"https://example.com/">>, Hs, Data)}.
+    fetch_data(<<"https://example.com/">>, Hs, Data).
+
+%% @doc Parse metadata from the given base/final URL, headers and data.
+%% If an empty header list is given, then a header with content-type html is added.
+-spec fetch_data(binary()|string(), Headers, Data) -> {ok, metadata()} when
+    Headers :: list(),
+    Data :: binary().
+fetch_data(BaseUrl, [], Data) ->
+    Hs = [ {<<"content-type">>, <<"text/html">>} ],
+    fetch_data(BaseUrl, Hs, Data);
+fetch_data(BaseUrl, Hs, Data) when is_list(BaseUrl) ->
+    fetch_data(unicode:characters_to_binary(BaseUrl), Hs, Data);
+fetch_data(BaseUrl, Hs, Data) ->
+    {ok, partial_metadata(BaseUrl, Hs, Data)}.
 
 
 %% @doc Fetch properties of the fetched metadata
