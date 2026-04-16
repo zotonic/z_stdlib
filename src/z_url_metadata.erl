@@ -1,5 +1,5 @@
 %% @author Marc Worrell
-%% @copyright 2014-2025 Marc Worrell
+%% @copyright 2014-2026 Marc Worrell
 %% @doc Discover metadata about an url. Follows redirects
 %% and URL shorteners, and then fetches the data at the final URL
 %% to inspect for metadata tags, content headers and the first part of the HTML.
@@ -12,7 +12,7 @@
 %% Only the first MB of data is fetched, this prevents fetching large objects.
 %% @end
 
-%% Copyright 2014-2025 Marc Worrell
+%% Copyright 2014-2026 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@
 -export([
     fetch/1,
     fetch/2,
+    fetch_data/2,
+    fetch_data/3,
     html_meta/1,
     p/2,
     header/2,
@@ -44,7 +46,7 @@
 
 -type metadata() :: #url_metadata{}.
 -type property() :: mime | mime_options | site_name | content_length |
-    url | canonical_url | short_url | final_url |
+    url | canonical_url | short_url | final_url | links |
     headers | title | h1 | summary | tags | filename |
     mtitle | description | keywords | author | charset | language |
     image | image_nav | thumbnail |
@@ -66,12 +68,14 @@
 -define(IMG_SMALL_SIZE, 16).
 
 
-%% @doc Fetch metadata information for the URL
+%% @doc Fetch metadata information for the URL with default fetch options.
 -spec fetch(binary()|string()) -> {ok, metadata()} | {error, term()}.
 fetch(Url) ->
     fetch(Url, []).
 
-
+%% @doc Fetch metadata information for the URL, with url fetch options. The data of the
+%% URL is fetched partially, with a default maximum length of 1MB. The returned metadata
+%% is extracted from the fetched data and http headers.
 -spec fetch(binary()|string(), z_url_fetch:options()) -> {ok, metadata()} | {error, term()}.
 fetch(Url, Options) ->
     Options1 = case proplists:is_defined(max_length, Options) of
@@ -89,13 +93,42 @@ fetch(Url, Options) ->
             Error
     end.
 
+%% @doc Parse metadata from the given headers and data, if an empty header
+%% list is given, then a header with content-type html is added.
+%%
+%% This compatibility variant has no source URL, so callers that need correct
+%% normalization of relative metadata values should use fetch_data/3 and pass
+%% the final/base URL of the fetched content.
+-spec fetch_data(Headers, Data) -> {ok, metadata()} when
+    Headers :: list(),
+    Data :: binary().
+fetch_data([], Data) ->
+    Hs = [ {<<"content-type">>, <<"text/html">>} ],
+    fetch_data(<<"https://example.com/">>, Hs, Data);
+fetch_data(Hs, Data) ->
+    fetch_data(<<"https://example.com/">>, Hs, Data).
+
+%% @doc Parse metadata from the given base/final URL, headers and data.
+%% If an empty header list is given, then a header with content-type html is added.
+-spec fetch_data(binary()|string(), Headers, Data) -> {ok, metadata()} when
+    Headers :: list(),
+    Data :: binary().
+fetch_data(BaseUrl, [], Data) ->
+    Hs = [ {<<"content-type">>, <<"text/html">>} ],
+    fetch_data(BaseUrl, Hs, Data);
+fetch_data(BaseUrl, Hs, Data) when is_list(BaseUrl) ->
+    fetch_data(unicode:characters_to_binary(BaseUrl), Hs, Data);
+fetch_data(BaseUrl, Hs, Data) ->
+    {ok, partial_metadata(BaseUrl, Hs, Data)}.
+
 
 %% @doc Fetch properties of the fetched metadata
 -spec p(Property, Metadata) -> Value when
     Property :: property() | [ property() ],
     Metadata :: metadata(),
-    Value :: binary() | list( binary() ) | Headers | undefined,
-    Headers :: list({binary(), binary()}).
+    Value :: binary() | list( binary() ) | Headers | Links | undefined,
+    Headers :: list({binary(), binary()}),
+    Links :: #{binary() => [map()]}.
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
@@ -130,6 +163,8 @@ p(content_length, MD) ->
     MD#url_metadata.content_length;
 p(headers, MD) ->
     MD#url_metadata.headers;
+p(links, MD) ->
+    MD#url_metadata.links;
 p(title, MD) ->
     case p1([<<"og:title">>, <<"twitter:title">>, mtitle, h1, title], MD) of
         undefined -> p(filename, MD);
@@ -293,7 +328,7 @@ parse_header(String) ->
                           unquote_header(z_string:trim(Value))} | Acc]
                 end
         end,
-    {z_string:to_lower(Type), lists:foldr(F, [], Parts)}.
+    {Type, lists:foldr(F, [], Parts)}.
 
 unquote_header(<<"\"", Rest/binary>>) ->
     unquote_header(Rest, <<>>);
@@ -315,17 +350,43 @@ unquote_header(<<C, Rest/binary>>, Acc) ->
 -record(ps, { in_nav = false }).
 
 partial_metadata(Url, Hs, Data) ->
-    HsBin = [ {z_convert:to_binary(H), z_convert:to_binary(V)} || {H, V} <- Hs ],
+    HsBin = lists:foldr(
+        fun({H, V}, Acc) ->
+            HBin = z_convert:to_binary(H),
+            VBin = z_convert:to_binary(V),
+            HLower = z_string:to_lower(HBin),
+            case HLower =:= HBin of
+                true ->
+                    [{HLower, VBin} | Acc];
+                false ->
+                    [{HLower, VBin}, {HBin, VBin} | Acc]
+            end
+        end,
+        [],
+        Hs
+    ),
     {CT, CTOpts} = content_type(HsBin),
     IsText = is_text(CT, Data),
     IsHTML = IsText andalso is_html(CT),
     Data1 = maybe_convert_utf8(IsText, IsHTML, proplists:get_value(<<"charset">>, CTOpts), Data),
+    MetadataList = html_meta(IsHTML, Data1),
+    {LinkList, MetadataList1} = lists:partition(fun({P, _}) -> P =:= link end, MetadataList),
+    Links = lists:foldr(
+        fun({link, {Rel, As}}, Acc) ->
+            Acc#{
+                Rel => [ As | maps:get(Rel, Acc, []) ]
+            }
+        end,
+        #{},
+        LinkList),
+    Links1 = header_links(HsBin, Links),
     #url_metadata{
         final_url = z_convert:to_binary(Url),
         content_type = CT,
         content_type_options = CTOpts,
         content_length = content_length(HsBin),
-        metadata = html_meta(IsHTML, Data1),
+        metadata = MetadataList1,
+        links = Links1,
         is_index_page = is_index_page(Url),
         headers = HsBin,
         partial_data = Data
@@ -409,9 +470,19 @@ tag({<<"title">>, _As, Es}, MD, P) ->
     Text = z_string:trim(fetch_text(Es, <<>>)),
     {[{title, Text} | MD], P};
 tag({<<"link">>, As, _}, MD, P) ->
-    Name = z_string:to_lower(proplists:get_value(<<"rel">>, As)),
-    Content = proplists:get_value(<<"href">>, As),
-    {meta_link(Name, Content, As, MD), P};
+    Rel = z_string:to_lower(proplists:get_value(<<"rel">>, As)),
+    case Rel of
+        <<>> ->
+            {MD, P};
+        _ ->
+            HRef = case proplists:get_value(<<"href">>, As) of
+                undefined -> undefined;
+                H -> z_string:trim(H)
+            end,
+            MD1 = meta_link(Rel, HRef, As, MD),
+            MD2 = links(Rel, HRef, As, MD1),
+            {MD2, P}
+    end;
 tag({<<"img">>, As, _}, MD, P) ->
     case proplists:get_value(<<"src">>, As, <<>>) of
         <<>> ->
@@ -481,6 +552,15 @@ meta_link(<<"icon">>, Content, As, MD) ->
 meta_link(<<"shortcut icon">>, Content, _As, MD) -> [{icon_shortcut, Content}|MD];
 meta_link(<<"apple-touch-icon">>, Content, _As, MD) -> [{icon_touch, Content}|MD];
 meta_link(_Name, _Content, _As, MD) -> MD.
+
+links(_Rel, undefined, _As, MD) ->
+    MD;
+links(_Rel, <<>>, _As, MD) ->
+    MD;
+links(Rel, Href, As, MD) ->
+    As1 = maps:from_list(As),
+    As2 = As1#{ <<"href">> => Href },
+    [ {link, {Rel, maps:remove(<<"rel">>, As2)}} | MD ].
 
 split_class(undefined) -> [];
 split_class(Class) -> binary:split(Class, <<" ">>, [global]).
@@ -619,13 +699,75 @@ meta_charset(Ch, Html) ->
         _ -> Ch
     end.
 
+header_links(Hs, Links) ->
+    lists:foldr(
+        fun
+            ({<<"link">>, LinkHdr}, Acc) ->
+                LinkList = split_link_header(LinkHdr),
+                lists:foldr(
+                    fun(Link, HAcc) ->
+                        case parse_header(Link) of
+                            {<<>>, _} ->
+                                HAcc;
+                            {Href, Options} ->
+                                case proplists:get_value(<<"rel">>, Options) of
+                                    undefined -> HAcc;
+                                    <<>> -> HAcc;
+                                    Rel ->
+                                        Rel1 = z_string:to_lower(z_string:trim(Rel)),
+                                        case Rel1 of
+                                            <<>> ->
+                                                HAcc;
+                                            _ ->
+                                                Options1 = maps:from_list(Options),
+                                                Options2 = Options1#{ <<"href">> => unbracket(Href) },
+                                                Options3 = maps:remove(<<"rel">>, Options2),
+                                                HAcc#{
+                                                    Rel1 => [ Options3 | maps:get(Rel1, HAcc, []) ]
+                                                }
+                                        end
+                                end
+                        end
+                    end,
+                    Acc,
+                    LinkList);
+            ({_, _}, Acc) ->
+                Acc
+        end,
+        Links,
+        Hs).
+
+split_link_header(Bin) ->
+    split_link_header(Bin, <<>>, [], false, false).
+
+split_link_header(<<>>, Current, Acc, _InQuotes, _InUri) ->
+    lists:reverse([ z_string:trim(Current) | Acc ]);
+split_link_header(<<$,, Rest/binary>>, Current, Acc, false, false) ->
+    split_link_header(Rest, <<>>, [ z_string:trim(Current) | Acc ], false, false);
+split_link_header(<<$", Rest/binary>>, Current, Acc, InQuotes, InUri) ->
+    split_link_header(Rest, <<Current/binary, $">>, Acc, not InQuotes, InUri);
+split_link_header(<<$<, Rest/binary>>, Current, Acc, InQuotes, false) when not InQuotes ->
+    split_link_header(Rest, <<Current/binary, $<>>, Acc, InQuotes, true);
+split_link_header(<<$>, Rest/binary>>, Current, Acc, InQuotes, true) when not InQuotes ->
+    split_link_header(Rest, <<Current/binary, $>>>, Acc, InQuotes, false);
+split_link_header(<<C, Rest/binary>>, Current, Acc, InQuotes, InUri) ->
+    split_link_header(Rest, <<Current/binary, C>>, Acc, InQuotes, InUri).
+
+unbracket(<<"<", _/binary>> = Hdr) ->
+    case binary:last(Hdr) of
+        $> -> binary:part(Hdr, 1, byte_size(Hdr) - 2);
+        _ -> Hdr
+    end;
+unbracket(Hdr) ->
+    Hdr.
+
 content_type(Hs) ->
     case proplists:get_value(<<"content-type">>, Hs) of
         undefined ->
             {<<"application/octet-stream">>, []};
         CT ->
-            {Mime, Options} = parse_header(CT),
-            {z_convert:to_binary(Mime), Options}
+            {Type, Params} = parse_header(CT),
+            {z_string:to_lower(Type), Params}
     end.
 
 content_length(Hs) ->
@@ -686,6 +828,68 @@ partial_ampersant_in_html_meta_test() ->
     Data = <<"<meta name=\"description\" content=\"Example & Stuff\"><title>Foo &amp; Co</title>">>,
     ?assertEqual([{description, <<"Example & Stuff">>},
         {title, <<"Foo & Co">>}], html_meta(Data)),
+    ok.
+
+links_header_test() ->
+    Data = <<"
+<head>
+<link rel=alternate href=\"/en/html\" hreflang=en type=text/html title=\"English HTML\">
+<link rel=alternate href=\"/fr/html\" hreflang=fr type=text/html title=\"French HTML\">
+<link rel=alternate href=\"/en/html/print\" hreflang=en type=text/html media=print title=\"English HTML (for printing)\">
+<link rel=alternate href=\"/fr/html/print\" hreflang=fr type=text/html media=print title=\"French HTML (for printing)\">
+<link rel=alternate href=\"/en/pdf\" hreflang=en type=application/pdf title=\"English PDF\">
+<link rel=alternate href=\"/fr/pdf\" hreflang=fr type=application/pdf title=\"French PDF\">
+</head>
+    ">>,
+    Links = #{
+        <<"alternate">> => [
+            #{ <<"href">> => <<"/en/html">>,
+               <<"hreflang">> => <<"en">>,
+               <<"type">> => <<"text/html">>,
+               <<"title">> => <<"English HTML">> },
+            #{ <<"href">> => <<"/fr/html">>,
+               <<"hreflang">> => <<"fr">>,
+               <<"type">> => <<"text/html">>,
+               <<"title">> => <<"French HTML">> },
+            #{ <<"href">> => <<"/en/html/print">>,
+               <<"hreflang">> => <<"en">>,
+               <<"type">> => <<"text/html">>,
+               <<"media">> => <<"print">>,
+               <<"title">> => <<"English HTML (for printing)">> },
+            #{ <<"href">> => <<"/fr/html/print">>,
+               <<"hreflang">> => <<"fr">>,
+               <<"type">> => <<"text/html">>,
+               <<"media">> => <<"print">>,
+               <<"title">> => <<"French HTML (for printing)">> },
+            #{ <<"href">> => <<"/en/pdf">>,
+               <<"hreflang">> => <<"en">>,
+               <<"type">> => <<"application/pdf">>,
+               <<"title">> => <<"English PDF">> },
+            #{ <<"href">> => <<"/fr/pdf">>,
+               <<"hreflang">> => <<"fr">>,
+               <<"type">> => <<"application/pdf">>,
+               <<"title">> => <<"French PDF">>}
+        ],
+        <<"hub">> => [
+            #{ <<"href">> => <<"https://hub.example.com/">> }
+        ],
+        <<"self">> => [
+            #{ <<"href">> => <<"https://example.com/feed">> }
+        ]
+    },
+    Hs1 = [
+        {<<"content-type">>, <<"text/html">>},
+        {"Link", "<https://hub.example.com/>; rel=\"hub\""},
+        {"Link", "<https://example.com/feed>; rel=\"self\""}
+    ],
+    MD1 = partial_metadata(<<"http://example.com">>, Hs1, Data),
+    ?assertEqual(Links, MD1#url_metadata.links),
+    Hs2 = [
+        {<<"content-type">>, <<"text/html">>},
+        {"Link", "<https://hub.example.com/>; rel=\"hub\", <https://example.com/feed>; rel=\"self\""}
+    ],
+    MD2 = partial_metadata(<<"http://example.com">>, Hs2, Data),
+    ?assertEqual(Links, MD2#url_metadata.links),
     ok.
 
 -endif.
