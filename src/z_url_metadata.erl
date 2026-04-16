@@ -34,6 +34,7 @@
     fetch/1,
     fetch/2,
     fetch_data/2,
+    fetch_data/3,
     html_meta/1,
     p/2,
     header/2,
