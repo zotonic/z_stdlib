@@ -116,7 +116,7 @@ UBF-A encoding and decoding routines. Safe for atoms and maximum memory size.
 
 Maps are encoded as a UBF-A list of `{Key, Value}` tuples followed by the type
 tag `` `map` ``. For example, `#{a => 1, b => 2}` is encoded as
-`#{'b',2}&{'a',1}&`map`$`. The pair order is canonicalized by Erlang term order
+``#{'b',2}&{'a',1}&`map`$``. The pair order is canonicalized by Erlang term order
 before encoding. Decoding accepts the pair list and converts it with
 `maps:from_list/1`; duplicate keys follow the same last-value-wins semantics.
 
