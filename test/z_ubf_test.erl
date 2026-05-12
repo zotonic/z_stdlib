@@ -50,6 +50,11 @@ map_duplicate_keys_decode_test() ->
     {ok, M, _} = z_ubf:decode(<<"#{'a',1}&{'a',2}&`map`$">>),
     ?assertEqual(#{a => 2}, M).
 
+map_size_limit_test() ->
+    Enc = <<"#{1~a~,1~b~}&`map`$">>,
+    ?assertEqual({ok, #{<<"a">> => <<"b">>}, <<>>}, z_ubf:decode(Enc, 8)),
+    ?assertEqual({error, size}, z_ubf:decode(Enc, 7)).
+
 empty_map_test() ->
     M = #{},
     {ok, Enc} = z_ubf:encode(M),

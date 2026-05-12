@@ -127,7 +127,7 @@ get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
             decode1(T, TS, Dict, MaxSize);
         <<"map">> ->
             Map = maps:from_list(lists:reverse(H)),
-            decode1(T, [[Map|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(Map));
+            decode1(T, [[Map|Tail]|Stack], Dict, MaxSize - map_container_size(Map));
         <<"f">> ->
             F = erlang:binary_to_float(H),
             decode1(T, [[F|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(F));
@@ -158,6 +158,16 @@ expect_tilde(<<>>, Stack, Dict, MaxSize) ->
     {more, fun(I) -> expect_tilde(I, Stack, Dict, MaxSize) end};
 expect_tilde(<<H,_/binary>>, _Stack, _Dict, _MaxSize) ->
     exit({expect_tilde, H}).
+
+map_container_size(Map) ->
+    %% The map keys and values were already charged while decoding the UBF-A
+    %% pair list. Only charge the additional map container, not the subterms.
+    max(0, maps:fold(
+        fun(K, V, Size) ->
+            Size - erts_debug:size(K) - erts_debug:size(V)
+        end,
+        erts_debug:size(Map),
+        Map)).
 
 push(X, [Top|Rest]) ->
     [[X|Top]|Rest];
