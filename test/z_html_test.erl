@@ -106,6 +106,12 @@ nonhtml_test() ->
 unescape_test() ->
 	?assertEqual(<<"<>">>, z_html:unescape(<<"&lt;&gt;">>)),
 	?assertEqual(<<"aap & aap">>, z_html:unescape(<<"aap &amp; aap">>)),
+    ?assertEqual(
+        unicode:characters_to_binary("aap " ++ [258] ++ " aap"),
+        z_html:unescape(<<"aap &Abreve; aap">>)),
+    ?assertEqual(
+        unicode:characters_to_binary("aap " ++ [8766, 819] ++ " aap"),
+        z_html:unescape(<<"aap &acE; aap">>)),
     %%?assertEqual(<<"foo>çbar">>, z_html:unescape("foo&gt;&#231;bar")),
     ?assertEqual(<<"foo&unknown;bar">>, z_html:unescape("foo&unknown;bar")),
 
@@ -274,4 +280,3 @@ filter_css_test() ->
         z_html:sanitize(<<"<span style=\"font-family: 'L\\FC beck'\">...</span>">>)),  
     ok.
     
-

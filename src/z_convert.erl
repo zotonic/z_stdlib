@@ -397,9 +397,9 @@ ip_to_list({_K1,_K2,_K3,_K4,_K5,_K6,_K7,_K8} = IPv6) ->
 
 
 %% Taken from egeoip (http://code.google.com/p/egeoip/source/browse/trunk/egeoip/src/egeoip.erl?r=19)
-%% @spec ip_to_long(Address) -> {ok, integer()} | {error, badmatch}
-%% @doc Convert an IP address from a string, IPv4 tuple or IPv6 tuple to the
-%%      big endian integer representation.
+%% @doc Convert an IPv4 or IPv6 tuple to the big endian integer
+%%      representation.
+-spec ip_to_long(inet:ip_address()) -> {ok, integer()} | {error, badmatch}.
 ip_to_long({B3, B2, B1, B0}) ->
     {ok, (B3 bsl 24) bor (B2 bsl 16) bor (B1 bsl 8) bor B0};
 ip_to_long({W7, W6, W5, W4, W3, W2, W1, W0}) ->

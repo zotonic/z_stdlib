@@ -144,14 +144,14 @@ parse(Input, Options) ->
     parse_tokens(tokens(Input, Options1), Options1).
 
 %% @doc Parse an HTML/XML document to a JSON compatible map. Attributes will be added
-%% as keys in an <tt>@attributes</tt> key. Elements will be mapped to keys with value lists.
+%% as keys in an "@attributes" key. Elements will be mapped to keys with value lists.
 %% all keys are lowercased.
 -spec parse_to_map( Input :: iodata() | {binary, list(), list()} ) -> {ok, map()} | {error, term()}.
 parse_to_map(Input) ->
     parse_to_map(Input, #{ mode => html, escape => true }).
 
 %% @doc Parse an HTML/XML document to a JSON compatible map. Attributes will be added
-%% as keys in an <tt>@attributes</tt> key. Elements will be mapped to keys with value lists.
+%% as keys in an "@attributes" key. Elements will be mapped to keys with value lists.
 %% all keys are lowercased.
 -spec parse_to_map( Input :: iodata() | {binary, list(), list()}, options() ) -> {ok, map()} | {error, term()}.
 parse_to_map({_, _, _} = Tree, _Options) ->
@@ -251,8 +251,8 @@ to_html(Tokens, Options) when is_list(Tokens) ->
     Options1 = opts(Options),
     to_html_1(Tokens, [], Options1).
 
-%% @spec escape(string() | atom() | binary()) -> binary()
 %% @doc Escape a string such that it's safe for HTML (amp; lt; gt;).
+-spec escape(string() | atom() | binary()) -> binary().
 escape(B) when is_binary(B) ->
     escape(binary_to_list(B), []);
 escape(A) when is_atom(A) ->
@@ -260,9 +260,9 @@ escape(A) when is_atom(A) ->
 escape(S) when is_list(S) ->
     escape(S, []).
 
-%% @spec escape_attr(string() | binary() | atom() | integer() | float()) -> binary()
 %% @doc Escape a string such that it's safe for HTML attrs
 %%      (amp; lt; gt; quot;).
+-spec escape_attr(string() | binary() | atom() | integer() | float()) -> binary().
 escape_attr(B) when is_binary(B) ->
     escape_attr(binary_to_list(B), []);
 escape_attr(A) when is_atom(A) ->
