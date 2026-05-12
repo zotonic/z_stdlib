@@ -620,7 +620,7 @@ contains(What, String) ->
         end.
 
 %% @doc Split a string, see http://www.erlang.org/pipermail/erlang-questions/2008-October/038896.html
-%% @spec split(String, String) -> list()
+-spec split(string(), string()) -> [string()].
 split(String, []) ->
      split0(String);
 split(String, [Sep]) when is_integer(Sep) ->

@@ -495,12 +495,17 @@ unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
             unescape(Rest, <<ContAcc/binary, $&, CharAcc/binary, $;>>);
         Ch ->
             %% replace the real char
-            ChBin = unicode:characters_to_binary([Ch]),
+            ChBin = charref_to_binary(Ch),
             unescape(Rest, <<ContAcc/binary, ChBin/binary>>)
     end;
 
 unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
     unescape_in_charref(Rest, <<CharAcc/binary, Ch>>, ContAcc).
+
+charref_to_binary(Ch) when is_integer(Ch) ->
+    unicode:characters_to_binary([Ch]);
+charref_to_binary(Chs) when is_list(Chs) ->
+    unicode:characters_to_binary(Chs).
 
 
 %% @doc Escape a text. Expands any urls to links with a nofollow attribute.

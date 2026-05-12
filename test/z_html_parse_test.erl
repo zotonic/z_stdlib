@@ -647,6 +647,12 @@ parse_charref_test() ->
        {ok, {<<"div">>, [], [<<"&">>]}},
        z_html_parse:parse(D4)),
 
+    D5 = <<"<div>&Abreve; &acE;</div>">>,
+    Expected5 = unicode:characters_to_binary([258, 32, 8766, 819]),
+    ?assertEqual(
+       {ok, {<<"div">>, [], [Expected5]}},
+       z_html_parse:parse(D5)),
+
     ok.
 
 parse_charref_garbage_in_garbage_out_test() ->
