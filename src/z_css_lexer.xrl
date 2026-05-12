@@ -50,9 +50,11 @@ CSS_w           = ({CSS_s}?)
 CSS_nl          = [\n|\r|\f]
 
 A           = (a|A|\\0{0,4}(41|61)\s?)
+B           = (b|B|\\0{0,4}(42|62)\s?|\\b|\\B)
 C           = (c|C|\\0{0,4}(43|63)\s?)
 D           = (d|D|\\0{0,4}(44|64)\s?)
 E           = (e|E|\\0{0,4}(45|65)\s?)
+F           = (f|F|\\0{0,4}(46|66)\s?|\\f|\\F)
 G           = (g|G|\\0{0,4}(47|67)\s?|\\g|\\G)
 H           = (h|H|\\0{0,4}(48|68)\s?|\\h|\\H)
 I           = (i|I|\\0{0,4}(49|69)\s?|\\i|\\I)
@@ -62,10 +64,13 @@ M           = (m|M|\\0{0,4}(4d|6d)\s?|\\m|\\M)
 N           = (n|N|\\0{0,4}(4e|6e)\s?|\\n|\\N)
 O           = (o|O|\\0{0,4}(4f|6f)\s?|\\o|\\O)
 P           = (p|P|\\0{0,4}(50|70)\s?|\\p|\\P)
+Q           = (q|Q|\\0{0,4}(51|71)\s?|\\q|\\Q)
 R           = (r|R|\\0{0,4}(52|72)\s?|\\r|\\R)
 S           = (s|S|\\0{0,4}(53|73)\s?|\\s|\\S)
 T           = (t|T|\\0{0,4}(54|74)\s?|\\t|\\T)
 U           = (u|U|\\0{0,4}(55|75)\s?|\\u|\\U)
+V           = (v|V|\\0{0,4}(56|76)\s?|\\v|\\V)
+W           = (w|W|\\0{0,4}(57|77)\s?|\\w|\\W)
 X           = (x|X|\\0{0,4}(58|78)\s?|\\x|\\X)
 Z           = (z|Z|\\0{0,4}(5a|7a)\s?|\\z|\\Z)
 
@@ -91,6 +96,7 @@ Rules.
 #{CSS_name}                             : make_token(hash, TokenLine, TokenChars).
 
 @{I}{M}{P}{O}{R}{T}                     : make_token(import_sym, TokenLine, TokenChars).
+@{F}{O}{N}{T}-{F}{A}{C}{E}              : make_token(font_face_sym, TokenLine, TokenChars).
 @{P}{A}{G}{E}                           : make_token(page_sym, TokenLine, TokenChars).
 @{M}{E}{D}{I}{A}                        : make_token(media_sym, TokenLine, TokenChars).
 @{C}{H}{A}{R}{S}{E}{T}\s                : make_token(charset_sym, TokenLine, TokenChars).
@@ -99,19 +105,65 @@ Rules.
 
 {CSS_num}{E}{M}                         : make_token(ems, TokenLine, TokenChars).
 {CSS_num}{E}{X}                         : make_token(exs, TokenLine, TokenChars).
+{CSS_num}{C}{A}{P}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{H}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{I}{C}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{H}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{E}{M}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{E}{X}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{C}{A}{P}                   : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{C}{H}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{I}{C}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{R}{L}{H}                      : make_token(length, TokenLine, TokenChars).
 {CSS_num}{P}{X}                         : make_token(length, TokenLine, TokenChars).
 {CSS_num}{C}{M}                         : make_token(length, TokenLine, TokenChars).
 {CSS_num}{M}{M}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{Q}                            : make_token(length, TokenLine, TokenChars).
 {CSS_num}{I}{N}                         : make_token(length, TokenLine, TokenChars).
 {CSS_num}{P}{T}                         : make_token(length, TokenLine, TokenChars).
 {CSS_num}{P}{C}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{W}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{H}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{I}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{B}                         : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{M}{I}{N}                   : make_token(length, TokenLine, TokenChars).
+{CSS_num}{V}{M}{A}{X}                   : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{W}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{H}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{I}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{B}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{S}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{W}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{H}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{I}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{B}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{L}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{W}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{H}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{I}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{B}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{D}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{W}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{H}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{I}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{B}                      : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
+{CSS_num}{C}{Q}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
 {CSS_num}{D}{E}{G}                      : make_token(angle, TokenLine, TokenChars).
 {CSS_num}{R}{A}{D}                      : make_token(angle, TokenLine, TokenChars).
 {CSS_num}{G}{R}{A}{D}                   : make_token(angle, TokenLine, TokenChars).
+{CSS_num}{T}{U}{R}{N}                   : make_token(angle, TokenLine, TokenChars).
 {CSS_num}{M}{S}                         : make_token(time, TokenLine, TokenChars).
 {CSS_num}{S}                            : make_token(time, TokenLine, TokenChars).
 {CSS_num}{H}{Z}                         : make_token(freq, TokenLine, TokenChars).
 {CSS_num}{K}{H}{Z}                      : make_token(freq, TokenLine, TokenChars).
+{CSS_num}{D}{P}{I}                      : make_token(resolution, TokenLine, TokenChars).
+{CSS_num}{D}{P}{C}{M}                   : make_token(resolution, TokenLine, TokenChars).
+{CSS_num}{D}{P}{P}{X}                   : make_token(resolution, TokenLine, TokenChars).
+{CSS_num}{X}                            : make_token(resolution, TokenLine, TokenChars).
 {CSS_num}{CSS_ident}                    : make_token(dimension, TokenLine, TokenChars).
 {CSS_num}%                              : make_token(percentage, TokenLine, TokenChars).
 {CSS_num}                               : make_token(number, TokenLine, TokenChars).
