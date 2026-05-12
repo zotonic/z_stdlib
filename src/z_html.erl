@@ -495,10 +495,13 @@ unescape_in_charref(<<$;, Rest/binary>>, CharAcc, ContAcc) ->
             unescape(Rest, <<ContAcc/binary, $&, CharAcc/binary, $;>>);
         Ch ->
             %% replace the real char
-            ChBin = charref_to_binary(Ch),
-            unescape(Rest, <<ContAcc/binary, ChBin/binary>>)
+            case charref_to_binary(Ch) of
+                ChBin when is_binary(ChBin) ->
+                    unescape(Rest, <<ContAcc/binary, ChBin/binary>>);
+                _ ->
+                    unescape(Rest, ContAcc)
+            end
     end;
-
 unescape_in_charref(<<Ch/integer, Rest/binary>>, CharAcc, ContAcc) ->
     unescape_in_charref(Rest, <<CharAcc/binary, Ch>>, ContAcc).
 
