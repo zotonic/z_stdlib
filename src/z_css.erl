@@ -262,7 +262,7 @@ serialize_media_term({ident, _, Ident}) ->
 serialize_media_term({media_feature, {ident, _, Ident}, undefined}) ->
     [ $(, Ident, $) ];
 serialize_media_term({media_feature, {ident, _, Ident}, Expr}) ->
-    [ $(, Ident, $:, serialize_expr(Expr), $) ].
+    [ $(, Ident, $:, serialize_expr(sanitize_expr(Expr)), $) ].
 
 serialize_rule({rule, SelectorList, Declarations}) ->
     [
