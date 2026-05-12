@@ -48,6 +48,7 @@
             | ident
             | hash
             | import_sym
+            | font_face_sym
             | page_sym
             | media_sym
             | charset_sym
@@ -58,6 +59,7 @@
             | angle
             | time
             | freq
+            | resolution
             | dimension
             | percentage
             | number
@@ -72,7 +74,9 @@
 -type charset() :: no_charset
                  | {charset, string()}.
 
--type media() :: [ {ident, line(), string()} ].
+-type media_term() :: token()
+                    | {media_feature, Name::token(), Value::term() | undefined}.
+-type media() :: [ media_term() ].
 -type medialist() :: [ media() ].
 -type import() :: no_import
                 | {import, Uri::token(), medialist()}.
@@ -186,6 +190,7 @@ sanitize_expr({exs, _, _} = E) -> E;
 sanitize_expr({angle, _, _} = E) -> E;
 sanitize_expr({time, _, _} = E) -> E;
 sanitize_expr({freq, _, _} = E) -> E;
+sanitize_expr({resolution, _, _} = E) -> E;
 sanitize_expr({dimension, _, _} = E) -> E;
 sanitize_expr({percentage, _, _} = E) -> E;
 sanitize_expr({string, Line, S}) -> {string, Line, sanitize_string(S)};
@@ -241,7 +246,23 @@ serialize_medialist([M|Rest]) ->
         end
     ].
 
-serialize_media({ident, _, Ident}) -> Ident.
+serialize_media([]) ->
+    [];
+serialize_media([M|Rest]) ->
+    [
+        serialize_media_term(M),
+        case Rest of
+            [] -> [];
+            Ms -> [ 32, serialize_media(Ms) ]
+        end
+    ].
+
+serialize_media_term({ident, _, Ident}) ->
+    Ident;
+serialize_media_term({media_feature, {ident, _, Ident}, undefined}) ->
+    [ $(, Ident, $) ];
+serialize_media_term({media_feature, {ident, _, Ident}, Expr}) ->
+    [ $(, Ident, $:, serialize_expr(Expr), $) ].
 
 serialize_rule({rule, SelectorList, Declarations}) ->
     [
@@ -324,6 +345,7 @@ serialize_expr({exs, _, V}) -> V;
 serialize_expr({angle, _, V}) -> V;
 serialize_expr({time, _, V}) -> V;
 serialize_expr({freq, _, V}) -> V;
+serialize_expr({resolution, _, V}) -> V;
 serialize_expr({dimension, _, V}) -> V;
 serialize_expr({percentage, _, V}) -> V;
 serialize_expr({string, _, V}) -> V;
@@ -332,4 +354,3 @@ serialize_expr({operator, Op, E1, E2}) ->
     [ serialize_expr(E1), z_convert:to_list(Op), serialize_expr(E2) ];
 serialize_expr({operator, Op, E1}) ->
     [ z_convert:to_list(Op), serialize_expr(E1) ].
-

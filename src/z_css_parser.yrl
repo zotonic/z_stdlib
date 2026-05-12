@@ -22,12 +22,18 @@ Nonterminals
     Stylesheet
     Charset
     Import
+    ImportList
     Location
     MediaList
+    MediaQuery
+    MediaTerm
     Rules
     RuleSetList
     RuleSet
     Media
+    FontFace
+    FontFaceBody
+    FontFaceToken
     Page
     DeclarationList
     Declaration
@@ -49,14 +55,15 @@ Nonterminals
 
 Terminals
 
-    % badcomment
+    badcomment
     includes
     dashmatch
     string
-    % bad_string
+    bad_string
     ident
     hash
     import_sym
+    font_face_sym
     page_sym
     media_sym
     charset_sym
@@ -67,17 +74,19 @@ Terminals
     angle
     time
     freq
+    resolution
     dimension
     percentage
     number
     uri
-    % bad_uri
+    bad_uri
     function
     ';'
     '{'
     '}'
     '['
     ']'
+    '('
     ')'
     ','
     '.'
@@ -96,31 +105,87 @@ Rootsymbol
 %% Expected shift/reduce conflicts
 Expect 0.
 
-Stylesheet -> Charset Import Rules      : {stylesheet, '$1', '$2', '$3'}.
+Stylesheet -> Charset ImportList Rules      : {stylesheet, '$1', '$2', '$3'}.
 
 Charset -> '$empty'                     : no_charset.
 Charset -> charset_sym string ';'       : {charset, '$2'}.
 
-Import -> '$empty'                           : no_import.
 Import -> import_sym Location MediaList ';'  : {import, '$2', '$3'}.
+
+ImportList -> '$empty'                       : no_import.
+ImportList -> Import ImportList              : no_import.
 
 Location -> string                        : '$1'.
 Location -> uri                           : '$1'.
 
 Media -> media_sym MediaList '{' RuleSetList '}' : {media, '$2', '$4'}.
 
-MediaList -> ident                       : ['$1'].
-MediaList -> ident ',' MediaList         : ['$1'] ++ '$3'.
+MediaList -> MediaQuery                       : ['$1'].
+MediaList -> MediaQuery ',' MediaList         : ['$1' | '$3'].
+
+MediaQuery -> MediaTerm                       : ['$1'].
+MediaQuery -> MediaQuery MediaTerm            : '$1' ++ ['$2'].
+
+MediaTerm -> ident                            : '$1'.
+MediaTerm -> '(' ident ')'                    : {media_feature, '$2', undefined}.
+MediaTerm -> '(' ident ':' Expr ')'           : {media_feature, '$2', '$4'}.
 
 Rules -> '$empty'                         : [].
 Rules -> RuleSet Rules                    : ['$1' | '$2'].
 Rules -> Media Rules                      : ['$1' | '$2'].
+Rules -> FontFace Rules                   : '$2'.
 Rules -> Page Rules                       : ['$1' | '$2'].
 
 RuleSetList -> '$empty'                   : [].
 RuleSetList -> RuleSet RuleSetList        : ['$1' | '$2'].
+RuleSetList -> FontFace RuleSetList       : '$2'.
 
 RuleSet -> SelectorList '{' DeclarationList '}' : {rule, '$1', '$3'}.
+
+FontFace -> font_face_sym '{' FontFaceBody '}' : no_font_face.
+
+FontFaceBody -> '$empty'                   : [].
+FontFaceBody -> FontFaceToken FontFaceBody : ['$1' | '$2'].
+
+FontFaceToken -> badcomment                : '$1'.
+FontFaceToken -> includes                  : '$1'.
+FontFaceToken -> dashmatch                 : '$1'.
+FontFaceToken -> string                    : '$1'.
+FontFaceToken -> bad_string                : '$1'.
+FontFaceToken -> ident                     : '$1'.
+FontFaceToken -> hash                      : '$1'.
+FontFaceToken -> import_sym                : '$1'.
+FontFaceToken -> page_sym                  : '$1'.
+FontFaceToken -> media_sym                 : '$1'.
+FontFaceToken -> charset_sym               : '$1'.
+FontFaceToken -> important_sym             : '$1'.
+FontFaceToken -> ems                       : '$1'.
+FontFaceToken -> exs                       : '$1'.
+FontFaceToken -> length                    : '$1'.
+FontFaceToken -> angle                     : '$1'.
+FontFaceToken -> time                      : '$1'.
+FontFaceToken -> freq                      : '$1'.
+FontFaceToken -> resolution                : '$1'.
+FontFaceToken -> dimension                 : '$1'.
+FontFaceToken -> percentage                : '$1'.
+FontFaceToken -> number                    : '$1'.
+FontFaceToken -> uri                       : '$1'.
+FontFaceToken -> bad_uri                   : '$1'.
+FontFaceToken -> function                  : '$1'.
+FontFaceToken -> ';'                       : '$1'.
+FontFaceToken -> '['                       : '$1'.
+FontFaceToken -> ']'                       : '$1'.
+FontFaceToken -> '('                       : '$1'.
+FontFaceToken -> ')'                       : '$1'.
+FontFaceToken -> ','                       : '$1'.
+FontFaceToken -> '.'                       : '$1'.
+FontFaceToken -> ':'                       : '$1'.
+FontFaceToken -> '*'                       : '$1'.
+FontFaceToken -> '/'                       : '$1'.
+FontFaceToken -> '='                       : '$1'.
+FontFaceToken -> '>'                       : '$1'.
+FontFaceToken -> '-'                       : '$1'.
+FontFaceToken -> '+'                       : '$1'.
 
 SelectorList -> Selector                    : ['$1'].
 SelectorList -> SelectorList ',' Selector   : '$1' ++ ['$3'].
@@ -148,6 +213,7 @@ Term -> exs                                 : '$1'.
 Term -> angle                               : '$1'.
 Term -> time                                : '$1'.
 Term -> freq                                : '$1'.
+Term -> resolution                          : '$1'.
 Term -> dimension                           : '$1'.
 Term -> string                              : '$1'.
 Term -> ident                               : '$1'.
@@ -190,5 +256,3 @@ Page -> page_sym PseudoPage '{' DeclarationList '}' : {page, '$2', '$4'}.
 
 PseudoPage -> '$empty'                  : undefined.
 PseudoPage -> ':' ident                 : '$1'.
-
-
