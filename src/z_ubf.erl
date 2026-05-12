@@ -3,7 +3,7 @@
 %%% Adapted for binary strings and data by Marc Worrell
 
 %%% Copyright 2002-2003 Joe Armstrong.
-%%% Copyright 2013 Marc Worrell.
+%%% Copyright 2013-2026 Marc Worrell.
 %%%
 %%% All rights reserved.
 %%%
