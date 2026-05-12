@@ -40,6 +40,7 @@
 %% Int            -> Int
 %% [ ]            -> List
 %% {...}          -> Tuple
+%% #{K,V}&...&`map` -> Map
 
 %% decode_init() -> Cont
 %% decode(Str, Cont) -> {more, Cont'} | {done, Term, Str}
@@ -125,8 +126,8 @@ get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
         <<"plist">> ->
             decode1(T, TS, Dict, MaxSize);
         <<"map">> ->
-            % @todo: add conditional compilation for list to map
-            decode1(T, TS, Dict, MaxSize);
+            Map = maps:from_list(H),
+            decode1(T, [[Map|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(Map));
         <<"f">> ->
             F = erlang:binary_to_float(H),
             decode1(T, [[F|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(F));
@@ -257,6 +258,13 @@ rank({X, _}) ->
 
 analyse({'#S', Str}, Dict) ->
     analyse(Str, Dict);
+analyse(T, Dict) when is_map(T) ->
+    lists:foldl(
+        fun({K, V}, Acc) ->
+            analyse(V, analyse(K, Acc))
+        end,
+        Dict,
+        maps:to_list(T));
 analyse(T, Dict) when is_tuple(T) ->
     lists:foldl(fun analyse/2, Dict, tuple_to_list(T)); 
 analyse(X, Dict) ->
@@ -292,6 +300,9 @@ do_encode({{Y,M,D},{H,I,S}} = DT, Dict, Options)
         undefined -> do_encode(undefined, Dict, Options);
         Timestamp -> [integer_to_binary(Timestamp),"`dt`"]
     end;
+do_encode(Map, Dict, Options) when is_map(Map) ->
+    Enc = encode_list(lists:sort(maps:to_list(Map)), Dict, [], Options),
+    [$#, Enc, "`map`"];
 do_encode([_|_] = List, Dict, Options) ->
     Enc = encode_list(List, Dict, [], Options),
     case list_type(List, Options) of
@@ -345,6 +356,11 @@ add_string([H|_], _Quote) -> exit({string_character,H});
 add_string([], _)            -> [].
 
 deabstract({'#S',S}) -> S;
+deabstract(T) when is_map(T) ->
+    maps:from_list([
+        {deabstract(K), deabstract(V)}
+        || {K, V} <- maps:to_list(T)
+    ]);
 deabstract(T) when is_tuple(T) ->
     list_to_tuple(lists:map(fun deabstract/1, tuple_to_list(T)));
 deabstract([H|T]) -> [deabstract(H)|deabstract(T)];
@@ -360,4 +376,3 @@ datetime_to_timestamp({{9999,_,_},{_,_,_}}) ->
     undefined;
 datetime_to_timestamp({{_,_,_},{_,_,_}} = DT) ->
     calendar:datetime_to_gregorian_seconds(DT) - ?SECS_1970.
-

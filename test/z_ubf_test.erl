@@ -39,6 +39,46 @@ proplist_test() ->
     ?assertEqual(L, L1),
     ?assertEqual(Enc, <<"#{'b',2}&{'a',1}&`plist`$">>).
 
+map_test() ->
+    M = #{a => 1, b => 2},
+    {ok, Enc} = z_ubf:encode(M),
+    {ok, M1, _} = z_ubf:decode(Enc),
+    ?assertEqual(M, M1),
+    ?assertEqual(<<"#{'b',2}&{'a',1}&`map`$">>, Enc).
+
+empty_map_test() ->
+    M = #{},
+    {ok, Enc} = z_ubf:encode(M),
+    {ok, M1, _} = z_ubf:decode(Enc),
+    ?assertEqual(M, M1),
+    ?assertEqual(<<"#`map`$">>, Enc).
+
+nested_map_test() ->
+    M = #{
+        a => #{b => 2},
+        <<"list">> => [#{c => 3}]
+    },
+    {ok, Enc} = z_ubf:encode(M),
+    {ok, M1, _} = z_ubf:decode(Enc),
+    ?assertEqual(M, M1).
+
+map_deabstract_test() ->
+    ?assertEqual(
+        #{
+            a => #{b => 2},
+            "key" => "value"
+        },
+        z_ubf:deabstract(#{
+            a => #{b => 2},
+            {'#S', "key"} => {'#S', "value"}
+        })).
+
+map_stream_decode_test() ->
+    {more, Cont} = z_ubf:decode(<<"#{'b',2}&">>),
+    {done, M, Rest} = z_ubf:decode(<<"{'a',1}&`map`$rest">>, {more, Cont}),
+    ?assertEqual(#{a => 1, b => 2}, M),
+    ?assertEqual(<<"rest">>, Rest).
+
 recordlist_test() ->
     L = [{a,1},{b,2},{a,3},{b,4}],
     {ok, Enc} = z_ubf:encode(L, [{record_names, [a, b]}]),
@@ -51,5 +91,3 @@ recordlist_test() ->
 %    %% was never called, but points to a bug.
 %    C = z_ubf:decode("{'abc"),
 %    z_ubf:decode("d'}$", C).
-
-
