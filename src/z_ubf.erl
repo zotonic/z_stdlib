@@ -126,7 +126,7 @@ get_stuff(<<$`,T/binary>>, $`, L, [[H|Tail]|Stack] = TS, Dict, MaxSize)  ->
         <<"plist">> ->
             decode1(T, TS, Dict, MaxSize);
         <<"map">> ->
-            Map = maps:from_list(H),
+            Map = maps:from_list(lists:reverse(H)),
             decode1(T, [[Map|Tail]|Stack], Dict, MaxSize - erts_debug:flat_size(Map));
         <<"f">> ->
             F = erlang:binary_to_float(H),
