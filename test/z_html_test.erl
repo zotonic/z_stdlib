@@ -211,6 +211,18 @@ sanitize_test() ->
     ?assertEqual(<<"<ol><li>a</li></ol>">>,
         z_html:sanitize(<<"<ol><li>a</li></ol>">>)),
 
+    % name on img should be removed
+    ?assertEqual(<<"<img src=\"/image/foo.jpg\" />">>,
+        z_html:sanitize(<<"<img name='foo' src='/image/foo.jpg'>">>)),
+
+    % name on a should be preserved, while href is stripped from a named anchor
+    ?assertEqual(<<"<a name=\"foo\"></a>">>,
+        z_html:sanitize(<<"<a name='foo' href='#hallo'>">>)),
+
+    % Anchors with name do not have enclosed data
+    ?assertEqual(<<"<a name=\"foo\"></a>">>,
+        z_html:sanitize(<<"<a name='foo'>baz</a>">>)),
+
     ok.
 
 data_url_sanitize_test() ->
