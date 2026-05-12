@@ -215,7 +215,7 @@ sanitize_test() ->
     ?assertEqual(<<"<img src=\"/image/foo.jpg\" />">>,
         z_html:sanitize(<<"<img name='foo' src='/image/foo.jpg'>">>)),
 
-    % name on a should not be removed
+    % name on a should be preserved, while href is stripped from a named anchor
     ?assertEqual(<<"<a name=\"foo\"></a>">>,
         z_html:sanitize(<<"<a name='foo' href='#hallo'>">>)),
 
