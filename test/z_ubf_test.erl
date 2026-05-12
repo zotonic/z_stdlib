@@ -46,6 +46,10 @@ map_test() ->
     ?assertEqual(M, M1),
     ?assertEqual(<<"#{'b',2}&{'a',1}&`map`$">>, Enc).
 
+map_duplicate_keys_decode_test() ->
+    {ok, M, _} = z_ubf:decode(<<"#{'a',1}&{'a',2}&`map`$">>),
+    ?assertEqual(#{a => 2}, M).
+
 empty_map_test() ->
     M = #{},
     {ok, Enc} = z_ubf:encode(M),
