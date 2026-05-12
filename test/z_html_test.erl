@@ -217,7 +217,11 @@ sanitize_test() ->
 
     % name on a should not be removed
     ?assertEqual(<<"<a name=\"foo\"></a>">>,
-        z_html:sanitize(<<"<a name='foo'>">>)),
+        z_html:sanitize(<<"<a name='foo' href='#hallo'>">>)),
+
+    % Anchors with name do not have enclosed data
+    ?assertEqual(<<"<a name=\"foo\"></a>">>,
+        z_html:sanitize(<<"<a name='foo'>baz</a>">>)),
 
     ok.
 

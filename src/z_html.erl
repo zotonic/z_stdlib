@@ -882,7 +882,17 @@ sanitize({<<"svg">>, _Attrs, _Enclosed} = Element, _Stack, ExtraElts, _ExtraAttr
         false ->
             {nop, []}
     end;
-sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
+sanitize({<<"a">>, Attrs, _Enclosed} = E, Stack, ExtraElts, ExtraAttrs, Options) ->
+    case lists:keyfind(<<"name">>, 1, Attrs) of
+        {<<"name">>, _} = Name ->
+            sanitize_1({<<"a">>, [ Name ], []}, Stack, ExtraElts, ExtraAttrs, Options);
+        false ->
+            sanitize_1(E, Stack, ExtraElts, ExtraAttrs, Options)
+    end;
+sanitize({_Elt, _Attrs, _Enclosed} = E, Stack, ExtraElts, ExtraAttrs, Options) ->
+    sanitize_1(E, Stack, ExtraElts, ExtraAttrs, Options).
+
+sanitize_1({Elt, Attrs, Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
     case allow_elt(Elt, ExtraElts) orelse (not lists:member(Elt, Stack) andalso allow_once(Elt)) of
         true ->
             Attrs1 = lists:filter(fun({A,_}) -> allow_attr(Elt, A, ExtraAttrs) end, Attrs),
