@@ -211,6 +211,14 @@ sanitize_test() ->
     ?assertEqual(<<"<ol><li>a</li></ol>">>,
         z_html:sanitize(<<"<ol><li>a</li></ol>">>)),
 
+    % name on img should be removed
+    ?assertEqual(<<"<img src=\"/image/foo.jpg\" />">>,
+        z_html:sanitize(<<"<img name='foo' src='/image/foo.jpg'>">>)),
+
+    % name on a should not be removed
+    ?assertEqual(<<"<a name=\"foo\"></a>">>,
+        z_html:sanitize(<<"<a name='foo'>">>)),
+
     ok.
 
 data_url_sanitize_test() ->

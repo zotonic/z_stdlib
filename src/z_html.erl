@@ -1,5 +1,5 @@
 %% @author Marc Worrell <marc@worrell.nl>
-%% @copyright 2009-2025 Marc Worrell
+%% @copyright 2009-2026 Marc Worrell
 %% @doc Utility functions sanitizing, escaping and filtering HTML, and sanitize property lists/maps.
 %%
 %% Utiliy functions to:
@@ -13,7 +13,7 @@
 %% - Make relative URLs absolute based on a base URL.
 %% @end
 
-%% Copyright 2009-2025 Marc Worrell
+%% Copyright 2009-2026 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -885,7 +885,7 @@ sanitize({<<"svg">>, _Attrs, _Enclosed} = Element, _Stack, ExtraElts, _ExtraAttr
 sanitize({Elt,Attrs,Enclosed}, Stack, ExtraElts, ExtraAttrs, Options) ->
     case allow_elt(Elt, ExtraElts) orelse (not lists:member(Elt, Stack) andalso allow_once(Elt)) of
         true ->
-            Attrs1 = lists:filter(fun({A,_}) -> allow_attr(A, ExtraAttrs) end, Attrs),
+            Attrs1 = lists:filter(fun({A,_}) -> allow_attr(Elt, A, ExtraAttrs) end, Attrs),
             Stack1 = [Elt|Stack],
             Tag = { Elt, 
                     Attrs1,
@@ -1115,7 +1115,17 @@ allow_elt(<<"wbr">>) -> true;
 allow_elt(_) -> false.
 
 %% @doc Allowed attributes
-allow_attr(Attr, Extra) ->
+allow_attr(Elt, <<"name">>, _Extra)
+    when Elt =:= <<"meta">>;
+         Elt =:= <<"a">>;
+         Elt =:= <<"input">>;
+         Elt =:= <<"select">>;
+         Elt =:= <<"textarea">>;
+         Elt =:= <<"button">> ->
+    % Prevent overriding 'document' properties by named elements.
+    % Exceptions are names on input and anchor elements.
+    true;
+allow_attr(_Elt, Attr, Extra) ->
     allow_attr(Attr) orelse lists:member(Attr, Extra).
 
 allow_attr(<<"align">>) -> true;
@@ -1132,9 +1142,7 @@ allow_attr(<<"coords">>) -> true;
 allow_attr(<<"dir">>) -> true;
 allow_attr(<<"height">>) -> true;
 allow_attr(<<"href">>) -> true;
-%allow_attr(<<"id">>) -> true;
 allow_attr(<<"loop">>) -> true;
-allow_attr(<<"name">>) -> true;
 allow_attr(<<"poster">>) -> true;
 allow_attr(<<"preload">>) -> true;
 allow_attr(<<"rel">>) -> true;
