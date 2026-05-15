@@ -397,8 +397,7 @@ ip_to_list({_K1,_K2,_K3,_K4,_K5,_K6,_K7,_K8} = IPv6) ->
 
 
 %% Taken from egeoip (http://code.google.com/p/egeoip/source/browse/trunk/egeoip/src/egeoip.erl?r=19)
-%% @doc Convert an IPv4 or IPv6 tuple to the big endian integer
-%%      representation.
+%% @doc Convert an IPv4 or IPv6 tuple to the big endian integer representation.
 -spec ip_to_long(inet:ip_address()) -> {ok, integer()} | {error, badmatch}.
 ip_to_long({B3, B2, B1, B0}) ->
     {ok, (B3 bsl 24) bor (B2 bsl 16) bor (B1 bsl 8) bor B0};
@@ -412,7 +411,10 @@ ip_to_long(_) ->
 -define(UINT32_MAX, 16#FFFFFFFF).
 -define(UINT128_MAX, 16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF).
 
-%% @doc Convert long int to IPv4 or IPv6 address tuple.
+%% @doc Convert long int to IPv4 or IPv6 address tuple. Note that IP addresses fitting in the
+%% 32 bit IPv4 address space are always converted to IPv4 tuples. Integers outside the IPv4 address space
+%% are converted to IPv6 tuples. Error badarg is returned for negative integers and integers larger
+%% than the maximum 128 bit integer.
 -spec long_to_ip(integer()) -> {ok, inet:ip_address()} | {error, badmatch}.
 long_to_ip(L) when is_integer(L), L >= 0, L =< ?UINT32_MAX ->
     {ok, {(L band (255 bsl 24)) bsr 24,
