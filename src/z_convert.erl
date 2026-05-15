@@ -409,12 +409,29 @@ ip_to_long(_) ->
     {error, badmatch}.
 
 
-%% @doc Convert long int to IP address tuple. FIXME: ipv6
-long_to_ip(L) ->
+-define(UINT32_MAX, 16#FFFFFFFF).
+-define(UINT128_MAX, 16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF).
+
+%% @doc Convert long int to IPv4 or IPv6 address tuple.
+-spec long_to_ip(integer()) -> {ok, inet:ip_address()} | {error, badmatch}.
+long_to_ip(L) when is_integer(L), L >= 0, L =< ?UINT32_MAX ->
     {ok, {(L band (255 bsl 24)) bsr 24,
           (L band (255 bsl 16)) bsr 16,
           (L band (255 bsl 8)) bsr 8,
-          L band 255}}.
+          L band 255}};
+long_to_ip(L) when is_integer(L), L >= 0, L =< ?UINT128_MAX ->
+    {ok, {
+        (L bsr 112) band 16#FFFF,
+        (L bsr 96) band 16#FFFF,
+        (L bsr 80) band 16#FFFF,
+        (L bsr 64) band 16#FFFF,
+        (L bsr 48) band 16#FFFF,
+        (L bsr 32) band 16#FFFF,
+        (L bsr 16) band 16#FFFF,
+        L band 16#FFFF
+    }};
+long_to_ip(_) ->
+    {error, badmatch}.
 
 
 %% @doc Convert json from facebook favour to an easy to use format for zotonic templates.

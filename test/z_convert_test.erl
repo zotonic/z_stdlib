@@ -62,6 +62,22 @@ convert_bool_strict_test() ->
     ?assertEqual(false, z_convert:to_bool_strict(undefined)),
     ok.
 
+ip_long_test() ->
+    IPv4 = {127, 0, 0, 1},
+    {ok, IPv4Long} = z_convert:ip_to_long(IPv4),
+    ?assertEqual(16#7F000001, IPv4Long),
+    ?assertEqual({ok, IPv4}, z_convert:long_to_ip(IPv4Long)),
+
+    IPv6 = {16#2001, 16#0DB8, 0, 0, 0, 16#FF00, 16#0042, 16#8329},
+    {ok, IPv6Long} = z_convert:ip_to_long(IPv6),
+    ?assertEqual({ok, IPv6}, z_convert:long_to_ip(IPv6Long)),
+
+    ?assertEqual({ok, {255, 255, 255, 255}}, z_convert:long_to_ip(16#FFFFFFFF)),
+    ?assertEqual({ok, {0, 0, 0, 0, 0, 1, 0, 0}}, z_convert:long_to_ip(16#100000000)),
+    ?assertEqual({error, badmatch}, z_convert:long_to_ip(-1)),
+    ?assertEqual({error, badmatch}, z_convert:long_to_ip(1 bsl 128)),
+    ok.
+
 datetime_to_iso_test() ->
     ?assertEqual(<<"2010-09-02T10:11:56Z">>, z_convert:to_isotime({{2010,9,2},{10,11,56}})),
     ?assertEqual(<<"2010-09-02T01:01:01Z">>, z_convert:to_isotime({{2010,9,2},{1,1,1}})),
