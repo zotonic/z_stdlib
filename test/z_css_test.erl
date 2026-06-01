@@ -43,8 +43,8 @@ sanitize_content_test() ->
         z_css:sanitize(<<":before { content: '<p>Hello \"\\'world' }">>)).
 
 sanitize_string_escape_test() ->
-    ?assertMatch(
-        {ok, _},
+    ?assertEqual(
+        {ok, <<":before {\ncontent:\"a\\|b\";\n}\n">>},
         z_css:sanitize(<<":before { content: \"a\\|b\" }">>)).
 
 sanitize_unit_test() ->
