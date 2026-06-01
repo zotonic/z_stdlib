@@ -121,7 +121,7 @@ at_rule("font-face") -> font_face_sym;
 at_rule("page") -> page_sym;
 at_rule("media") -> media_sym;
 at_rule("charset") -> charset_sym;
-at_rule(_) -> ident.
+at_rule(_) -> bad_at_rule.
 
 make_dimension_token(Line, Chars) ->
     {_Number, Unit0} = lists:splitwith(fun is_num_char/1, Chars),
