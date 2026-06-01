@@ -20,6 +20,9 @@ sanitize_media_test() ->
         {ok, <<"@media screen {\np {\nbackground:url();\n}\n}\n">>},
         z_css:sanitize(<<"@media screen {p{background:url(http://example.com)}}">>)),
     ?assertEqual(
+        {ok, <<"@media screen {\np {\ncolor:red;\n}\n}\n">>},
+        z_css:sanitize(<<"@m\\65 dia screen {p{color:red}}">>)),
+    ?assertEqual(
         {ok, <<"@media screen,print,foobar {\n}\n">>},
         z_css:sanitize(<<"@media screen,print,foobar { }">>)),
     ?assertEqual(
@@ -51,6 +54,9 @@ sanitize_unit_test() ->
     ?assertEqual(
         {ok,<<"a {\nc:100%;\nd:1em;\ne:2px;\nf:a,b,c;\n}\n">>},
         z_css:sanitize(<<"a {\nc:100%; d:1em; e:2px; f:a,b,c;\n}\n">>)),
+    ?assertEqual(
+        {ok,<<"a {\nb:1\\65 m;\nc:1\\70 x;\n}\n">>},
+        z_css:sanitize(<<"a { b: 1\\65 m; c: 1\\70 x; }">>)),
     Units = [
         <<"cap">>, <<"ch">>, <<"cm">>, <<"cqb">>, <<"cqh">>, <<"cqi">>, <<"cqmax">>, <<"cqmin">>, <<"cqw">>,
         <<"deg">>, <<"dpcm">>, <<"dpi">>, <<"dppx">>, <<"dvb">>, <<"dvh">>, <<"dvi">>, <<"dvmax">>,

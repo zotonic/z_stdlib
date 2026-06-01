@@ -95,11 +95,7 @@ Rules.
 
 #{CSS_name}                             : make_token(hash, TokenLine, TokenChars).
 
-@{I}{M}{P}{O}{R}{T}                     : make_token(import_sym, TokenLine, TokenChars).
-@{F}{O}{N}{T}-{F}{A}{C}{E}              : make_token(font_face_sym, TokenLine, TokenChars).
-@{P}{A}{G}{E}                           : make_token(page_sym, TokenLine, TokenChars).
-@{M}{E}{D}{I}{A}                        : make_token(media_sym, TokenLine, TokenChars).
-@{C}{H}{A}{R}{S}{E}{T}\s                : make_token(charset_sym, TokenLine, TokenChars).
+@{CSS_ident}                            : make_at_rule_token(TokenLine, TokenChars).
 
 !({w}|{CSS_comment})*{I}{M}{P}{O}{R}{T}{A}{N}{T}  : make_token(important_sym, TokenLine, TokenChars).
 
@@ -115,6 +111,17 @@ Rules.
 
 
 Erlang code.
+
+make_at_rule_token(Line, [$@ | Ident0] = Chars) ->
+    Ident = string:to_lower(css_unescape_ident(Ident0)),
+    make_token(at_rule(Ident), Line, Chars).
+
+at_rule("import") -> import_sym;
+at_rule("font-face") -> font_face_sym;
+at_rule("page") -> page_sym;
+at_rule("media") -> media_sym;
+at_rule("charset") -> charset_sym;
+at_rule(_) -> ident.
 
 make_dimension_token(Line, Chars) ->
     {_Number, Unit0} = lists:splitwith(fun is_num_char/1, Chars),
@@ -164,10 +171,6 @@ skip_css_ws([C|Rest]) when C =:= $\s; C =:= $\t; C =:= $\r; C =:= $\n; C =:= $\f
     Rest;
 skip_css_ws(Rest) ->
     Rest.
-
-is_num_char(C) when C >= $0, C =< $9 -> true;
-is_num_char($.) -> true;
-is_num_char(_) -> false.
 
 dimension_unit("em") -> ems;
 dimension_unit("ex") -> exs;
