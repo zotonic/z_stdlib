@@ -138,6 +138,7 @@ css_unescape_ident(Unit) ->
 css_unescape_ident([], Acc) ->
     lists:reverse(Acc);
 css_unescape_ident([$\\, C | Rest], Acc) ->
+    case is_hex(C) of
         true ->
             {Hex, Rest1} = take_hex([C|Rest], 6, []),
             Codepoint0 = list_to_integer(Hex, 16),
