@@ -117,8 +117,53 @@ Rules.
 Erlang code.
 
 make_dimension_token(Line, Chars) ->
-    {_Number, Unit} = lists:splitwith(fun is_num_char/1, Chars),
-    make_token(dimension_unit(string:to_lower(Unit)), Line, Chars).
+    {_Number, Unit0} = lists:splitwith(fun is_num_char/1, Chars),
+    Unit = string:to_lower(css_unescape_ident(Unit0)),
+    make_token(dimension_unit(Unit), Line, Chars).
+
+is_num_char(C) when C >= $0, C =< $9 -> true;
+is_num_char($.) -> true;
+is_num_char(_) -> false.
+
+css_unescape_ident(Unit) ->
+    css_unescape_ident(Unit, []).
+
+css_unescape_ident([], Acc) ->
+    lists:reverse(Acc);
+css_unescape_ident([$\\, C | Rest], Acc) ->
+    case is_hex(C) of
+        true ->
+            {Hex, Rest1} = take_hex([C|Rest], 6, []),
+            Codepoint = list_to_integer(Hex, 16),
+            Rest2 = skip_css_ws(Rest1),
+            css_unescape_ident(Rest2, [Codepoint | Acc]);
+        false ->
+            css_unescape_ident(Rest, [C | Acc])
+    end;
+css_unescape_ident([$\\], Acc) ->
+    lists:reverse([$\\ | Acc]);
+css_unescape_ident([C | Rest], Acc) ->
+    css_unescape_ident(Rest, [C | Acc]).
+
+is_hex(C) when C >= $0, C =< $9 -> true;
+is_hex(C) when C >= $a, C =< $f -> true;
+is_hex(C) when C >= $A, C =< $F -> true;
+is_hex(_) -> false.
+
+take_hex(Rest, 0, Acc) ->
+    {lists:reverse(Acc), Rest};
+take_hex([C|Rest], N, Acc) when N > 0 ->
+    case is_hex(C) of
+        true -> take_hex(Rest, N-1, [C|Acc]);
+        false -> {lists:reverse(Acc), [C|Rest]}
+    end;
+take_hex(Rest, _N, Acc) ->
+    {lists:reverse(Acc), Rest}.
+
+skip_css_ws([C|Rest]) when C =:= $\s; C =:= $\t; C =:= $\r; C =:= $\n; C =:= $\f ->
+    Rest;
+skip_css_ws(Rest) ->
+    Rest.
 
 is_num_char(C) when C >= $0, C =< $9 -> true;
 is_num_char($.) -> true;
