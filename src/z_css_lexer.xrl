@@ -47,7 +47,7 @@ CSS_baduri      = ({CSS_baduri1}|{CSS_baduri2}|{CSS_baduri3})
 CSS_url         = ([!#$%&*-~]|{CSS_nonascii}|{CSS_escape})*
 CSS_s           = ([\s\r\n\f\t]+)
 CSS_w           = ({CSS_s}?)
-CSS_nl          = [\n|\r|\f]
+CSS_nl          = [\n\r\f]
 
 A           = (a|A|\\0{0,4}(41|61)\s?)
 B           = (b|B|\\0{0,4}(42|62)\s?|\\b|\\B)
@@ -103,68 +103,7 @@ Rules.
 
 !({w}|{CSS_comment})*{I}{M}{P}{O}{R}{T}{A}{N}{T}  : make_token(important_sym, TokenLine, TokenChars).
 
-{CSS_num}{E}{M}                         : make_token(ems, TokenLine, TokenChars).
-{CSS_num}{E}{X}                         : make_token(exs, TokenLine, TokenChars).
-{CSS_num}{C}{A}{P}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{I}{C}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{E}{M}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{E}{X}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{C}{A}{P}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{C}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{I}{C}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{L}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{X}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{M}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{M}{M}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{Q}                            : make_token(length, TokenLine, TokenChars).
-{CSS_num}{I}{N}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{T}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{C}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{W}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{I}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{B}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{M}{I}{N}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{M}{A}{X}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{E}{G}                      : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{R}{A}{D}                      : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{G}{R}{A}{D}                   : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{T}{U}{R}{N}                   : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{M}{S}                         : make_token(time, TokenLine, TokenChars).
-{CSS_num}{S}                            : make_token(time, TokenLine, TokenChars).
-{CSS_num}{H}{Z}                         : make_token(freq, TokenLine, TokenChars).
-{CSS_num}{K}{H}{Z}                      : make_token(freq, TokenLine, TokenChars).
-{CSS_num}{D}{P}{I}                      : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{D}{P}{C}{M}                   : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{D}{P}{P}{X}                   : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{X}                            : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{CSS_ident}                    : make_token(dimension, TokenLine, TokenChars).
+{CSS_num}{CSS_ident}                    : make_dimension_token(TokenLine, TokenChars).
 {CSS_num}%                              : make_token(percentage, TokenLine, TokenChars).
 {CSS_num}                               : make_token(number, TokenLine, TokenChars).
 [uU][rR][lL]\({CSS_w}{CSS_string}{CSS_w}\)       : make_token(uri, TokenLine, TokenChars).
@@ -176,6 +115,77 @@ Rules.
 
 
 Erlang code.
+
+make_dimension_token(Line, Chars) ->
+    {_Number, Unit} = lists:splitwith(fun is_num_char/1, Chars),
+    make_token(dimension_unit(string:to_lower(Unit)), Line, Chars).
+
+is_num_char(C) when C >= $0, C =< $9 -> true;
+is_num_char($.) -> true;
+is_num_char(_) -> false.
+
+dimension_unit("em") -> ems;
+dimension_unit("ex") -> exs;
+dimension_unit("cap") -> length;
+dimension_unit("ch") -> length;
+dimension_unit("ic") -> length;
+dimension_unit("lh") -> length;
+dimension_unit("rem") -> length;
+dimension_unit("rex") -> length;
+dimension_unit("rcap") -> length;
+dimension_unit("rch") -> length;
+dimension_unit("ric") -> length;
+dimension_unit("rlh") -> length;
+dimension_unit("px") -> length;
+dimension_unit("cm") -> length;
+dimension_unit("mm") -> length;
+dimension_unit("q") -> length;
+dimension_unit("in") -> length;
+dimension_unit("pt") -> length;
+dimension_unit("pc") -> length;
+dimension_unit("vw") -> length;
+dimension_unit("vh") -> length;
+dimension_unit("vi") -> length;
+dimension_unit("vb") -> length;
+dimension_unit("vmin") -> length;
+dimension_unit("vmax") -> length;
+dimension_unit("svw") -> length;
+dimension_unit("svh") -> length;
+dimension_unit("svi") -> length;
+dimension_unit("svb") -> length;
+dimension_unit("svmin") -> length;
+dimension_unit("svmax") -> length;
+dimension_unit("lvw") -> length;
+dimension_unit("lvh") -> length;
+dimension_unit("lvi") -> length;
+dimension_unit("lvb") -> length;
+dimension_unit("lvmin") -> length;
+dimension_unit("lvmax") -> length;
+dimension_unit("dvw") -> length;
+dimension_unit("dvh") -> length;
+dimension_unit("dvi") -> length;
+dimension_unit("dvb") -> length;
+dimension_unit("dvmin") -> length;
+dimension_unit("dvmax") -> length;
+dimension_unit("cqw") -> length;
+dimension_unit("cqh") -> length;
+dimension_unit("cqi") -> length;
+dimension_unit("cqb") -> length;
+dimension_unit("cqmin") -> length;
+dimension_unit("cqmax") -> length;
+dimension_unit("deg") -> angle;
+dimension_unit("rad") -> angle;
+dimension_unit("grad") -> angle;
+dimension_unit("turn") -> angle;
+dimension_unit("ms") -> time;
+dimension_unit("s") -> time;
+dimension_unit("hz") -> freq;
+dimension_unit("khz") -> freq;
+dimension_unit("dpi") -> resolution;
+dimension_unit("dpcm") -> resolution;
+dimension_unit("dppx") -> resolution;
+dimension_unit("x") -> resolution;
+dimension_unit(_) -> dimension.
 
 make_token(literal, Line, ";") -> {token, {';', Line, ";"}};
 make_token(literal, Line, "{") -> {token, {'{', Line, "{"}};
