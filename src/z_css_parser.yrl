@@ -34,6 +34,12 @@ Nonterminals
     FontFace
     FontFaceBody
     FontFaceToken
+    BadAtRule
+    BadAtRulePrelude
+    BadAtRulePreludeToken
+    BadAtRuleBlock
+    BadAtRuleBody
+    BadAtRuleBodyToken
     Page
     DeclarationList
     Declaration
@@ -67,6 +73,7 @@ Terminals
     page_sym
     media_sym
     charset_sym
+    bad_at_rule
     important_sym
     ems
     exs
@@ -134,11 +141,13 @@ Rules -> '$empty'                         : [].
 Rules -> RuleSet Rules                    : ['$1' | '$2'].
 Rules -> Media Rules                      : ['$1' | '$2'].
 Rules -> FontFace Rules                   : '$2'.
+Rules -> BadAtRule Rules                  : ['$1' | '$2'].
 Rules -> Page Rules                       : ['$1' | '$2'].
 
 RuleSetList -> '$empty'                   : [].
 RuleSetList -> RuleSet RuleSetList        : ['$1' | '$2'].
 RuleSetList -> FontFace RuleSetList       : '$2'.
+RuleSetList -> BadAtRule RuleSetList      : ['$1' | '$2'].
 
 RuleSet -> SelectorList '{' DeclarationList '}' : {rule, '$1', '$3'}.
 
@@ -158,6 +167,7 @@ FontFaceToken -> import_sym                : '$1'.
 FontFaceToken -> page_sym                  : '$1'.
 FontFaceToken -> media_sym                 : '$1'.
 FontFaceToken -> charset_sym               : '$1'.
+FontFaceToken -> bad_at_rule               : '$1'.
 FontFaceToken -> important_sym             : '$1'.
 FontFaceToken -> ems                       : '$1'.
 FontFaceToken -> exs                       : '$1'.
@@ -186,6 +196,62 @@ FontFaceToken -> '='                       : '$1'.
 FontFaceToken -> '>'                       : '$1'.
 FontFaceToken -> '-'                       : '$1'.
 FontFaceToken -> '+'                       : '$1'.
+
+BadAtRule -> bad_at_rule BadAtRulePrelude ';'   : bad_at_rule.
+BadAtRule -> bad_at_rule BadAtRulePrelude BadAtRuleBlock : bad_at_rule.
+
+BadAtRulePrelude -> '$empty'                         : [].
+BadAtRulePrelude -> BadAtRulePreludeToken BadAtRulePrelude : ['$1' | '$2'].
+
+BadAtRuleBlock -> '{' BadAtRuleBody '}'              : [].
+
+BadAtRuleBody -> '$empty'                            : [].
+BadAtRuleBody -> BadAtRuleBodyToken BadAtRuleBody    : ['$1' | '$2'].
+BadAtRuleBody -> BadAtRuleBlock BadAtRuleBody        : '$2'.
+
+BadAtRulePreludeToken -> badcomment       : '$1'.
+BadAtRulePreludeToken -> includes         : '$1'.
+BadAtRulePreludeToken -> dashmatch        : '$1'.
+BadAtRulePreludeToken -> string           : '$1'.
+BadAtRulePreludeToken -> bad_string       : '$1'.
+BadAtRulePreludeToken -> ident            : '$1'.
+BadAtRulePreludeToken -> hash             : '$1'.
+BadAtRulePreludeToken -> import_sym       : '$1'.
+BadAtRulePreludeToken -> font_face_sym    : '$1'.
+BadAtRulePreludeToken -> page_sym         : '$1'.
+BadAtRulePreludeToken -> media_sym        : '$1'.
+BadAtRulePreludeToken -> charset_sym      : '$1'.
+BadAtRulePreludeToken -> bad_at_rule      : '$1'.
+BadAtRulePreludeToken -> important_sym    : '$1'.
+BadAtRulePreludeToken -> ems              : '$1'.
+BadAtRulePreludeToken -> exs              : '$1'.
+BadAtRulePreludeToken -> length           : '$1'.
+BadAtRulePreludeToken -> angle            : '$1'.
+BadAtRulePreludeToken -> time             : '$1'.
+BadAtRulePreludeToken -> freq             : '$1'.
+BadAtRulePreludeToken -> resolution       : '$1'.
+BadAtRulePreludeToken -> dimension        : '$1'.
+BadAtRulePreludeToken -> percentage       : '$1'.
+BadAtRulePreludeToken -> number           : '$1'.
+BadAtRulePreludeToken -> uri              : '$1'.
+BadAtRulePreludeToken -> bad_uri          : '$1'.
+BadAtRulePreludeToken -> function         : '$1'.
+BadAtRulePreludeToken -> '['              : '$1'.
+BadAtRulePreludeToken -> ']'              : '$1'.
+BadAtRulePreludeToken -> '('              : '$1'.
+BadAtRulePreludeToken -> ')'              : '$1'.
+BadAtRulePreludeToken -> ','              : '$1'.
+BadAtRulePreludeToken -> '.'              : '$1'.
+BadAtRulePreludeToken -> ':'              : '$1'.
+BadAtRulePreludeToken -> '*'              : '$1'.
+BadAtRulePreludeToken -> '/'              : '$1'.
+BadAtRulePreludeToken -> '='              : '$1'.
+BadAtRulePreludeToken -> '>'              : '$1'.
+BadAtRulePreludeToken -> '-'              : '$1'.
+BadAtRulePreludeToken -> '+'              : '$1'.
+
+BadAtRuleBodyToken -> BadAtRulePreludeToken : '$1'.
+BadAtRuleBodyToken -> ';'                   : '$1'.
 
 SelectorList -> Selector                    : ['$1'].
 SelectorList -> SelectorList ',' Selector   : '$1' ++ ['$3'].

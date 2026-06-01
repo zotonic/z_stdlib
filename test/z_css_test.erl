@@ -40,6 +40,17 @@ sanitize_external_references_test() ->
         {ok, <<"@media only screen and (max-width:600px) {\np {\ncolor:red;\n}\n}\n">>},
         z_css:sanitize(<<"@media only screen and (max-width: 600px) { @font-face { src: url(https://example.com/font.woff2); } p { color: red } }">>)).
 
+sanitize_bad_at_rule_test() ->
+    ?assertEqual(
+        {ok, <<"p {\ncolor:red;\n}\n">>},
+        z_css:sanitize(<<"@namespace svg url(https://example.com/svg); p { color: red }">>)),
+    ?assertEqual(
+        {ok, <<"p {\ncolor:blue;\n}\n">>},
+        z_css:sanitize(<<"@supports (display: grid) { p { background: url(https://example.com/x.png) } } p { color: blue }">>)),
+    ?assertEqual(
+        {ok, <<"@media screen {\np {\ncolor:red;\n}\n}\n">>},
+        z_css:sanitize(<<"@media screen { @s\\75 pports (display: grid) { p { background: url(https://example.com/x.png) } } p { color: red } }">>)).
+
 sanitize_content_test() ->
     ?assertEqual(
         {ok, <<":before {\ncontent:\"Hello &quot;\\&#39;world\";\n}\n">>},
