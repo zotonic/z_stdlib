@@ -20,6 +20,9 @@ sanitize_media_test() ->
         {ok, <<"@media screen {\np {\nbackground:url();\n}\n}\n">>},
         z_css:sanitize(<<"@media screen {p{background:url(http://example.com)}}">>)),
     ?assertEqual(
+        {ok, <<"@media screen {\np {\ncolor:red;\n}\n}\n">>},
+        z_css:sanitize(<<"@m\\65 dia screen {p{color:red}}">>)),
+    ?assertEqual(
         {ok, <<"@media screen,print,foobar {\n}\n">>},
         z_css:sanitize(<<"@media screen,print,foobar { }">>)),
     ?assertEqual(
@@ -37,15 +40,34 @@ sanitize_external_references_test() ->
         {ok, <<"@media only screen and (max-width:600px) {\np {\ncolor:red;\n}\n}\n">>},
         z_css:sanitize(<<"@media only screen and (max-width: 600px) { @font-face { src: url(https://example.com/font.woff2); } p { color: red } }">>)).
 
+sanitize_bad_at_rule_test() ->
+    ?assertEqual(
+        {ok, <<"p {\ncolor:red;\n}\n">>},
+        z_css:sanitize(<<"@namespace svg url(https://example.com/svg); p { color: red }">>)),
+    ?assertEqual(
+        {ok, <<"p {\ncolor:blue;\n}\n">>},
+        z_css:sanitize(<<"@supports (display: grid) { p { background: url(https://example.com/x.png) } } p { color: blue }">>)),
+    ?assertEqual(
+        {ok, <<"@media screen {\np {\ncolor:red;\n}\n}\n">>},
+        z_css:sanitize(<<"@media screen { @s\\75 pports (display: grid) { p { background: url(https://example.com/x.png) } } p { color: red } }">>)).
+
 sanitize_content_test() ->
     ?assertEqual(
         {ok, <<":before {\ncontent:\"Hello &quot;\\&#39;world\";\n}\n">>},
         z_css:sanitize(<<":before { content: '<p>Hello \"\\'world' }">>)).
 
+sanitize_string_escape_test() ->
+    ?assertEqual(
+        {ok, <<":before {\ncontent:\"a\\|b\";\n}\n">>},
+        z_css:sanitize(<<":before { content: \"a\\|b\" }">>)).
+
 sanitize_unit_test() ->
     ?assertEqual(
         {ok,<<"a {\nc:100%;\nd:1em;\ne:2px;\nf:a,b,c;\n}\n">>},
         z_css:sanitize(<<"a {\nc:100%; d:1em; e:2px; f:a,b,c;\n}\n">>)),
+    ?assertEqual(
+        {ok,<<"a {\nb:1\\65 m;\nc:1\\70 x;\n}\n">>},
+        z_css:sanitize(<<"a { b: 1\\65 m; c: 1\\70 x; }">>)),
     Units = [
         <<"cap">>, <<"ch">>, <<"cm">>, <<"cqb">>, <<"cqh">>, <<"cqi">>, <<"cqmax">>, <<"cqmin">>, <<"cqw">>,
         <<"deg">>, <<"dpcm">>, <<"dpi">>, <<"dppx">>, <<"dvb">>, <<"dvh">>, <<"dvi">>, <<"dvmax">>,

@@ -47,7 +47,7 @@ CSS_baduri      = ({CSS_baduri1}|{CSS_baduri2}|{CSS_baduri3})
 CSS_url         = ([!#$%&*-~]|{CSS_nonascii}|{CSS_escape})*
 CSS_s           = ([\s\r\n\f\t]+)
 CSS_w           = ({CSS_s}?)
-CSS_nl          = [\n|\r|\f]
+CSS_nl          = [\n\r\f]
 
 A           = (a|A|\\0{0,4}(41|61)\s?)
 B           = (b|B|\\0{0,4}(42|62)\s?|\\b|\\B)
@@ -95,76 +95,11 @@ Rules.
 
 #{CSS_name}                             : make_token(hash, TokenLine, TokenChars).
 
-@{I}{M}{P}{O}{R}{T}                     : make_token(import_sym, TokenLine, TokenChars).
-@{F}{O}{N}{T}-{F}{A}{C}{E}              : make_token(font_face_sym, TokenLine, TokenChars).
-@{P}{A}{G}{E}                           : make_token(page_sym, TokenLine, TokenChars).
-@{M}{E}{D}{I}{A}                        : make_token(media_sym, TokenLine, TokenChars).
-@{C}{H}{A}{R}{S}{E}{T}\s                : make_token(charset_sym, TokenLine, TokenChars).
+@{CSS_ident}                            : make_at_rule_token(TokenLine, TokenChars).
 
 !({w}|{CSS_comment})*{I}{M}{P}{O}{R}{T}{A}{N}{T}  : make_token(important_sym, TokenLine, TokenChars).
 
-{CSS_num}{E}{M}                         : make_token(ems, TokenLine, TokenChars).
-{CSS_num}{E}{X}                         : make_token(exs, TokenLine, TokenChars).
-{CSS_num}{C}{A}{P}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{I}{C}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{E}{M}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{E}{X}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{C}{A}{P}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{C}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{I}{C}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{R}{L}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{X}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{M}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{M}{M}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{Q}                            : make_token(length, TokenLine, TokenChars).
-{CSS_num}{I}{N}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{T}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{P}{C}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{W}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{H}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{I}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{B}                         : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{M}{I}{N}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{V}{M}{A}{X}                   : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{S}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{L}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{V}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{W}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{H}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{I}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{B}                      : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{M}{I}{N}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{C}{Q}{M}{A}{X}                : make_token(length, TokenLine, TokenChars).
-{CSS_num}{D}{E}{G}                      : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{R}{A}{D}                      : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{G}{R}{A}{D}                   : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{T}{U}{R}{N}                   : make_token(angle, TokenLine, TokenChars).
-{CSS_num}{M}{S}                         : make_token(time, TokenLine, TokenChars).
-{CSS_num}{S}                            : make_token(time, TokenLine, TokenChars).
-{CSS_num}{H}{Z}                         : make_token(freq, TokenLine, TokenChars).
-{CSS_num}{K}{H}{Z}                      : make_token(freq, TokenLine, TokenChars).
-{CSS_num}{D}{P}{I}                      : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{D}{P}{C}{M}                   : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{D}{P}{P}{X}                   : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{X}                            : make_token(resolution, TokenLine, TokenChars).
-{CSS_num}{CSS_ident}                    : make_token(dimension, TokenLine, TokenChars).
+{CSS_num}{CSS_ident}                    : make_dimension_token(TokenLine, TokenChars).
 {CSS_num}%                              : make_token(percentage, TokenLine, TokenChars).
 {CSS_num}                               : make_token(number, TokenLine, TokenChars).
 [uU][rR][lL]\({CSS_w}{CSS_string}{CSS_w}\)       : make_token(uri, TokenLine, TokenChars).
@@ -176,6 +111,135 @@ Rules.
 
 
 Erlang code.
+
+make_at_rule_token(Line, [$@ | Ident0] = Chars) ->
+    Ident = string:to_lower(css_unescape_ident(Ident0)),
+    make_token(at_rule(Ident), Line, Chars).
+
+at_rule("import") -> import_sym;
+at_rule("font-face") -> font_face_sym;
+at_rule("page") -> page_sym;
+at_rule("media") -> media_sym;
+at_rule("charset") -> charset_sym;
+at_rule(_) -> bad_at_rule.
+
+make_dimension_token(Line, Chars) ->
+    {_Number, Unit0} = lists:splitwith(fun is_num_char/1, Chars),
+    Unit = string:to_lower(css_unescape_ident(Unit0)),
+    make_token(dimension_unit(Unit), Line, Chars).
+
+is_num_char(C) when C >= $0, C =< $9 -> true;
+is_num_char($.) -> true;
+is_num_char(_) -> false.
+
+css_unescape_ident(Unit) ->
+    css_unescape_ident(Unit, []).
+
+css_unescape_ident([], Acc) ->
+    lists:reverse(Acc);
+css_unescape_ident([$\\, C | Rest], Acc) ->
+    case is_hex(C) of
+        true ->
+            {Hex, Rest1} = take_hex([C|Rest], 6, []),
+            Codepoint0 = list_to_integer(Hex, 16),
+            Codepoint = case Codepoint0 of
+                0 -> 16#FFFD;
+                C1 when C1 > 16#10FFFF -> 16#FFFD;
+                C1 when C1 >= 16#D800, C1 =< 16#DFFF -> 16#FFFD;
+                C1 -> C1
+            end,
+            Rest2 = skip_css_ws(Rest1),
+            css_unescape_ident(Rest2, [Codepoint | Acc]);
+        false ->
+            css_unescape_ident(Rest, [C | Acc])
+    end;
+css_unescape_ident([$\\], Acc) ->
+    lists:reverse([$\\ | Acc]);
+css_unescape_ident([C | Rest], Acc) ->
+    css_unescape_ident(Rest, [C | Acc]).
+
+is_hex(C) when C >= $0, C =< $9 -> true;
+is_hex(C) when C >= $a, C =< $f -> true;
+is_hex(C) when C >= $A, C =< $F -> true;
+is_hex(_) -> false.
+
+take_hex(Rest, 0, Acc) ->
+    {lists:reverse(Acc), Rest};
+take_hex([C|Rest], N, Acc) when N > 0 ->
+    case is_hex(C) of
+        true -> take_hex(Rest, N-1, [C|Acc]);
+        false -> {lists:reverse(Acc), [C|Rest]}
+    end;
+take_hex(Rest, _N, Acc) ->
+    {lists:reverse(Acc), Rest}.
+
+skip_css_ws([C|Rest]) when C =:= $\s; C =:= $\t; C =:= $\r; C =:= $\n; C =:= $\f ->
+    Rest;
+skip_css_ws(Rest) ->
+    Rest.
+
+dimension_unit("em") -> ems;
+dimension_unit("ex") -> exs;
+dimension_unit("cap") -> length;
+dimension_unit("ch") -> length;
+dimension_unit("ic") -> length;
+dimension_unit("lh") -> length;
+dimension_unit("rem") -> length;
+dimension_unit("rex") -> length;
+dimension_unit("rcap") -> length;
+dimension_unit("rch") -> length;
+dimension_unit("ric") -> length;
+dimension_unit("rlh") -> length;
+dimension_unit("px") -> length;
+dimension_unit("cm") -> length;
+dimension_unit("mm") -> length;
+dimension_unit("q") -> length;
+dimension_unit("in") -> length;
+dimension_unit("pt") -> length;
+dimension_unit("pc") -> length;
+dimension_unit("vw") -> length;
+dimension_unit("vh") -> length;
+dimension_unit("vi") -> length;
+dimension_unit("vb") -> length;
+dimension_unit("vmin") -> length;
+dimension_unit("vmax") -> length;
+dimension_unit("svw") -> length;
+dimension_unit("svh") -> length;
+dimension_unit("svi") -> length;
+dimension_unit("svb") -> length;
+dimension_unit("svmin") -> length;
+dimension_unit("svmax") -> length;
+dimension_unit("lvw") -> length;
+dimension_unit("lvh") -> length;
+dimension_unit("lvi") -> length;
+dimension_unit("lvb") -> length;
+dimension_unit("lvmin") -> length;
+dimension_unit("lvmax") -> length;
+dimension_unit("dvw") -> length;
+dimension_unit("dvh") -> length;
+dimension_unit("dvi") -> length;
+dimension_unit("dvb") -> length;
+dimension_unit("dvmin") -> length;
+dimension_unit("dvmax") -> length;
+dimension_unit("cqw") -> length;
+dimension_unit("cqh") -> length;
+dimension_unit("cqi") -> length;
+dimension_unit("cqb") -> length;
+dimension_unit("cqmin") -> length;
+dimension_unit("cqmax") -> length;
+dimension_unit("deg") -> angle;
+dimension_unit("rad") -> angle;
+dimension_unit("grad") -> angle;
+dimension_unit("turn") -> angle;
+dimension_unit("ms") -> time;
+dimension_unit("s") -> time;
+dimension_unit("hz") -> freq;
+dimension_unit("khz") -> freq;
+dimension_unit("dpi") -> resolution;
+dimension_unit("dpcm") -> resolution;
+dimension_unit("dppx") -> resolution;
+dimension_unit("x") -> resolution;
+dimension_unit(_) -> dimension.
 
 make_token(literal, Line, ";") -> {token, {';', Line, ";"}};
 make_token(literal, Line, "{") -> {token, {'{', Line, "{"}};

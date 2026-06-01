@@ -52,6 +52,7 @@
             | page_sym
             | media_sym
             | charset_sym
+            | bad_at_rule
             | important_sym
             | ems
             | exs
@@ -125,7 +126,7 @@ sanitize(Css) when is_binary(Css) ->
         {ok, {stylesheet, Charset, Import, Rules}} ->
             Charset1 = sanitize_charset(Charset),
             Import1 = sanitize_import(Import),
-            Rules1 = [ sanitize_rule(R) || R <- Rules ],
+            Rules1 = sanitize_rules(Rules),
             {ok, unicode:characters_to_binary([
                 serialize_charset(Charset1),
                 serialize_import(Import1),
@@ -157,10 +158,18 @@ sanitize_charset(_Charset) -> no_charset.
 
 sanitize_import(_Import) -> no_import.
 
+sanitize_rules(Rules) ->
+    lists:filtermap(fun sanitize_rule_1/1, Rules).
+
+sanitize_rule_1(bad_at_rule) ->
+    false;
+sanitize_rule_1(Rule) ->
+    {true, sanitize_rule(Rule)}.
+
 sanitize_rule({rule, Selector, Declarations}) ->
     {rule, Selector, [ sanitize_declaration(D) || D <- Declarations ]};
 sanitize_rule({media, MediaList, Rules}) ->
-    {media, MediaList, [ sanitize_rule(R) || R <- Rules ]};
+    {media, MediaList, sanitize_rules(Rules)};
 sanitize_rule({page, PseudoPage, Declarations}) ->
     {page, PseudoPage, [ sanitize_declaration(D) || D <- Declarations ]}.
 
