@@ -544,6 +544,11 @@ meta_tag(<<"description">>, Content, MD) -> [{description, Content}|MD];
 meta_tag(<<"author">>, Content, MD) -> [{author, Content}|MD];
 meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
+meta_tag(<<"duration">>, Content, MD) -> [{duration, Content}|MD];
+meta_tag(<<"datePublished">>, Content, MD) -> [{date_published, Content}|MD];
+meta_tag(<<"uploadDate">>, Content, MD) -> [{date_uploaded, Content}|MD];
+meta_tag(<<"embedUrl">>, Content, MD) -> [{embed_url, Content}|MD];
+meta_tag(<<"contentUrl">>, Content, MD) -> [{content_url, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
 
 meta_itemprop_tag(<<"name">>, Content, MD) -> meta_tag(<<"title">>, Content, MD);
