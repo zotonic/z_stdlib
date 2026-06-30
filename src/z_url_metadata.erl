@@ -566,16 +566,26 @@ json_ld({comment, _}, Acc) ->
     Acc;
 json_ld({pi, _Xml, _Attrs}, Acc) ->
     Acc;
-json_ld({_, As, _} = Tag, Acc) ->
+json_ld({<<"script">>, As, Es} = Tag, Acc) ->
+    case is_json_ld_script(As) of
+        true ->
+            lists:reverse(json_ld_script(Es), Acc);
+        false ->
+            json_ld_tag(Tag, Acc)
+    end;
+json_ld({_, _As, _} = Tag, Acc) ->
+    json_ld_tag(Tag, Acc);
+json_ld(_Text, Acc) ->
+    Acc.
+
+json_ld_tag({_, As, _} = Tag, Acc) ->
     case proplists:is_defined(<<"itemscope">>, As) of
         true ->
             {_Object, Acc1} = json_ld_item(Tag, Acc),
             Acc1;
         false ->
             json_ld_children(Tag, Acc)
-    end;
-json_ld(_Text, Acc) ->
-    Acc.
+    end.
 
 json_ld_children({_Tag, _As, Es}, Acc) ->
     json_ld(Es, Acc).
@@ -693,6 +703,36 @@ normalize_schema_itemtype(<<"https://schema.org/", Type/binary>>) ->
     {schema, <<"https://schema.org">>, Type};
 normalize_schema_itemtype(Type) ->
     {type, Type}.
+
+is_json_ld_script(As) ->
+    case proplists:get_value(<<"type">>, As) of
+        undefined ->
+            false;
+        Type ->
+            [Mime|_] = binary:split(z_string:to_lower(Type), <<";">>),
+            z_string:trim(Mime) =:= <<"application/ld+json">>
+    end.
+
+json_ld_script(Es) ->
+    case decode_json_ld(z_string:trim(fetch_text(Es, <<>>))) of
+        {ok, Map} when is_map(Map) ->
+            [Map];
+        {ok, List} when is_list(List) ->
+            [ Map || Map <- List, is_map(Map) ];
+        {error, _} ->
+            []
+    end.
+
+decode_json_ld(<<>>) ->
+    {error, empty};
+decode_json_ld(Json) ->
+    try jsxrecord:decode(Json) of
+        JsonLD ->
+            {ok, JsonLD}
+    catch
+        Class:DecodeReason ->
+            {error, {Class, DecodeReason}}
+    end.
 
 meta_link(_Name, undefined, _As, MD) -> MD;
 meta_link(_Name, <<>>, _As, MD) -> MD;
@@ -1099,6 +1139,50 @@ youtube_scoped_itemprop_html_meta_test() ->
     ?assertMatch([_, _], InteractionStats),
     ?assertEqual(<<"Thing">>, maps:get(<<"@type">>, Channel)),
     ?assertEqual(<<"Wes O'Donnell">>, maps:get(<<"name">>, Channel)),
+    ok.
+
+json_ld_script_html_meta_test() ->
+    Data = <<"
+<script type=\"application/ld+json\">{
+    \"@context\": { \"schema\": \"https://schema.org/\" },
+    \"@graph\": [
+        {
+            \"@id\": \"https://zotonic.com/#organization\",
+            \"@type\": \"schema:Organization\",
+            \"schema:name\": \"Untitled\",
+            \"schema:url\": \"https://zotonic.com/\"
+        },
+        {
+            \"@id\": \"https://zotonic.com/\",
+            \"@type\": \"schema:WebSite\",
+            \"schema:name\": \"Zotonic\",
+            \"schema:description\": \"Knowing together.\\n\\nYour data outlives your website.\"
+        }
+    ]
+}</script>
+    ">>,
+    [{json_ld, [JsonLD]}] = html_meta(Data),
+    Graph = maps:get(<<"@graph">>, JsonLD),
+    ?assertEqual(<<"https://schema.org/">>,
+        maps:get(<<"schema">>, maps:get(<<"@context">>, JsonLD))),
+    ?assertEqual(2, length(Graph)),
+    ?assertEqual(<<"Untitled">>,
+        maps:get(<<"schema:name">>, hd(Graph))),
+    ?assertEqual(<<"Knowing together.\n\nYour data outlives your website.">>,
+        maps:get(<<"schema:description">>, lists:nth(2, Graph))),
+    ok.
+
+json_ld_script_metadata_property_test() ->
+    Data = <<"
+<script type=\"application/ld+json; charset=utf-8\">[
+    { \"@type\": \"Thing\", \"name\": \"One\" },
+    { \"@type\": \"Thing\", \"name\": \"Two\" }
+]</script>
+    ">>,
+    {ok, MD} = fetch_data([], Data),
+    [One, Two] = p(json_ld, MD),
+    ?assertEqual(<<"One">>, maps:get(<<"name">>, One)),
+    ?assertEqual(<<"Two">>, maps:get(<<"name">>, Two)),
     ok.
 
 json_ld_by_id(ItemId, JsonLDs) ->
