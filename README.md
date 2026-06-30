@@ -135,6 +135,27 @@ Fetch the first N bytes of a URL. Protection against too large return body.
 
 Fetch URL, extract metadata like mime type, title, description, images etc.
 
+The returned metadata can be queried with `z_url_metadata:p/2`, for example:
+
+    {ok, Metadata} = z_url_metadata:fetch(Url),
+    Title = z_url_metadata:p(title, Metadata),
+    Image = z_url_metadata:p(image, Metadata).
+
+JSON-LD data is available through the `json_ld` property:
+
+    JsonLDs = z_url_metadata:p(json_ld, Metadata).
+
+This list contains decoded JSON-LD maps from:
+
+ * `<script type="application/ld+json">` blocks.
+ * HTML microdata using `itemscope`, `itemtype`, `itemid`, and `itemprop`.
+
+Microdata is normalized to JSON-LD-style maps. Schema.org item types use
+`<<"https://schema.org">>` as `<<"@context">>` and the local type name as
+`<<"@type">>`. Scoped items with an `itemid` are added as separate maps in
+the list; scoped items without an `itemid` are embedded as property values of
+their parent item. Repeated properties are returned as lists.
+
 
 Tests
 -----

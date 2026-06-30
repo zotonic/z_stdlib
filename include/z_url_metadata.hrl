@@ -26,5 +26,6 @@
     is_index_page = false :: boolean(),
     headers :: list({binary(), binary()}),
     links :: #{ binary() => [ map() ] },
+    json_ld = [] :: [ map() ],
     partial_data :: binary()
 }).

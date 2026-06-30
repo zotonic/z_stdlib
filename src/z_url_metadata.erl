@@ -47,7 +47,7 @@
 -type metadata() :: #url_metadata{}.
 -type property() :: mime | mime_options | site_name | content_length |
     url | canonical_url | short_url | final_url | links |
-    headers | title | h1 | summary | tags | filename |
+    headers | title | h1 | summary | tags | filename | json_ld |
     mtitle | description | keywords | author | charset | language |
     image | image_nav | thumbnail |
     icon | icon_nav | icon_shortcut | icon_touch |
@@ -126,9 +126,10 @@ fetch_data(BaseUrl, Hs, Data) ->
 -spec p(Property, Metadata) -> Value when
     Property :: property() | [ property() ],
     Metadata :: metadata(),
-    Value :: binary() | list( binary() ) | Headers | Links | undefined,
+    Value :: binary() | list( binary() ) | Headers | Links | JsonLDs | undefined,
     Headers :: list({binary(), binary()}),
-    Links :: #{binary() => [map()]}.
+    Links :: #{binary() => [map()]},
+    JsonLDs :: [map()].
 p(mime, MD) ->
     MD#url_metadata.content_type;
 p(mime_options, MD) ->
@@ -165,6 +166,8 @@ p(headers, MD) ->
     MD#url_metadata.headers;
 p(links, MD) ->
     MD#url_metadata.links;
+p(json_ld, MD) ->
+    MD#url_metadata.json_ld;
 p(title, MD) ->
     case p1([<<"og:title">>, <<"twitter:title">>, mtitle, h1, title], MD) of
         undefined -> p(filename, MD);
@@ -370,7 +373,9 @@ partial_metadata(Url, Hs, Data) ->
     IsHTML = IsText andalso is_html(CT),
     Data1 = maybe_convert_utf8(IsText, IsHTML, proplists:get_value(<<"charset">>, CTOpts), Data),
     MetadataList = html_meta(IsHTML, Data1),
-    {LinkList, MetadataList1} = lists:partition(fun({P, _}) -> P =:= link end, MetadataList),
+    {JsonLDList, MetadataList0} = lists:partition(fun({P, _}) -> P =:= json_ld end, MetadataList),
+    {LinkList, MetadataList1} = lists:partition(fun({P, _}) -> P =:= link end, MetadataList0),
+    JsonLDs = lists:append([ LDs || {json_ld, LDs} <- JsonLDList ]),
     Links = lists:foldr(
         fun({link, {Rel, As}}, Acc) ->
             Acc#{
@@ -387,6 +392,7 @@ partial_metadata(Url, Hs, Data) ->
         content_length = content_length(HsBin),
         metadata = MetadataList1,
         links = Links1,
+        json_ld = JsonLDs,
         is_index_page = is_index_page(Url),
         headers = HsBin,
         partial_data = Data
@@ -412,7 +418,12 @@ html_meta(Data) ->
 html_meta(true, PartialData) ->
     case parse(PartialData) of
         {ok, Parsed} ->
-            lists:reverse(html(Parsed, [], #ps{}));
+            JsonLDs = json_ld(Parsed),
+            Metadata = lists:reverse(html(Parsed, [], #ps{})),
+            case JsonLDs of
+                [] -> Metadata;
+                _ -> [{json_ld, JsonLDs} | Metadata]
+            end;
         {error, _} ->
             []
     end;
@@ -454,22 +465,14 @@ tag({<<"html">>, As, Es}, MD, P) ->
 tag({<<"meta">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"name">>, As)),
     Property = proplists:get_value(<<"property">>, As),
-    ItemProp = proplists:get_value(<<"itemprop">>, As),
     HttpEquiv = proplists:get_value(<<"http-equiv">>, As),
     Value = proplists:get_value(<<"value">>, As),
     Content = proplists:get_value(<<"content">>, As, Value),
     case first([Name, Property, HttpEquiv]) of
         undefined ->
-            case ItemProp of
-                undefined ->
-                    case proplists:get_value(<<"charset">>, As) of
-                        undefined -> {MD, P};
-                        Charset -> {[{charset,Charset} | MD], P}
-                    end;
-                <<>> ->
-                    {MD, P};
-                _ ->
-                    {meta_itemprop_tag(z_string:to_lower(ItemProp), Content, MD), P}
+            case proplists:get_value(<<"charset">>, As) of
+                undefined -> {MD, P};
+                Charset -> {[{charset,Charset} | MD], P}
             end;
         Prop ->
             {meta_tag(Prop, Content, MD), P}
@@ -538,6 +541,7 @@ meta_tag(_Name, undefined, MD) -> MD;
 meta_tag(_Name, <<>>, MD) -> MD;
 meta_tag(<<"og:", _/binary>> = OG, Content, MD) -> [{OG, Content}|MD];
 meta_tag(<<"twitter:", _/binary>> = Tw, Content, MD) -> [{Tw, Content}|MD];
+meta_tag(<<"al:", _/binary>> = Al, Content, MD) -> [{Al, Content}|MD];
 meta_tag(<<"title">>, Content, MD) -> [{mtitle, Content}|MD];
 meta_tag(<<"keywords">>, Content, MD) -> [{keywords, Content}|MD];
 meta_tag(<<"description">>, Content, MD) -> [{description, Content}|MD];
@@ -545,15 +549,190 @@ meta_tag(<<"author">>, Content, MD) -> [{author, Content}|MD];
 meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
 meta_tag(<<"duration">>, Content, MD) -> [{duration, Content}|MD];
-meta_tag(<<"datePublished">>, Content, MD) -> [{date_published, Content}|MD];
-meta_tag(<<"uploadDate">>, Content, MD) -> [{date_uploaded, Content}|MD];
-meta_tag(<<"embedUrl">>, Content, MD) -> [{embed_url, Content}|MD];
-meta_tag(<<"contentUrl">>, Content, MD) -> [{content_url, Content}|MD];
+meta_tag(<<"datepublished">>, Content, MD) -> [{date_published, Content}|MD];
+meta_tag(<<"uploaddate">>, Content, MD) -> [{date_uploaded, Content}|MD];
+meta_tag(<<"embedurl">>, Content, MD) -> [{embed_url, Content}|MD];
+meta_tag(<<"contenturl">>, Content, MD) -> [{content_url, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
 
-meta_itemprop_tag(<<"name">>, Content, MD) -> meta_tag(<<"title">>, Content, MD);
-meta_itemprop_tag(<<"thumbnailurl">>, Content, MD) -> meta_tag(<<"thumbnail">>, Content, MD);
-meta_itemprop_tag(Name, Content, MD) -> meta_tag(Name, Content, MD).
+json_ld(Es) ->
+    json_ld(Es, []).
+
+json_ld([], Acc) ->
+    lists:reverse(Acc);
+json_ld([E|Es], Acc) ->
+    json_ld(Es, json_ld(E, Acc));
+json_ld({comment, _}, Acc) ->
+    Acc;
+json_ld({pi, _Xml, _Attrs}, Acc) ->
+    Acc;
+json_ld({<<"script">>, As, Es} = Tag, Acc) ->
+    case is_json_ld_script(As) of
+        true ->
+            lists:reverse(json_ld_script(Es), Acc);
+        false ->
+            json_ld_tag(Tag, Acc)
+    end;
+json_ld({_, _As, _} = Tag, Acc) ->
+    json_ld_tag(Tag, Acc);
+json_ld(_Text, Acc) ->
+    Acc.
+
+json_ld_tag({_, As, _} = Tag, Acc) ->
+    case proplists:is_defined(<<"itemscope">>, As) of
+        true ->
+            {_Object, Acc1} = json_ld_item(Tag, Acc),
+            Acc1;
+        false ->
+            json_ld_children(Tag, Acc)
+    end.
+
+json_ld_children({_Tag, _As, Es}, Acc) ->
+    json_ld(Es, Acc).
+
+json_ld_item({_Tag, As, Es}, Acc) ->
+    Object0 = json_ld_item_base(As),
+    {Object, Acc1} = json_ld_props(Es, Object0, Acc),
+    Acc2 = case proplists:get_value(<<"itemid">>, As) of
+        undefined -> Acc1;
+        <<>> -> Acc1;
+        _ -> [Object | Acc1]
+    end,
+    {Object, Acc2}.
+
+json_ld_item_base(As) ->
+    Object0 = case normalize_itemtype(proplists:get_value(<<"itemtype">>, As)) of
+        undefined ->
+            #{};
+        {schema, Context, Type} ->
+            #{ <<"@context">> => Context, <<"@type">> => Type };
+        {type, Type} ->
+            #{ <<"@type">> => Type }
+    end,
+    case proplists:get_value(<<"itemid">>, As) of
+        undefined -> Object0;
+        <<>> -> Object0;
+        ItemId -> Object0#{ <<"@id">> => ItemId }
+    end.
+
+json_ld_props([], Object, Acc) ->
+    {Object, Acc};
+json_ld_props([E|Es], Object, Acc) ->
+    {Object1, Acc1} = json_ld_prop(E, Object, Acc),
+    json_ld_props(Es, Object1, Acc1);
+json_ld_props(_Text, Object, Acc) ->
+    {Object, Acc}.
+
+json_ld_prop({comment, _}, Object, Acc) ->
+    {Object, Acc};
+json_ld_prop({pi, _Xml, _Attrs}, Object, Acc) ->
+    {Object, Acc};
+json_ld_prop({_Tag, As, _Es} = Tag, Object, Acc) ->
+    ItemProp = proplists:get_value(<<"itemprop">>, As),
+    HasScope = proplists:is_defined(<<"itemscope">>, As),
+    case {itemprop_names(ItemProp), HasScope} of
+        {[], true} ->
+            {_Nested, Acc1} = json_ld_item(Tag, Acc),
+            {Object, Acc1};
+        {[], false} ->
+            json_ld_props_child(Tag, Object, Acc);
+        {Props, true} ->
+            {Nested, Acc1} = json_ld_item(Tag, Acc),
+            {json_ld_add_props(Props, Nested, Object), Acc1};
+        {Props, false} ->
+            {json_ld_add_props(Props, itemprop_value(Tag), Object), Acc}
+    end;
+json_ld_prop(_Text, Object, Acc) ->
+    {Object, Acc}.
+
+json_ld_props_child({_Tag, _As, Es}, Object, Acc) ->
+    json_ld_props(Es, Object, Acc).
+
+itemprop_names(undefined) ->
+    [];
+itemprop_names(<<>>) ->
+    [];
+itemprop_names(ItemProp) ->
+    [ Prop || Prop <- binary:split(ItemProp, <<" ">>, [global]), Prop =/= <<>> ].
+
+json_ld_add_props([], _Value, Object) ->
+    Object;
+json_ld_add_props([Prop|Props], Value, Object) ->
+    Object1 = case is_empty_itemprop_value(Value) of
+        true ->
+            Object;
+        false ->
+            Object#{ Prop => json_ld_append_value(maps:get(Prop, Object, undefined), Value) }
+    end,
+    json_ld_add_props(Props, Value, Object1).
+
+is_empty_itemprop_value(undefined) -> true;
+is_empty_itemprop_value(<<>>) -> true;
+is_empty_itemprop_value(_) -> false.
+
+json_ld_append_value(undefined, Value) ->
+    Value;
+json_ld_append_value(Values, Value) when is_list(Values) ->
+    Values ++ [Value];
+json_ld_append_value(OldValue, Value) ->
+    [OldValue, Value].
+
+itemprop_value({_Tag, As, Es}) ->
+    case first([
+        proplists:get_value(<<"content">>, As),
+        proplists:get_value(<<"href">>, As),
+        proplists:get_value(<<"src">>, As),
+        proplists:get_value(<<"data">>, As),
+        proplists:get_value(<<"datetime">>, As)
+    ]) of
+        undefined -> z_string:trim(fetch_text(Es, <<>>));
+        Value -> Value
+    end.
+
+normalize_itemtype(undefined) ->
+    undefined;
+normalize_itemtype(<<>>) ->
+    undefined;
+normalize_itemtype(ItemType) ->
+    Type = hd(binary:split(ItemType, <<" ">>, [global])),
+    normalize_schema_itemtype(Type).
+
+normalize_schema_itemtype(<<"http://schema.org/", Type/binary>>) ->
+    {schema, <<"https://schema.org">>, Type};
+normalize_schema_itemtype(<<"https://schema.org/", Type/binary>>) ->
+    {schema, <<"https://schema.org">>, Type};
+normalize_schema_itemtype(Type) ->
+    {type, Type}.
+
+is_json_ld_script(As) ->
+    case proplists:get_value(<<"type">>, As) of
+        undefined ->
+            false;
+        Type ->
+            [Mime|_] = binary:split(z_string:to_lower(Type), <<";">>),
+            z_string:trim(Mime) =:= <<"application/ld+json">>
+    end.
+
+json_ld_script(Es) ->
+    case decode_json_ld(z_string:trim(fetch_text(Es, <<>>))) of
+        {ok, Map} when is_map(Map) ->
+            [Map];
+        {ok, List} when is_list(List) ->
+            [ Map || Map <- List, is_map(Map) ];
+        {error, _} ->
+            []
+    end.
+
+decode_json_ld(<<>>) ->
+    {error, empty};
+decode_json_ld(Json) ->
+    try jsxrecord:decode(Json) of
+        JsonLD ->
+            {ok, JsonLD}
+    catch
+        Class:DecodeReason ->
+            {error, {Class, DecodeReason}}
+    end.
 
 meta_link(_Name, undefined, _As, MD) -> MD;
 meta_link(_Name, <<>>, _As, MD) -> MD;
@@ -849,20 +1028,165 @@ partial_ampersant_in_html_meta_test() ->
 
 youtube_itemprop_html_meta_test() ->
     Data = <<"
-<span itemprop=\"author\" itemscope itemtype=\"http://schema.org/Person\">
-    <link itemprop=\"url\" href=\"http://www.youtube.com/@example\">
-    <link itemprop=\"name\" content=\"Example Channel\">
-</span>
+<div itemscope itemtype=\"http://schema.org/VideoObject\" itemid=\"https://www.youtube.com/watch?v=example\">
 <meta itemprop=\"name\" content=\"Example Video\">
 <meta itemprop=\"description\" content=\"Example Description\">
 <meta itemprop=\"thumbnailUrl\" content=\"https://i.ytimg.com/vi/example/maxresdefault.jpg\">
+<span itemprop=\"author\" itemscope itemtype=\"http://schema.org/Person\" itemid=\"http://www.youtube.com/@example\">
+    <link itemprop=\"url\" href=\"http://www.youtube.com/@example\">
+    <link itemprop=\"name\" content=\"Example Channel\">
+</span>
+</div>
     ">>,
     MD = html_meta(Data),
-    ?assertEqual(<<"Example Video">>, proplists:get_value(mtitle, MD)),
-    ?assertEqual(<<"Example Description">>, proplists:get_value(description, MD)),
+    JsonLDs = proplists:get_value(json_ld, MD),
+    ?assertEqual(2, length(JsonLDs)),
+    Video = json_ld_by_id(<<"https://www.youtube.com/watch?v=example">>, JsonLDs),
+    Author = json_ld_by_id(<<"http://www.youtube.com/@example">>, JsonLDs),
+    ?assertEqual(<<"https://schema.org">>, maps:get(<<"@context">>, Video)),
+    ?assertEqual(<<"VideoObject">>, maps:get(<<"@type">>, Video)),
+    ?assertEqual(<<"Example Video">>, maps:get(<<"name">>, Video)),
+    ?assertEqual(<<"Example Description">>, maps:get(<<"description">>, Video)),
     ?assertEqual(<<"https://i.ytimg.com/vi/example/maxresdefault.jpg">>,
-        proplists:get_value(thumbnail, MD)),
+        maps:get(<<"thumbnailUrl">>, Video)),
+    ?assertEqual(Author, maps:get(<<"author">>, Video)),
+    ?assertEqual(<<"Person">>, maps:get(<<"@type">>, Author)),
+    ?assertEqual(<<"Example Channel">>, maps:get(<<"name">>, Author)),
+    ?assertEqual(<<"http://www.youtube.com/@example">>, maps:get(<<"url">>, Author)),
+    ?assertEqual(undefined, proplists:get_value(mtitle, MD)),
     ok.
+
+youtube_itemprop_metadata_property_test() ->
+    Data = <<"
+<div itemscope itemtype=\"https://schema.org/VideoObject\" itemid=\"https://www.youtube.com/watch?v=example\">
+<meta itemprop=\"name\" content=\"Example Video\">
+</div>
+    ">>,
+    {ok, MD} = fetch_data([], Data),
+    [Video] = p(json_ld, MD),
+    ?assertEqual(<<"Example Video">>, maps:get(<<"name">>, Video)),
+    ?assertEqual(<<"VideoObject">>, maps:get(<<"@type">>, Video)),
+    ok.
+
+youtube_scoped_itemprop_html_meta_test() ->
+    Data = <<"
+<div id=\"watch7-content\" class=\"watch-main-col\" itemscope itemid=\"https://www.youtube.com/watch?v=6neL1YuX6kQ\" itemtype=\"http://schema.org/VideoObject\">
+    <link itemprop=\"url\" href=\"https://www.youtube.com/watch?v=6neL1YuX6kQ\">
+    <meta itemprop=\"name\" content=\"Europe&#39;s New Anti-Drone Cannon Is Spreading Across Six NATO Armies\">
+    <meta itemprop=\"description\" content=\"See the Skyranger 30 mobile air defense system in action.\">
+    <meta itemprop=\"requiresSubscription\" content=\"False\">
+    <meta itemprop=\"identifier\" content=\"6neL1YuX6kQ\">
+    <meta itemprop=\"duration\" content=\"PT12M58S\">
+    <span itemprop=\"author\" itemscope itemtype=\"http://schema.org/Person\">
+        <link itemprop=\"url\" href=\"http://www.youtube.com/@WesODonnellX\">
+        <link itemprop=\"name\" content=\"Wes O&#39;Donnell\">
+    </span>
+    <span itemscope itemtype=\"https://schema.org/BreadcrumbList\">
+        <span itemprop=\"itemListElement\" itemscope itemtype=\"https://schema.org/ListItem\">
+            <meta itemprop=\"position\" content=\"1\"/>
+            <span itemprop=\"item\" itemid=\"http://www.youtube.com/@WesODonnellX\" itemscope itemtype=\"https://schema.org/Thing\">
+                <meta itemprop=\"name\" content=\"Wes O&#39;Donnell\"/>
+            </span>
+        </span>
+    </span>
+    <link itemprop=\"thumbnailUrl\" href=\"https://i.ytimg.com/vi/6neL1YuX6kQ/maxresdefault.jpg\">
+    <span itemprop=\"thumbnail\" itemscope itemtype=\"http://schema.org/ImageObject\">
+        <link itemprop=\"url\" href=\"https://i.ytimg.com/vi/6neL1YuX6kQ/maxresdefault.jpg\">
+        <meta itemprop=\"width\" content=\"1280\">
+        <meta itemprop=\"height\" content=\"720\">
+    </span>
+    <link itemprop=\"embedUrl\" href=\"https://www.youtube.com/embed/6neL1YuX6kQ\">
+    <meta itemprop=\"playerType\" content=\"HTML5 Flash\">
+    <meta itemprop=\"width\" content=\"1280\">
+    <meta itemprop=\"height\" content=\"720\">
+    <meta itemprop=\"isFamilyFriendly\" content=\"true\">
+    <meta itemprop=\"regionsAllowed\" content=\"AD,AE,AF\">
+    <div itemprop=\"interactionStatistic\" itemscope itemtype=\"https://schema.org/InteractionCounter\">
+        <meta itemprop=\"interactionType\" content=\"https://schema.org/LikeAction\">
+        <meta itemprop=\"userInteractionCount\" content=\"4088\">
+    </div>
+    <meta itemprop=\"keywords\" content=\"military technology,air defense system\">
+    <div itemprop=\"interactionStatistic\" itemscope itemtype=\"https://schema.org/InteractionCounter\">
+        <meta itemprop=\"interactionType\" content=\"https://schema.org/WatchAction\">
+        <meta itemprop=\"userInteractionCount\" content=\"41418\">
+    </div>
+    <meta itemprop=\"datePublished\" content=\"2026-06-29T09:00:15-07:00\">
+    <meta itemprop=\"uploadDate\" content=\"2026-06-29T09:00:15-07:00\">
+    <meta itemprop=\"genre\" content=\"Nonprofits &amp; Activism\">
+</div>
+    ">>,
+    JsonLDs = proplists:get_value(json_ld, html_meta(Data)),
+    ?assertEqual(2, length(JsonLDs)),
+    Video = json_ld_by_id(<<"https://www.youtube.com/watch?v=6neL1YuX6kQ">>, JsonLDs),
+    Channel = json_ld_by_id(<<"http://www.youtube.com/@WesODonnellX">>, JsonLDs),
+    Author = maps:get(<<"author">>, Video),
+    Thumbnail = maps:get(<<"thumbnail">>, Video),
+    InteractionStats = maps:get(<<"interactionStatistic">>, Video),
+    ?assertEqual(<<"VideoObject">>, maps:get(<<"@type">>, Video)),
+    ?assertEqual(<<"Europe's New Anti-Drone Cannon Is Spreading Across Six NATO Armies">>,
+        maps:get(<<"name">>, Video)),
+    ?assertEqual(<<"False">>, maps:get(<<"requiresSubscription">>, Video)),
+    ?assertEqual(<<"6neL1YuX6kQ">>, maps:get(<<"identifier">>, Video)),
+    ?assertEqual(<<"PT12M58S">>, maps:get(<<"duration">>, Video)),
+    ?assertEqual(<<"https://i.ytimg.com/vi/6neL1YuX6kQ/maxresdefault.jpg">>,
+        maps:get(<<"thumbnailUrl">>, Video)),
+    ?assertEqual(<<"https://www.youtube.com/embed/6neL1YuX6kQ">>, maps:get(<<"embedUrl">>, Video)),
+    ?assertEqual(<<"Nonprofits & Activism">>, maps:get(<<"genre">>, Video)),
+    ?assertEqual(<<"Person">>, maps:get(<<"@type">>, Author)),
+    ?assertEqual(<<"Wes O'Donnell">>, maps:get(<<"name">>, Author)),
+    ?assertEqual(<<"ImageObject">>, maps:get(<<"@type">>, Thumbnail)),
+    ?assertEqual(<<"1280">>, maps:get(<<"width">>, Thumbnail)),
+    ?assertMatch([_, _], InteractionStats),
+    ?assertEqual(<<"Thing">>, maps:get(<<"@type">>, Channel)),
+    ?assertEqual(<<"Wes O'Donnell">>, maps:get(<<"name">>, Channel)),
+    ok.
+
+json_ld_script_html_meta_test() ->
+    Data = <<"
+<script type=\"application/ld+json\">{
+    \"@context\": { \"schema\": \"https://schema.org/\" },
+    \"@graph\": [
+        {
+            \"@id\": \"https://zotonic.com/#organization\",
+            \"@type\": \"schema:Organization\",
+            \"schema:name\": \"Untitled\",
+            \"schema:url\": \"https://zotonic.com/\"
+        },
+        {
+            \"@id\": \"https://zotonic.com/\",
+            \"@type\": \"schema:WebSite\",
+            \"schema:name\": \"Zotonic\",
+            \"schema:description\": \"Knowing together.\\n\\nYour data outlives your website.\"
+        }
+    ]
+}</script>
+    ">>,
+    [{json_ld, [JsonLD]}] = html_meta(Data),
+    Graph = maps:get(<<"@graph">>, JsonLD),
+    ?assertEqual(<<"https://schema.org/">>,
+        maps:get(<<"schema">>, maps:get(<<"@context">>, JsonLD))),
+    ?assertEqual(2, length(Graph)),
+    ?assertEqual(<<"Untitled">>,
+        maps:get(<<"schema:name">>, hd(Graph))),
+    ?assertEqual(<<"Knowing together.\n\nYour data outlives your website.">>,
+        maps:get(<<"schema:description">>, lists:nth(2, Graph))),
+    ok.
+
+json_ld_script_metadata_property_test() ->
+    Data = <<"
+<script type=\"application/ld+json; charset=utf-8\">[
+    { \"@type\": \"Thing\", \"name\": \"One\" },
+    { \"@type\": \"Thing\", \"name\": \"Two\" }
+]</script>
+    ">>,
+    {ok, MD} = fetch_data([], Data),
+    [One, Two] = p(json_ld, MD),
+    ?assertEqual(<<"One">>, maps:get(<<"name">>, One)),
+    ?assertEqual(<<"Two">>, maps:get(<<"name">>, Two)),
+    ok.
+
+json_ld_by_id(ItemId, JsonLDs) ->
+    hd([ JsonLD || JsonLD <- JsonLDs, maps:get(<<"@id">>, JsonLD, undefined) =:= ItemId ]).
 
 links_header_test() ->
     Data = <<"

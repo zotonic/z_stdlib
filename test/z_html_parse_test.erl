@@ -266,6 +266,20 @@ parse_test() ->
 
     ok.
 
+parse_microdata_attrs_test() ->
+    D0 = <<"<div ItemScope ItemType=\"https://schema.org/VideoObject\" ItemId=\"video-1\"><meta ItemProp=\"name\" content=\"Example\"></div>">>,
+    ?assertEqual(
+        {ok, {<<"div">>,
+        [{<<"itemscope">>, <<"itemscope">>},
+         {<<"itemtype">>, <<"https://schema.org/VideoObject">>},
+         {<<"itemid">>, <<"video-1">>}],
+        [{<<"meta">>,
+          [{<<"itemprop">>, <<"name">>},
+           {<<"content">>, <<"Example">>}],
+          []}]}},
+       z_html_parse:parse(D0)),
+    ok.
+
 exhaustive_is_singleton_test() ->
     T = z_cover:clause_lookup_table(z_html_parse, is_singleton),
     [?assertEqual(V, z_html_parse:is_singleton(K, #{ mode => html })) || {K, V} <- T].

@@ -5,7 +5,7 @@
     {applications, [
         kernel, stdlib, inets,
         tls_certificate_check,
-        cowlib, qdate_localtime
+        cowlib, jsxrecord, qdate_localtime
     ]},
     {env, []},
     {modules, []},

@@ -1320,7 +1320,10 @@ is_html_attr(<<"http-equiv">>) -> true;
 is_html_attr(<<"icon">>) -> true;
 is_html_attr(<<"id">>) -> true;
 is_html_attr(<<"ismap">>) -> true;
+is_html_attr(<<"itemid">>) -> true;
 is_html_attr(<<"itemprop">>) -> true;
+is_html_attr(<<"itemscope">>) -> true;
+is_html_attr(<<"itemtype">>) -> true;
 % K
 is_html_attr(<<"keytype">>) -> true;
 is_html_attr(<<"kind">>) -> true;
