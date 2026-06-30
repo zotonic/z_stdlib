@@ -454,14 +454,22 @@ tag({<<"html">>, As, Es}, MD, P) ->
 tag({<<"meta">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"name">>, As)),
     Property = proplists:get_value(<<"property">>, As),
+    ItemProp = proplists:get_value(<<"itemprop">>, As),
     HttpEquiv = proplists:get_value(<<"http-equiv">>, As),
     Value = proplists:get_value(<<"value">>, As),
     Content = proplists:get_value(<<"content">>, As, Value),
     case first([Name, Property, HttpEquiv]) of
         undefined ->
-            case proplists:get_value(<<"charset">>, As) of
-                undefined -> {MD, P};
-                Charset -> {[{charset,Charset} | MD], P}
+            case ItemProp of
+                undefined ->
+                    case proplists:get_value(<<"charset">>, As) of
+                        undefined -> {MD, P};
+                        Charset -> {[{charset,Charset} | MD], P}
+                    end;
+                <<>> ->
+                    {MD, P};
+                _ ->
+                    {meta_itemprop_tag(z_string:to_lower(ItemProp), Content, MD), P}
             end;
         Prop ->
             {meta_tag(Prop, Content, MD), P}
@@ -537,6 +545,10 @@ meta_tag(<<"author">>, Content, MD) -> [{author, Content}|MD];
 meta_tag(<<"thumbnail">>, Content, MD) -> [{thumbnail, Content}|MD];
 meta_tag(<<"content-type">>, Content, MD) -> [{content_type, Content}|MD];
 meta_tag(_Name, _Content, MD) -> MD.
+
+meta_itemprop_tag(<<"name">>, Content, MD) -> meta_tag(<<"title">>, Content, MD);
+meta_itemprop_tag(<<"thumbnailurl">>, Content, MD) -> meta_tag(<<"thumbnail">>, Content, MD);
+meta_itemprop_tag(Name, Content, MD) -> meta_tag(Name, Content, MD).
 
 meta_link(_Name, undefined, _As, MD) -> MD;
 meta_link(_Name, <<>>, _As, MD) -> MD;
@@ -828,6 +840,23 @@ partial_ampersant_in_html_meta_test() ->
     Data = <<"<meta name=\"description\" content=\"Example & Stuff\"><title>Foo &amp; Co</title>">>,
     ?assertEqual([{description, <<"Example & Stuff">>},
         {title, <<"Foo & Co">>}], html_meta(Data)),
+    ok.
+
+youtube_itemprop_html_meta_test() ->
+    Data = <<"
+<span itemprop=\"author\" itemscope itemtype=\"http://schema.org/Person\">
+    <link itemprop=\"url\" href=\"http://www.youtube.com/@example\">
+    <link itemprop=\"name\" content=\"Example Channel\">
+</span>
+<meta itemprop=\"name\" content=\"Example Video\">
+<meta itemprop=\"description\" content=\"Example Description\">
+<meta itemprop=\"thumbnailUrl\" content=\"https://i.ytimg.com/vi/example/maxresdefault.jpg\">
+    ">>,
+    MD = html_meta(Data),
+    ?assertEqual(<<"Example Video">>, proplists:get_value(mtitle, MD)),
+    ?assertEqual(<<"Example Description">>, proplists:get_value(description, MD)),
+    ?assertEqual(<<"https://i.ytimg.com/vi/example/maxresdefault.jpg">>,
+        proplists:get_value(thumbnail, MD)),
     ok.
 
 links_header_test() ->
