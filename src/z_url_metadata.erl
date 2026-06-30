@@ -454,7 +454,7 @@ tag({<<"html">>, As, Es}, MD, P) ->
 tag({<<"meta">>, As, _}, MD, P) ->
     Name = z_string:to_lower(proplists:get_value(<<"name">>, As)),
     Property = proplists:get_value(<<"property">>, As),
-    ItemProp = z_string:to_lower(proplists:get_value(<<"itemprop">>, As)),
+    ItemProp = proplists:get_value(<<"itemprop">>, As),
     HttpEquiv = proplists:get_value(<<"http-equiv">>, As),
     Value = proplists:get_value(<<"value">>, As),
     Content = proplists:get_value(<<"content">>, As, Value),
@@ -469,7 +469,7 @@ tag({<<"meta">>, As, _}, MD, P) ->
                 <<>> ->
                     {MD, P};
                 _ ->
-                    {meta_itemprop_tag(ItemProp, Content, MD), P}
+                    {meta_itemprop_tag(z_string:to_lower(ItemProp), Content, MD), P}
             end;
         Prop ->
             {meta_tag(Prop, Content, MD), P}
