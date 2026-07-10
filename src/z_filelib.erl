@@ -29,6 +29,12 @@
     os_escape/1
     ]).
 
+-ifdef(TEST).
+-export([
+    os_filename/2
+    ]).
+-endif.
+
 
 %% @doc Rename a file. Copy the file on a cross-fs error.
 -spec rename(From, To) -> ok | {error, term()} when
@@ -104,28 +110,44 @@ first_missing([P|Ps], Acc) ->
 
 
 %% @doc Simple escape function for filenames as commandline arguments.
-%% foo/"bar.jpg -> "foo/\"bar.jpg"; on windows "foo\\\"bar.jpg" (both including quotes!)
+%% The result includes quotes.
 -spec os_filename( string()|binary() ) -> string().
 os_filename(A) when is_binary(A) ->
     os_filename(binary_to_list(A));
 os_filename(A) when is_list(A) ->
-    os_filename(lists:flatten(A), []).
+    {Family, _} = os:type(),
+    os_filename(Family, filename:nativename(lists:flatten(A))).
 
-os_filename([], Acc) ->
-    filename:nativename([$'] ++ lists:reverse(Acc) ++ [$']);
-os_filename([$\\|Rest], Acc) ->
-    os_filename_bs(Rest, Acc);
-os_filename([$'|Rest], Acc) ->
-    os_filename(Rest, [$', $\\ | Acc]);
-os_filename([C|Rest], Acc) ->
-    os_filename(Rest, [C|Acc]).
+-spec os_filename(unix | win32, string()) -> string().
+os_filename(unix, A) ->
+    [$' | os_filename_unix(lists:flatten(A), [])];
+os_filename(win32, A) ->
+    [$" | os_filename_win32(lists:flatten(A), [])].
 
-os_filename_bs([$\\|Rest], Acc) ->
-    os_filename(Rest, [$\\,$\\|Acc]);
-os_filename_bs([$'|Rest], Acc) ->
-    os_filename(Rest, [$',$\\,$\\,$\\|Acc]);
-os_filename_bs([C|Rest], Acc) ->
-    os_filename(Rest, [C,$\\|Acc]).
+os_filename_unix([], Acc) ->
+    lists:reverse([$'|Acc]);
+os_filename_unix([$'|Rest], Acc) ->
+    os_filename_unix(Rest, lists:reverse("'\\''", Acc));
+os_filename_unix([C|Rest], Acc) ->
+    os_filename_unix(Rest, [C|Acc]).
+
+os_filename_win32([], Acc) ->
+    lists:reverse([$"|Acc]);
+os_filename_win32([$\\|Rest], Acc) ->
+    os_filename_win32_bs(Rest, 1, Acc);
+os_filename_win32([$"|Rest], Acc) ->
+    os_filename_win32(Rest, [$",$\\|Acc]);
+os_filename_win32([C|Rest], Acc) ->
+    os_filename_win32(Rest, [C|Acc]).
+
+os_filename_win32_bs([], N, Acc) ->
+    os_filename_win32([], lists:duplicate(N * 2, $\\) ++ Acc);
+os_filename_win32_bs([$\\|Rest], N, Acc) ->
+    os_filename_win32_bs(Rest, N + 1, Acc);
+os_filename_win32_bs([$"|Rest], N, Acc) ->
+    os_filename_win32(Rest, [$" | lists:duplicate(N * 2 + 1, $\\) ++ Acc]);
+os_filename_win32_bs([C|Rest], N, Acc) ->
+    os_filename_win32(Rest, [C | lists:duplicate(N, $\\) ++ Acc]).
 
 
 %% @doc Simple escape function for command line arguments. Escapes special characters
