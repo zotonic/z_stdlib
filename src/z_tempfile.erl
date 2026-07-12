@@ -206,8 +206,8 @@ temppath() ->
 -spec cleanup() -> ok.
 cleanup() ->
     Old = calendar:datetime_to_gregorian_seconds( calendar:universal_time() ) - ?CLEANUP_SECS,
-    Tmp = filename:join(temppath(), <<"/ztmp-*">>),
-    Files = filelib:wildcard(Tmp),
+    Tmp = filename:join(z_tempfile:temppath(), <<"ztmp-*">>),
+    Files = filelib:wildcard(binary_to_list(Tmp)),
     lists:foreach(
         fun(F) ->
             case file:read_file_info(F, [ {time, universal} ]) of
