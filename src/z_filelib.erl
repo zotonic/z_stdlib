@@ -99,7 +99,7 @@ is_relative(Path) ->
 
 
 first_missing([], Acc) ->
-    lists:reverse(Acc);
+    {filename:join(lists:reverse(Acc)), []};
 first_missing([P|Ps], Acc) ->
     Acc1 = [P|Acc],
     Path = filename:join(lists:reverse(Acc1)),
