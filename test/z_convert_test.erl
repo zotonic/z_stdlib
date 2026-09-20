@@ -28,6 +28,10 @@ convert_time_test() ->
     ?assertEqual({1,23,59}, z_convert:to_time("01:23:59")),
     ok.
 
+invalid_timezone_conversion_test() ->
+    ?assertEqual(invalid, z_convert:to_utc(invalid)),
+    ?assertEqual(invalid, z_convert:to_localtime(invalid)).
+
 convert_datetime_test() ->
 
     %% generic format

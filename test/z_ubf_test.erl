@@ -2,6 +2,16 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+decode_error_test() ->
+    ?assertEqual({error, tilde}, z_ubf:decode(<<"~">>)),
+    {error, {badarg, Stacktrace}} = z_ubf:decode(<<"\"invalid\"`f`$">>),
+    ?assertMatch([_ | _], Stacktrace).
+
+encode_error_test() ->
+    ?assertEqual({error, {string_character, 256}}, z_ubf:encode({'#S', [256]})),
+    {error, {function_clause, Stacktrace}} = z_ubf:encode(self()),
+    ?assertMatch([_ | _], Stacktrace).
+
 list_test() ->
     L = [1,2,3],
     {ok, Enc} = z_ubf:encode(L),

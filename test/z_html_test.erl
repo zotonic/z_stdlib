@@ -147,6 +147,7 @@ truncate_test() ->
     ok.
 
 noscript_test() ->
+    ?assertEqual(<<"">>, z_html:noscript(<<"%GG">>)),
     ?assertEqual(<<"">>, z_html:noscript(<<"%25AA%25AA">>)),
     ?assertEqual(<<"#script-removed">>, z_html:noscript(<<"javascript:xyz">>)),
     ?assertEqual(<<"#script-removed">>, z_html:noscript(<<" jaVas Cript  :xyz">>)),

@@ -214,11 +214,13 @@ to_utc(undefined) ->
 to_utc({{9999,_,_}, _}) ->
     ?ST_JUTTEMIS;
 to_utc(D) ->
-    case catch calendar:local_time_to_universal_time_dst(D) of
+    try calendar:local_time_to_universal_time_dst(D) of
         [] -> D;    % This time never existed in the local time, just take it as-is
         [UTC] -> UTC;
-        [DstUTC, _UTC] -> DstUTC;
-        {'EXIT', _} -> D
+        [DstUTC, _UTC] -> DstUTC
+    catch
+        error:_ -> D;
+        exit:_ -> D
     end.
 
 
@@ -229,9 +231,10 @@ to_localtime(undefined) ->
 to_localtime({{9999,_,_},_}) ->
     ?ST_JUTTEMIS;
 to_localtime(D) ->
-    case catch calendar:universal_time_to_local_time(D) of
-        {'EXIT', _} -> D;
-        LocalD -> LocalD
+    try calendar:universal_time_to_local_time(D)
+    catch
+        error:_ -> D;
+        exit:_ -> D
     end.
 
 %% @doc Convert an input to a (universal) datetime, using to_date/1 and

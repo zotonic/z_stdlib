@@ -54,11 +54,13 @@ decode(S) ->
 decode(S, {more, Fun}) ->
     Fun(S);
 decode(Str, MaxSize) when is_binary(Str), is_integer(MaxSize) ->
-    case catch decode(Str, decode_init(MaxSize)) of
+    try decode(Str, decode_init(MaxSize)) of
         {done, Term, Rest} -> {ok, Term, Rest};
         {more, _} = More -> More;
-        {error, _} = Error -> Error;
-        {'EXIT', Error} -> {error, Error}
+        {error, _} = Error -> Error
+    catch
+        error:Reason:Stacktrace -> {error, {Reason, Stacktrace}};
+        exit:Reason -> {error, Reason}
     end.
 
 decode_init() ->
@@ -223,11 +225,12 @@ encode(X, Dict) ->
 
 encode(X, Dict0, Options) ->
     {Dict1, L1} = initial_dict(X, Dict0),
-    case (catch do_encode(X, Dict1, Options)) of
-    {'EXIT', What} ->
-        {error, What};
-    L ->
-        {ok, iolist_to_binary([L1, L,$$]), Dict1}
+    try do_encode(X, Dict1, Options) of
+        L ->
+            {ok, iolist_to_binary([L1, L,$$]), Dict1}
+    catch
+        error:Reason:Stacktrace -> {error, {Reason, Stacktrace}};
+        exit:Reason -> {error, Reason}
     end.
 
 initial_dict(X, Dict0) ->

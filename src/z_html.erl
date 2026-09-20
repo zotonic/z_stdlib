@@ -1254,9 +1254,10 @@ nows_protocol_split(<<$/, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $/, R
 nows_protocol_split(<<$#, Rest/binary>>, Acc) -> {undefined, <<Acc/binary, $#, Rest/binary>>};
 nows_protocol_split(<<$\\, Rest/binary>>, Acc) -> nows_protocol_split(Rest, Acc);
 nows_protocol_split(<<$%, A, B, Rest/binary>>, Acc) ->
-    case catch erlang:binary_to_integer(<<A, B>>, 16) of
-        V when is_integer(V) -> nows_protocol_split(<<V, Rest/binary>>, Acc);
-        _ -> {undefined, <<>>}
+    try erlang:binary_to_integer(<<A, B>>, 16) of
+        V -> nows_protocol_split(<<V, Rest/binary>>, Acc)
+    catch
+        error:badarg -> {undefined, <<>>}
     end;
 nows_protocol_split(<<$%, _/binary>>, _Acc) ->
     % Illegal: not enough characters left for escape sequence
