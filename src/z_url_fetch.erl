@@ -559,11 +559,14 @@ fetch_stream_data(ReqId, _HandlerPid, FState) ->
     end.
 
 %% @doc Keep redirect policy above httpc, which always has autoredirect disabled.
-maybe_redirect(#fstate{options = Options} = FState) ->
+maybe_redirect(#fstate{options = Options, code = Code} = FState)
+        when Code >= 300, Code < 400 ->
     case proplists:get_value(autoredirect, Options, true) of
         true -> maybe_redirect_1(FState);
         false -> {ok, FState}
-    end.
+    end;
+maybe_redirect(FState) ->
+    maybe_redirect_1(FState).
 
 maybe_redirect_1(#fstate{ code = Code } = FState) when Code >= 200, Code =< 299 ->
     {ok, FState};
