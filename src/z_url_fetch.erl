@@ -1,12 +1,14 @@
 % @author Marc Worrell
-%% @copyright 2014-2025 Marc Worrell
+%% @copyright 2014-2026 Marc Worrell
 %% @doc Fetch (part of) the data of an Url, including its headers. Also
 %% support decoding 'data:' URLs and streaming fetched data to a device.
 %% Uses the httpc OTP library for the actual fetching.
 %% The fetch functions are able to unzip partially fetched data.
+%% Set {autoredirect, false} for fixed protocol endpoints: redirect responses are
+%% returned as HTTP errors without contacting the Location URL or forwarding credentials.
 %% @end
 
-%% Copyright 2014-2025 Marc Worrell
+%% Copyright 2014-2026 Marc Worrell
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +68,8 @@
                 | {timeout, pos_integer()}
                 | {max_length, pos_integer()}
                 | {use_range, boolean()}
+                | {autoredirect, boolean()}
+                | {insecure, boolean()}
                 | {authorization, binary() | string()}
                 | {accept, binary() | string()}
                 | {user_agent, binary() | string()}
@@ -455,7 +459,7 @@ fetch_stream({ok, ReqId}, #fstate{ options = Opts } = FState) ->
             fetch_stream_data(ReqId, HandlerPid, FState1);
         {http, {ReqId, {error, _} = Error}} ->
             Error;
-        {http, {_ReqId, {{_V, Code, _Msg}, Hs, Data}}} when is_binary(Data) ->
+        {http, {ReqId, {{_V, Code, _Msg}, Hs, Data}}} when is_binary(Data) ->
             case append_data(FState#fstate.data, Data, FState#fstate.device) of
                 {ok, Data1} ->
                     FState1 = FState#fstate{
@@ -467,14 +471,14 @@ fetch_stream({ok, ReqId}, #fstate{ options = Opts } = FState) ->
                 {error, _} = Error ->
                     Error
             end;
-        {http, {_ReqId, {{_V, Code, _Msg}, Hs, _Data}}} ->
+        {http, {ReqId, {{_V, Code, _Msg}, Hs, _Data}}} ->
             FState1 = FState#fstate{
                 code = Code,
                 headers = Hs ++ FState#fstate.headers
             },
             {ok, FState1}
     after Timeout ->
-        httpc:cancel_request(ReqId),
+        httpc:cancel_request(ReqId, z_url_fetch),
         {error, timeout}
     end;
 fetch_stream({error, _} = Error, _FState) ->
@@ -507,14 +511,14 @@ fetch_stream_data(ReqId, HandlerPid, #fstate{ length = Length, max = Max } = FSt
                             httpc:stream_next(HandlerPid),
                             fetch_stream_data(ReqId, HandlerPid, FState1);
                         false ->
-                            httpc:cancel_request(ReqId),
+                            httpc:cancel_request(ReqId, z_url_fetch),
                             FState2 = FState1#fstate{
                                 code = 200
                             },
                             {ok, FState2}
                     end;
                 {error, _} = Error ->
-                    httpc:cancel_request(ReqId),
+                    httpc:cancel_request(ReqId, z_url_fetch),
                     Error
             end;
         {http, {ReqId, {error, socket_closed_remotely}}} ->
@@ -529,7 +533,7 @@ fetch_stream_data(ReqId, HandlerPid, #fstate{ length = Length, max = Max } = FSt
         {http, {ReqId, {error, _} = Error}} ->
             Error
     after Timeout ->
-        httpc:cancel_request(ReqId),
+        httpc:cancel_request(ReqId, z_url_fetch),
         {error, timeout}
     end;
 fetch_stream_data(ReqId, _HandlerPid, FState) ->
@@ -541,28 +545,35 @@ fetch_stream_data(ReqId, _HandlerPid, FState) ->
             },
             {ok, FState1};
         {http, _} ->
-            httpc:cancel_request(ReqId),
+            httpc:cancel_request(ReqId, z_url_fetch),
             FState1 = FState#fstate{
                 code = 200
             },
             {ok, FState1}
     after 100 ->
-        httpc:cancel_request(ReqId),
+        httpc:cancel_request(ReqId, z_url_fetch),
         FState1 = FState#fstate{
             code = 200
         },
         {ok, FState1}
     end.
 
-maybe_redirect(#fstate{ code = Code } = FState) when Code >= 200, Code =< 299 ->
+%% @doc Keep redirect policy above httpc, which always has autoredirect disabled.
+maybe_redirect(#fstate{options = Options} = FState) ->
+    case proplists:get_value(autoredirect, Options, true) of
+        true -> maybe_redirect_1(FState);
+        false -> {ok, FState}
+    end.
+
+maybe_redirect_1(#fstate{ code = Code } = FState) when Code >= 200, Code =< 299 ->
     {ok, FState};
-maybe_redirect(#fstate{ code = 416, options = Opts, url = Url }) ->
+maybe_redirect_1(#fstate{ code = 416, options = Opts, url = Url }) ->
     % 416 Range Not Satisfiable - if this is the first request then it might
     % be a picky server complaining that we requested beyond the size of the
     % document.
     Opts1 = proplists:delete(use_range, Opts),
     {redirect, get, Url, [ {use_range, false} | Opts1 ]};
-maybe_redirect(#fstate{ code = 303, headers = Hs, url = Url } = FState) ->
+maybe_redirect_1(#fstate{ code = 303, headers = Hs, url = Url } = FState) ->
     case proplists:get_value("location", Hs) of
         undefined ->
             {error, no_location_header};
@@ -570,7 +581,7 @@ maybe_redirect(#fstate{ code = 303, headers = Hs, url = Url } = FState) ->
             NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
             {redirect, get, NewUrl, FState#fstate.options}
     end;
-maybe_redirect(#fstate{ code = Code, headers = Hs, url = Url } = FState)
+maybe_redirect_1(#fstate{ code = Code, headers = Hs, url = Url } = FState)
     when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307; Code =:= 308 ->
     case proplists:get_value("location", Hs) of
         undefined ->
@@ -579,7 +590,7 @@ maybe_redirect(#fstate{ code = Code, headers = Hs, url = Url } = FState)
             NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
             {redirect, FState#fstate.method, NewUrl, FState#fstate.options}
     end;
-maybe_redirect(FState) ->
+maybe_redirect_1(FState) ->
     {ok, FState}.
 
 append_data(Data, <<>>, _Device) ->
