@@ -24,6 +24,8 @@
 -export([
     is_local_name/1,
     is_local/1,
+    is_public_name/1,
+    is_public/1,
     ip_match/2
     ]).
 
@@ -46,18 +48,88 @@ is_local_name(Name) ->
             false
     end.
 
-%% @doc An IP address is local if it matches "127.0.0.0/8,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12,169.254.0.0/16,::1,fd00::/8,fe80::/10,100.64.0.0/10"
+%% @doc Check for loopback, private-use, shared (CGNAT), or link-local addresses.
+%% IPv4: 127.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12,
+%% 169.254.0.0/16, and 100.64.0.0/10. IPv6: ::1, fc00::/7, and fe80::/10.
+%% IPv4-mapped IPv6 addresses (::ffff:0:0/96) use the embedded IPv4 classification.
+%% This is not a public-address test: false also covers unspecified, multicast,
+%% documentation, benchmarking, and other reserved or special-purpose addresses.
 -spec is_local( inet:ip_address() ) -> boolean().
 is_local({127,_,_,_}) -> true;
 is_local({10,_,_,_}) -> true;
 is_local({192,168,_,_}) -> true;
 is_local({169,254,_,_}) -> true;
 is_local({172,X,_,_})  when X >= 16, X =< 31 -> true;
-is_local({100,64,X,_}) when X < 4 -> true;
+is_local({100,X,_,_}) when X >= 64, X =< 127 -> true;
+is_local({0,0,0,0,0,16#ffff,High,Low}) ->
+    is_local({High bsr 8, High band 16#ff, Low bsr 8, Low band 16#ff});
 is_local({0,0,0,0,0,0,0,1}) -> true;
-is_local({X,_,_,_,_,_,_,_}) when X >= 16#fd00, X =< 16#fdff -> true;
-is_local({X,_,_,_,_,_,_,_}) when X >= 16#fe80, X =< 16#fecf -> true;
+is_local({X,_,_,_,_,_,_,_}) when X >= 16#fc00, X =< 16#fdff -> true;
+is_local({X,_,_,_,_,_,_,_}) when X >= 16#fe80, X =< 16#febf -> true;
 is_local(_) -> false.
+
+
+%% @doc Check whether every IPv4 and IPv6 address of a name is public.
+%% Literal addresses are classified directly. Names without addresses, invalid
+%% input, and resolver errors return false. An absent address family (nxdomain)
+%% is allowed when the other family has public addresses. This is a DNS snapshot,
+%% not protection against DNS rebinding between checking and connecting.
+-spec is_public_name(Name) -> boolean() when
+    Name :: string() | binary().
+is_public_name(Name) when is_binary(Name) ->
+    is_public_name(unicode:characters_to_list(Name));
+is_public_name(Name) when is_list(Name), Name =/= [] ->
+    case inet:parse_address(Name) of
+        {ok, IP} ->
+            is_public(IP);
+        {error, _} ->
+            IPv4 = inet:getaddrs(Name, inet),
+            IPv6 = inet:getaddrs(Name, inet6),
+            public_dns_results(IPv4, IPv6)
+    end;
+is_public_name(_) ->
+    false.
+
+public_dns_results({ok, IPv4}, {ok, IPv6}) ->
+    public_addresses(IPv4 ++ IPv6);
+public_dns_results({ok, IPs}, {error, nxdomain}) ->
+    public_addresses(IPs);
+public_dns_results({error, nxdomain}, {ok, IPs}) ->
+    public_addresses(IPs);
+public_dns_results(_, _) ->
+    false.
+
+public_addresses(IPs) ->
+    IPs =/= [] andalso lists:all(fun is_public/1, IPs).
+
+%% @doc Conservative public-unicast address classification for outbound requests.
+%% Excludes local, unspecified, multicast, documentation, benchmarking, reserved,
+%% and special protocol/transition ranges. IPv6 is limited to 2000::/3, excluding
+%% 2001::/23, 2001:db8::/32, 2002::/16, and 3fff::/20. Special-purpose exceptions
+%% inside excluded ranges are deliberately not allowed, even if globally reachable.
+%% IPv4-mapped IPv6 addresses inherit the embedded IPv4 classification.
+%% This classifies address ranges; it does not prove reachability or trust.
+-spec is_public(IP) -> boolean() when
+    IP :: inet:ip_address().
+is_public({A,B,C,D} = IP) ->
+    valid_address_parts([A,B,C,D], 255)
+        andalso not is_local(IP)
+        andalso not ip_match(IP, [
+            "0.0.0.0/8", "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24",
+            "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3"
+        ]);
+is_public({0,0,0,0,0,16#ffff,High,Low}) ->
+    valid_address_parts([High,Low], 65535)
+        andalso is_public({High bsr 8, High band 16#ff, Low bsr 8, Low band 16#ff});
+is_public({A,B,C,D,E,F,G,H} = IP) ->
+    valid_address_parts([A,B,C,D,E,F,G,H], 65535)
+        andalso ip_match(IP, ["2000::/3"])
+        andalso not ip_match(IP, ["2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20"]);
+is_public(_) ->
+    false.
+
+valid_address_parts(Parts, Max) ->
+    lists:all(fun(N) -> is_integer(N) andalso N >= 0 andalso N =< Max end, Parts).
 
 
 %% @doc Check if an IP address matches a list of addresses and masks like "127.0.0.0/8,10.0.0.0/8,fe80::/10"
