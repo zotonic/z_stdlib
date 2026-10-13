@@ -3,9 +3,25 @@
 %% @doc Fetch (part of) the data of an Url, including its headers. Also
 %% support decoding 'data:' URLs and streaming fetched data to a device.
 %% Uses the httpc OTP library for the actual fetching.
+%%
 %% The fetch functions are able to unzip partially fetched data.
+%%
 %% Set {autoredirect, false} for fixed protocol endpoints: redirect responses are
 %% returned as HTTP errors without contacting the Location URL or forwarding credentials.
+%%
+%% Cross-origin redirects default to {authorization, none}, which options_fun can
+%% override for the destination. Set {authorization_redirect, error} to reject
+%% cross-origin redirects with explicit authorization. Same-origin redirects with
+%% explicit authorization still require HTTPS.
+%%
+%% {authorization, none} suppresses authorization on every request, including redirects.
+%%
+%% {options_fun, Fun} resolves request options per destination. Fun(Method, Url, Options)
+%% receives the method, normalized binary URL and sanitized caller options (without options_fun).
+%% Use it for destination-specific credentials instead of forwarding a fixed token.
+%%
+%% Returned options apply only to that request. The original anonymous option always
+%% takes precedence. Transfer options (device and max_length) are set by the caller.
 %% @end
 
 %% Copyright 2014-2026 Marc Worrell
@@ -70,13 +86,17 @@
                 | {use_range, boolean()}
                 | {autoredirect, boolean()}
                 | {insecure, boolean()}
-                | {authorization, binary() | string()}
+                | {authorization, binary() | string() | none | undefined}
+                | {authorization_redirect, none | error}
+                | {options_fun, options_fun()}
                 | {accept, binary() | string()}
                 | {user_agent, binary() | string()}
                 | {language, atom()}
                 | {content_type, binary() | string()}
                 | {headers, [ {binary()|string(), binary()|string()} ]}
                 | insecure.
+
+-type options_fun() :: fun((get | post | delete | put | patch, binary(), options()) -> options()).
 
 -type fetch_result() :: {ok, {
             FinalUrl :: string(),
@@ -89,6 +109,7 @@
 -export_type([
     options/0,
     option/0,
+    options_fun/0,
     fetch_result/0
 ]).
 
@@ -140,11 +161,13 @@ fetch_partial(Url, Options) ->
     code :: undefined | integer(),
     headers :: list({string(), string()}),
     redirects = 0 :: non_neg_integer(),
+    cross_origin = false :: boolean(),
     max = undefined :: non_neg_integer() | undefined,
     length = 0 :: non_neg_integer(),
     data = <<>> :: binary(),
     device = undefined :: pid() | undefined,
-    options :: list()
+    options :: options(),
+    request_options = [] :: options()
 }).
 
 %% @doc Fetch the first N bytes of data and headers from an url, optionally save to the file device
@@ -263,7 +286,8 @@ fetch_partial_loop(#fstate{ url = Url0, payload = Payload } = FState) when is_bi
                 options = Opts
             } = FState,
             Url = to_list(UrlBin),
-            {Headers, ContentType} = headers_ct(Method, Url, Length, Max, Opts),
+            RequestOptions = request_options(Method, UrlBin, Opts, FState#fstate.cross_origin),
+            {Headers, ContentType} = headers_ct(Method, Url, Length, Max, RequestOptions),
             Request = case Method of
                 get -> {Url, Headers};
                 delete when Payload =:= <<>> -> {Url, Headers};
@@ -273,15 +297,19 @@ fetch_partial_loop(#fstate{ url = Url0, payload = Payload } = FState) when is_bi
                 patch -> {Url, Headers, ContentType, Payload}
             end,
             FState1 = FState#fstate{
-                url = Url
+                url = Url,
+                request_options = RequestOptions
             },
-            case fetch_stream(start_stream(Host, Method, Url, Request, Opts), FState1) of
+            case fetch_stream(start_stream(Host, Method, Url, Request, RequestOptions), FState1) of
                 {ok, Result} ->
                     case maybe_redirect(Result) of
                         {redirect, NewMethod, NewUrl, NewOpts} ->
                             FState2 = FState1#fstate{
                                 method = NewMethod,
+                                payload = case Result#fstate.code of 303 -> <<>>; _ -> Payload end,
                                 url = NewUrl,
+                                cross_origin = FState1#fstate.cross_origin orelse
+                                    origin(UrlBin) =/= origin(z_convert:to_binary(NewUrl)),
                                 headers = [],
                                 redirects = FState1#fstate.redirects + 1,
                                 length = 0,
@@ -442,7 +470,7 @@ start_stream(Host, Method, Url, Request, Opts) ->
     end.
 
 
-fetch_stream({ok, ReqId}, #fstate{ options = Opts } = FState) ->
+fetch_stream({ok, ReqId}, #fstate{ request_options = Opts } = FState) ->
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
     receive
         {http, {ReqId, stream_end, Hs}} ->
@@ -460,7 +488,7 @@ fetch_stream({ok, ReqId}, #fstate{ options = Opts } = FState) ->
         {http, {ReqId, {error, _} = Error}} ->
             Error;
         {http, {ReqId, {{_V, Code, _Msg}, Hs, Data}}} when is_binary(Data) ->
-            case append_data(FState#fstate.data, Data, FState#fstate.device) of
+            case response_data(Code, Data, FState) of
                 {ok, Data1} ->
                     FState1 = FState#fstate{
                         code = Code,
@@ -487,7 +515,7 @@ fetch_stream({error, _} = Error, _FState) ->
 fetch_stream_data(ReqId, HandlerPid, #fstate{ length = Length, max = Max } = FState) when
         Max =:= undefined; Length =< Max ->
     #fstate{
-        options = Opts,
+        request_options = Opts,
         data = Data
     } = FState,
     Timeout = proplists:get_value(timeout, Opts, ?HTTPC_TIMEOUT),
@@ -559,7 +587,7 @@ fetch_stream_data(ReqId, _HandlerPid, FState) ->
     end.
 
 %% @doc Keep redirect policy above httpc, which always has autoredirect disabled.
-maybe_redirect(#fstate{options = Options, code = Code} = FState)
+maybe_redirect(#fstate{request_options = Options, code = Code} = FState)
         when Code >= 300, Code < 400 ->
     case proplists:get_value(autoredirect, Options, true) of
         true -> maybe_redirect_1(FState);
@@ -576,25 +604,151 @@ maybe_redirect_1(#fstate{ code = 416, options = Opts, url = Url }) ->
     % document.
     Opts1 = proplists:delete(use_range, Opts),
     {redirect, get, Url, [ {use_range, false} | Opts1 ]};
-maybe_redirect_1(#fstate{ code = 303, headers = Hs, url = Url } = FState) ->
-    case proplists:get_value("location", Hs) of
-        undefined ->
-            {error, no_location_header};
-        Location ->
-            NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
-            {redirect, get, NewUrl, FState#fstate.options}
-    end;
-maybe_redirect_1(#fstate{ code = Code, headers = Hs, url = Url } = FState)
+maybe_redirect_1(#fstate{ code = Code, headers = Headers, url = Url, options = Options } = FState)
     when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307; Code =:= 308 ->
-    case proplists:get_value("location", Hs) of
+    case proplists:get_value("location", Headers) of
         undefined ->
             {error, no_location_header};
         Location ->
-            NewUrl = z_convert:to_list(z_url:abs_link(Location, Url)),
-            {redirect, FState#fstate.method, NewUrl, FState#fstate.options}
+            NextUrl = z_convert:to_binary(z_url:abs_link(Location, Url)),
+            case redirect_options(z_convert:to_binary(Url), NextUrl, Options) of
+                {ok, NextOptions} ->
+                    NextMethod = case Code of
+                        303 -> get;
+                        _ -> FState#fstate.method
+                    end,
+                    {redirect, NextMethod, to_list(NextUrl), NextOptions};
+                {error, _} = Error ->
+                    Error
+            end
     end;
 maybe_redirect_1(FState) ->
     {ok, FState}.
+
+%% Always start from the caller's options, never from the last callback result.
+request_options(Method, Url, Options, CrossOrigin) ->
+    CallerOptions = proplists:delete(options_fun, Options),
+    BaseOptions = case CrossOrigin andalso
+        proplists:get_value(authorization_redirect, Options, none) =:= none
+    of
+        true -> [{authorization, none} | proplists:delete(authorization, CallerOptions)];
+        false -> CallerOptions
+    end,
+    RequestOptions = case proplists:get_value(options_fun, Options) of
+        undefined -> BaseOptions;
+        OptionsFun when is_function(OptionsFun, 3) -> OptionsFun(Method, Url, BaseOptions)
+    end,
+    EffectiveOptions = case proplists:lookup(authorization, Options) of
+        {authorization, Auth} ->
+            case is_empty(Auth) of
+                true ->
+                    [
+                        {authorization, none}
+                        | proplists:delete(authorization, RequestOptions)
+                    ];
+                false ->
+                    RequestOptions
+            end;
+        _ ->
+            RequestOptions
+    end,
+    cleanup_options(EffectiveOptions).
+
+%% Strip caller credentials across origins. The anonymous redirect default is
+%% supplied to options_fun separately, so it can choose destination credentials
+%% without overriding a caller's explicit anonymous intent.
+redirect_options(Url, Next, Options) ->
+    IsSameOrigin = origin(Url) =:= origin(Next),
+    IsTLS = case origin(Next) of
+        {<<"https">>, _, _} -> true;
+        _ -> false
+    end,
+    Policy = proplists:get_value(authorization_redirect, Options, none),
+    case {IsSameOrigin, Policy, has_authorization(Options)} of
+        {false, error, true} ->
+            {error, authorization_redirect};
+        {true, _, true} when not IsTLS ->
+            {error, authorization_redirect};
+        {true, _, _} ->
+            {ok, Options};
+        {false, _, _} ->
+            {ok, lists:filtermap(
+                fun
+                    ({authorization, Auth}) when Auth =/= none, Auth =/= undefined,
+                                                Auth =/= <<>>, Auth =/= "" ->
+                        false;
+                    ({headers, Headers}) ->
+                        {true, {headers, [
+                            Header || {Name, _} = Header <- Headers,
+                                      not lists:member(
+                                            string:lowercase(z_convert:to_binary(Name)),
+                                            [<<"authorization">>, <<"cookie">>, <<"proxy-authorization">>])
+                        ]}};
+                    (Option) -> {true, Option}
+                end,
+                Options)}
+    end.
+
+has_authorization(Options) ->
+    not is_empty(proplists:get_value(authorization, Options))
+    orelse lists:any(
+                fun({Name, _}) ->
+                    string:lowercase(z_convert:to_binary(Name)) =:= <<"authorization">>
+                end,
+                proplists:get_value(headers, Options, [])).
+
+is_empty(undefined) -> true;
+is_empty(none) -> true;
+is_empty(<<>>) -> true;
+is_empty("") -> true;
+is_empty(_) -> false.
+
+origin(Url) ->
+    case uri_string:parse(Url) of
+        #{ scheme := Scheme, host := Host } = Parts ->
+            NormalizedScheme = z_string:to_lower(Scheme),
+            Port = maps:get(port, Parts, default_port(NormalizedScheme)),
+            {NormalizedScheme, z_string:to_lower(Host), Port};
+        _ ->
+            undefined
+    end.
+
+default_port(<<"https">>) -> 443;
+default_port(<<"http">>) -> 80;
+default_port(_) -> undefined.
+
+cleanup_options(Options) ->
+    IsAuthAnonymous = case proplists:lookup(authorization, Options) of
+        {authorization, Auth} -> is_empty(Auth);
+        _ -> false
+    end,
+    lists:filtermap(
+        fun
+            ({authorization, _None}) when IsAuthAnonymous ->
+                false;
+            ({headers, Headers}) when IsAuthAnonymous ->
+                {true, {headers, [
+                    Header || {Name, _} = Header <- Headers,
+                              z_string:to_lower(z_convert:to_binary(Name)) =/= <<"authorization">>
+                ]}};
+            (Option) ->
+                {true, Option}
+        end,
+        Options).
+
+%% Redirect/retry bodies must not be appended to the caller's output device.
+%% Keep them in memory until the redirect decision; final responses still stream.
+response_data(416, Data, #fstate{data = Previous}) ->
+    {ok, <<Previous/binary, Data/binary>>};
+response_data(Code, Data, #fstate{data = Previous, device = Device, request_options = Options})
+    when Code =:= 301; Code =:= 302; Code =:= 303; Code =:= 307; Code =:= 308 ->
+    case proplists:get_value(autoredirect, Options, true) of
+        true -> {ok, <<Previous/binary, Data/binary>>};
+        false -> append_data(Previous, Data, Device)
+    end;
+response_data(_, Data, #fstate{data = Previous, device = Device}) ->
+    append_data(Previous, Data, Device).
+
 
 append_data(Data, <<>>, _Device) ->
     {ok, Data};
