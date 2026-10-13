@@ -130,6 +130,33 @@ URL encode, decode and more.
 
 Fetch the first N bytes of a URL. Protection against too large return body.
 
+Redirects are followed by default. Use `{autoredirect, false}` to return the
+redirect response without contacting its destination. Explicit authorization
+(including an `Authorization` header) only follows HTTPS redirects within the
+same origin (scheme, host and effective port). Other redirects fail with
+`{error, authorization_redirect}`. `{authorization, none}` remains anonymous
+throughout the request and is never sent as an HTTP header.
+
+For destination-specific credentials, supply `{options_fun, Fun}`. Before each
+HTTP request, `Fun(Method, Url, Options)` receives the method, normalized binary
+URL and the caller's options without `options_fun`. Return the request options
+for that destination; callback-generated credentials are not carried into the
+next request. The caller's explicit `{authorization, none}` takes precedence over
+callback results. Keep transfer settings (`device` and `max_length`) in the
+original options. Relative redirects, redirect limits and streamed responses
+are handled by the fetcher.
+
+```erlang
+OptionsFun = fun(_Method, Url, Options) ->
+    case uri_string:parse(Url) of
+        #{scheme := <<"https">>, host := <<"api.example.com">>} ->
+            [{authorization, <<"Bearer ", Token/binary>>} | Options];
+        _ -> Options
+    end
+end,
+z_url_fetch:fetch(Url, [{options_fun, OptionsFun}]).
+```
+
 
 ### z_url_metadata
 
