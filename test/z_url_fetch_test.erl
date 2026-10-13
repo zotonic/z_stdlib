@@ -96,7 +96,11 @@ callback_redirect_test() ->
         Parent = self(),
         TargetUrl = string:replace(Url, "localhost", "127.0.0.1", all),
         OptionsFun = fun(get, RequestUrl, Options) ->
-            ?assertEqual(undefined, proplists:get_value(authorization, Options)),
+            ExpectedAuthorization = case uri_string:parse(RequestUrl) of
+                #{host := <<"localhost">>} -> undefined;
+                #{host := <<"127.0.0.1">>} -> none
+            end,
+            ?assertEqual(ExpectedAuthorization, proplists:get_value(authorization, Options)),
             Token = case uri_string:parse(RequestUrl) of
                 #{host := <<"localhost">>} -> <<"Bearer first">>;
                 #{host := <<"127.0.0.1">>} -> <<"Bearer second">>
@@ -154,7 +158,7 @@ explicit_authorization_redirect_test() ->
                     ?assertEqual({error, timeout}, gen_tcp:accept(Listen, 100)),
                     Parent ! checked
                 end),
-                ?assertEqual({error, authorization_redirect}, z_url_fetch:fetch(Url, [Authorization])),
+                ?assertEqual({error, authorization_redirect}, z_url_fetch:fetch(Url, [{authorization_redirect, error}, Authorization])),
                 await(Server)
             end)
         end, ["/target", "https://other.invalid/target"])

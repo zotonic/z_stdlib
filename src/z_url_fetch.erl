@@ -9,13 +9,15 @@
 %% Set {autoredirect, false} for fixed protocol endpoints: redirect responses are
 %% returned as HTTP errors without contacting the Location URL or forwarding credentials.
 %%
-%% Explicit authorization only follows HTTPS redirects within the same origin.
-%% Other redirects return {error, authorization_redirect} without sending a request.
+%% Cross-origin redirects default to {authorization, none}, which options_fun can
+%% override for the destination. Set {authorization_redirect, error} to reject
+%% cross-origin redirects with explicit authorization. Same-origin redirects with
+%% explicit authorization still require HTTPS.
 %%
 %% {authorization, none} suppresses authorization on every request, including redirects.
 %%
 %% {options_fun, Fun} resolves request options per destination. Fun(Method, Url, Options)
-%% receives the method, normalized binary URL and original options (without options_fun).
+%% receives the method, normalized binary URL and sanitized caller options (without options_fun).
 %% Use it for destination-specific credentials instead of forwarding a fixed token.
 %%
 %% Returned options apply only to that request. The original anonymous option always
@@ -85,6 +87,7 @@
                 | {autoredirect, boolean()}
                 | {insecure, boolean()}
                 | {authorization, binary() | string() | none | undefined}
+                | {authorization_redirect, none | error}
                 | {options_fun, options_fun()}
                 | {accept, binary() | string()}
                 | {user_agent, binary() | string()}
@@ -158,6 +161,7 @@ fetch_partial(Url, Options) ->
     code :: undefined | integer(),
     headers :: list({string(), string()}),
     redirects = 0 :: non_neg_integer(),
+    cross_origin = false :: boolean(),
     max = undefined :: non_neg_integer() | undefined,
     length = 0 :: non_neg_integer(),
     data = <<>> :: binary(),
@@ -282,7 +286,7 @@ fetch_partial_loop(#fstate{ url = Url0, payload = Payload } = FState) when is_bi
                 options = Opts
             } = FState,
             Url = to_list(UrlBin),
-            RequestOptions = request_options(Method, UrlBin, Opts),
+            RequestOptions = request_options(Method, UrlBin, Opts, FState#fstate.cross_origin),
             {Headers, ContentType} = headers_ct(Method, Url, Length, Max, RequestOptions),
             Request = case Method of
                 get -> {Url, Headers};
@@ -304,6 +308,8 @@ fetch_partial_loop(#fstate{ url = Url0, payload = Payload } = FState) when is_bi
                                 method = NewMethod,
                                 payload = case Result#fstate.code of 303 -> <<>>; _ -> Payload end,
                                 url = NewUrl,
+                                cross_origin = FState1#fstate.cross_origin orelse
+                                    origin(UrlBin) =/= origin(z_convert:to_binary(NewUrl)),
                                 headers = [],
                                 redirects = FState1#fstate.redirects + 1,
                                 length = 0,
@@ -620,8 +626,14 @@ maybe_redirect_1(FState) ->
     {ok, FState}.
 
 %% Always start from the caller's options, never from the last callback result.
-request_options(Method, Url, Options) ->
-    BaseOptions = proplists:delete(options_fun, Options),
+request_options(Method, Url, Options, CrossOrigin) ->
+    CallerOptions = proplists:delete(options_fun, Options),
+    BaseOptions = case CrossOrigin andalso
+        proplists:get_value(authorization_redirect, Options, none) =:= none
+    of
+        true -> [{authorization, none} | proplists:delete(authorization, CallerOptions)];
+        false -> CallerOptions
+    end,
     RequestOptions = case proplists:get_value(options_fun, Options) of
         undefined -> BaseOptions;
         OptionsFun when is_function(OptionsFun, 3) -> OptionsFun(Method, Url, BaseOptions)
@@ -642,31 +654,37 @@ request_options(Method, Url, Options) ->
     end,
     cleanup_options(EffectiveOptions).
 
-%% Caller-supplied authorization cannot follow redirects to another origin or
-%% to cleartext HTTP. Anonymous intent persists, while callback credentials are
-%% resolved independently for each destination from the original caller options.
+%% Strip caller credentials across origins. The anonymous redirect default is
+%% supplied to options_fun separately, so it can choose destination credentials
+%% without overriding a caller's explicit anonymous intent.
 redirect_options(Url, Next, Options) ->
     IsSameOrigin = origin(Url) =:= origin(Next),
     IsTLS = case origin(Next) of
         {<<"https">>, _, _} -> true;
         _ -> false
     end,
-    case has_authorization(Options) andalso not (IsSameOrigin andalso IsTLS) of
-        true ->
+    Policy = proplists:get_value(authorization_redirect, Options, none),
+    case {IsSameOrigin, Policy, has_authorization(Options)} of
+        {false, error, true} ->
             {error, authorization_redirect};
-        false when IsSameOrigin ->
+        {true, _, true} when not IsTLS ->
+            {error, authorization_redirect};
+        {true, _, _} ->
             {ok, Options};
-        false ->
-            {ok, lists:map(
+        {false, _, _} ->
+            {ok, lists:filtermap(
                 fun
+                    ({authorization, Auth}) when Auth =/= none, Auth =/= undefined,
+                                                Auth =/= <<>>, Auth =/= "" ->
+                        false;
                     ({headers, Headers}) ->
-                        {headers, [
+                        {true, {headers, [
                             Header || {Name, _} = Header <- Headers,
                                       not lists:member(
                                             string:lowercase(z_convert:to_binary(Name)),
-                                            [<<"cookie">>, <<"proxy-authorization">>])
-                        ]};
-                    (Option) -> Option
+                                            [<<"authorization">>, <<"cookie">>, <<"proxy-authorization">>])
+                        ]}};
+                    (Option) -> {true, Option}
                 end,
                 Options)}
     end.
