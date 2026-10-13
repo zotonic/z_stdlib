@@ -164,6 +164,30 @@ explicit_authorization_redirect_test() ->
         end, ["/target", "https://other.invalid/target"])
     end, [{authorization, <<"Bearer explicit">>}, {headers, [{"Authorization", "Bearer explicit"}]}]).
 
+cross_origin_anonymous_default_test() ->
+    lists:foreach(fun(Authorization) ->
+        with_listener(fun(Listen, Url) ->
+            Parent = self(),
+            TargetUrl = string:replace(Url, "localhost", "127.0.0.1", all),
+            Server = spawn_monitor(fun() ->
+                {ok, Socket} = gen_tcp:accept(Listen, 2000),
+                Request = string:lowercase(headers(Socket, <<>>)),
+                ?assertNotEqual(nomatch, binary:match(Request, <<"authorization: bearer explicit">>)),
+                respond(Socket, 302, [{"Location", TargetUrl}], <<>>),
+                {ok, Target} = gen_tcp:accept(Listen, 2000),
+                assert_anonymous(Target),
+                respond(Target, 302, [{"Location", "/final"}], <<>>),
+                {ok, Final} = gen_tcp:accept(Listen, 2000),
+                assert_anonymous(Final),
+                respond(Final, 200, [], <<"ok">>),
+                Parent ! checked
+            end),
+            ?assertMatch({ok, {_, _, 2, <<"ok">>}}, z_url_fetch:fetch(Url, [Authorization])),
+            await(Server)
+        end)
+    end, [{authorization, <<"Bearer explicit">>},
+          {headers, [{"AUTHORIZATION", "Bearer explicit"}]}]).
+
 streamed_redirect_test() ->
     with_listener(fun(Listen, Url) ->
         Parent = self(),
