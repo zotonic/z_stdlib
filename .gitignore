@@ -1,3 +1,4 @@
+_build
 .eunit
 deps
 priv
@@ -6,8 +7,8 @@ priv
 *.plt
 ebin/z_stdlib.app
 ebin/zotonic_stdlib.app
-rebar
-.rebar
+rebar3
+.rebar3-*
 .rebar3
 src/z_css_lexer.erl
 src/z_css_parser.erl
