@@ -68,7 +68,7 @@ s_utf8b() ->
 s_utf8c() ->
     ?FORALL(
         Utf8,
-        utf8_string(),
+        bin_utf8_string(),
         case unicode:characters_to_binary(Utf8) == Utf8 of
             false ->
                 io:format("Wrong generator! ~p~n", [Utf8]),
@@ -79,7 +79,7 @@ s_utf8c() ->
     ).
 
 %% @doc PropErly generate valid utf8 string of various lengths
-utf8_string() ->
+bin_utf8_string() ->
     ?LET(
         CodePoints,
         ?LET(Len, binary_len(), vector(Len, utf8_codepoint())),
