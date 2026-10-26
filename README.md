@@ -2,6 +2,8 @@
 z_stdlib
 ========
 
+This is a special branch which makes it possible to run the legacy 0.x branch on modern OTP releases.
+
 [![Build Status](https://travis-ci.org/zotonic/z_stdlib.svg?branch=master)](https://travis-ci.org/zotonic/z_stdlib)
 
 Zotonic standard library - a library with hopefully useful functions
