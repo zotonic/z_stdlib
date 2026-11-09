@@ -1,0 +1,11 @@
+{application, zotonic_stdlib,
+ [
+  {description, "Miscellaneous support routines for Zotonic"},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
